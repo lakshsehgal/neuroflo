@@ -1,9 +1,29 @@
 "use server";
 
-import bcrypt from "bcryptjs";
+import * as bcrypt from "bcryptjs";
+import { signIn } from "@/lib/auth";
+import { AuthError } from "next-auth";
 import { db } from "@/lib/db";
 import { z } from "zod";
 import type { ActionResponse } from "@/types";
+
+export async function login(
+  email: string,
+  password: string
+): Promise<{ error: string } | undefined> {
+  try {
+    await signIn("credentials", {
+      email,
+      password,
+      redirectTo: "/dashboard",
+    });
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return { error: "Invalid email or password" };
+    }
+    throw error; // Re-throw NEXT_REDIRECT and other errors
+  }
+}
 
 const acceptInviteSchema = z.object({
   token: z.string(),

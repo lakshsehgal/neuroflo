@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { login } from "@/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,7 +15,6 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function LoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -28,19 +26,12 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const result = await signIn("credentials", {
-        email,
-        password,
-        redirect: false,
-      });
-
+      const result = await login(email, password);
       if (result?.error) {
-        setError("Invalid email or password");
+        setError(result.error);
         setLoading(false);
-      } else {
-        router.push("/dashboard");
-        router.refresh();
       }
+      // If no error, the server action redirects to /dashboard
     } catch {
       setError("Something went wrong. Please try again.");
       setLoading(false);

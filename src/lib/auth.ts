@@ -1,6 +1,6 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import bcrypt from "bcryptjs";
+import * as bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import type { Role } from "@prisma/client";
 
