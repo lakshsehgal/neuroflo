@@ -5,7 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatDate } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { TaskBoard } from "@/components/projects/task-board";
+import { ProjectTaskViews } from "@/components/projects/project-task-views";
+import { Settings } from "lucide-react";
 
 interface Props {
   params: Promise<{ projectId: string }>;
@@ -16,13 +17,6 @@ export default async function ProjectDetailPage({ params }: Props) {
   const project = await getProject(projectId);
 
   if (!project) notFound();
-
-  const tasksByStatus = {
-    TODO: project.tasks.filter((t) => t.status === "TODO"),
-    IN_PROGRESS: project.tasks.filter((t) => t.status === "IN_PROGRESS"),
-    IN_REVIEW: project.tasks.filter((t) => t.status === "IN_REVIEW"),
-    DONE: project.tasks.filter((t) => t.status === "DONE"),
-  };
 
   return (
     <div className="space-y-6">
@@ -65,16 +59,25 @@ export default async function ProjectDetailPage({ params }: Props) {
             ))}
           </div>
         </div>
+        <span className="text-xs">{project.tasks.length} tasks</span>
       </div>
 
       <Tabs defaultValue="tasks">
         <TabsList>
-          <TabsTrigger value="tasks">Tasks ({project.tasks.length})</TabsTrigger>
-          <TabsTrigger value="settings">Settings</TabsTrigger>
+          <TabsTrigger value="tasks">Tasks</TabsTrigger>
+          <TabsTrigger value="settings" className="gap-1.5">
+            <Settings className="h-3.5 w-3.5" />
+            Settings
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="tasks" className="mt-4">
-          <TaskBoard projectId={project.id} tasksByStatus={tasksByStatus} />
+          <ProjectTaskViews
+            projectId={project.id}
+            tasks={project.tasks}
+            members={project.members}
+            labels={project.labels}
+          />
         </TabsContent>
 
         <TabsContent value="settings" className="mt-4">

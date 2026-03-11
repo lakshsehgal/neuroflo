@@ -31,3 +31,19 @@ export function formatRelativeTime(date: Date | string) {
 export function generateToken() {
   return crypto.randomUUID();
 }
+
+export function isOverdue(date: Date | string) {
+  const d = new Date(date);
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  return d < now;
+}
+
+export function isDueSoon(date: Date | string) {
+  const d = new Date(date);
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const twoDaysFromNow = new Date(now);
+  twoDaysFromNow.setDate(twoDaysFromNow.getDate() + 2);
+  return d >= now && d <= twoDaysFromNow;
+}

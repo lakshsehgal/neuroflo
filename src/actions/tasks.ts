@@ -101,6 +101,111 @@ export async function deleteTask(id: string): Promise<ActionResponse> {
   return { success: true };
 }
 
+export async function getTaskDetail(taskId: string) {
+  await requireAuth();
+
+  return db.task.findUnique({
+    where: { id: taskId },
+    include: {
+      assignee: { select: { id: true, name: true, avatar: true } },
+      labels: true,
+      comments: {
+        include: { author: { select: { id: true, name: true, avatar: true } } },
+        orderBy: { createdAt: "asc" },
+      },
+      subtasks: {
+        include: { assignee: { select: { id: true, name: true, avatar: true } } },
+        orderBy: { order: "asc" },
+      },
+      checklistItems: {
+        orderBy: { order: "asc" },
+      },
+    },
+  });
+}
+
+export async function createSubtask(
+  parentId: string,
+  projectId: string,
+  title: string
+): Promise<ActionResponse<{ id: string }>> {
+  await requireRole("MEMBER");
+
+  const maxOrder = await db.task.findFirst({
+    where: { parentId },
+    orderBy: { order: "desc" },
+    select: { order: true },
+  });
+
+  const task = await db.task.create({
+    data: {
+      title,
+      projectId,
+      parentId,
+      order: (maxOrder?.order ?? -1) + 1,
+    },
+  });
+
+  revalidatePath(`/projects/${projectId}`);
+  return { success: true, data: { id: task.id } };
+}
+
+export async function createChecklistItem(
+  taskId: string,
+  title: string
+): Promise<ActionResponse<{ id: string }>> {
+  await requireRole("MEMBER");
+
+  const maxOrder = await db.checklistItem.findFirst({
+    where: { taskId },
+    orderBy: { order: "desc" },
+    select: { order: true },
+  });
+
+  const item = await db.checklistItem.create({
+    data: {
+      taskId,
+      title,
+      order: (maxOrder?.order ?? -1) + 1,
+    },
+  });
+
+  const task = await db.task.findUnique({ where: { id: taskId } });
+  if (task) revalidatePath(`/projects/${task.projectId}`);
+  return { success: true, data: { id: item.id } };
+}
+
+export async function toggleChecklistItem(
+  id: string,
+  completed: boolean
+): Promise<ActionResponse> {
+  await requireRole("MEMBER");
+
+  const item = await db.checklistItem.update({
+    where: { id },
+    data: { completed },
+    include: { task: true },
+  });
+
+  revalidatePath(`/projects/${item.task.projectId}`);
+  return { success: true };
+}
+
+export async function deleteChecklistItem(id: string): Promise<ActionResponse> {
+  await requireRole("MEMBER");
+
+  const item = await db.checklistItem.findUnique({
+    where: { id },
+    include: { task: true },
+  });
+  if (!item) return { success: false, error: "Not found" };
+
+  await db.checklistItem.delete({ where: { id } });
+
+  revalidatePath(`/projects/${item.task.projectId}`);
+  return { success: true };
+}
+
 export async function addComment(
   content: string,
   taskId?: string,

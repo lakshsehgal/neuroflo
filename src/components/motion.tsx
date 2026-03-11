@@ -96,13 +96,16 @@ export function HoverCard({
 export function AnimatedRow({
   children,
   className,
+  onClick,
 }: {
   children: React.ReactNode;
   className?: string;
+  onClick?: () => void;
 }) {
   return (
     <motion.tr
       className={className}
+      onClick={onClick}
       variants={{
         hidden: { opacity: 0, x: -8 },
         visible: {

@@ -75,9 +75,13 @@ export async function getProject(id: string) {
       department: true,
       members: { include: { user: { select: { id: true, name: true, email: true, avatar: true, role: true } } } },
       tasks: {
+        where: { parentId: null },
         include: {
           assignee: { select: { id: true, name: true, avatar: true } },
           labels: true,
+          _count: { select: { subtasks: true, checklistItems: true, comments: true } },
+          checklistItems: { select: { completed: true } },
+          subtasks: { select: { id: true, status: true } },
         },
         orderBy: { order: "asc" },
       },
