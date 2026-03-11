@@ -1,0 +1,348 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  MEMBER
+  VIEWER
+}
+
+enum ProjectStatus {
+  PLANNING
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  ARCHIVED
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  IN_REVIEW
+  DONE
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TicketStatus {
+  SUBMITTED
+  IN_PROGRESS
+  IN_REVIEW
+  REVISION_REQUESTED
+  APPROVED
+  COMPLETED
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum AssetType {
+  IMAGE
+  VIDEO
+  DOCUMENT
+  OTHER
+}
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  COMPLETED
+}
+
+// ─── Core ───────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(MEMBER)
+  avatar       String?
+  isActive     Boolean  @default(true)
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  projectMembers ProjectMember[]
+  assignedTasks  Task[]          @relation("TaskAssignee")
+  createdTickets Ticket[]        @relation("TicketCreator")
+  assignedTickets Ticket[]       @relation("TicketAssignee")
+  approvals      Approval[]
+  comments       Comment[]
+  uploadedAssets Asset[]
+  assetVersions  AssetVersion[]
+  revisions      Revision[]
+  activityLogs   ActivityLog[]
+}
+
+model Department {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+
+  users    User[]
+  projects Project[]
+}
+
+model Invite {
+  id           String    @id @default(cuid())
+  email        String
+  role         Role      @default(MEMBER)
+  departmentId String?
+  token        String    @unique @default(cuid())
+  expiresAt    DateTime
+  acceptedAt   DateTime?
+  createdAt    DateTime  @default(now())
+}
+
+model ActivityLog {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  action     String
+  entityType String
+  entityId   String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+}
+
+// ─── Project Management ─────────────────────────────────
+
+model Project {
+  id           String        @id @default(cuid())
+  name         String
+  description  String?
+  status       ProjectStatus @default(PLANNING)
+  clientId     String?
+  client       Client?       @relation(fields: [clientId], references: [id])
+  departmentId String?
+  department   Department?   @relation(fields: [departmentId], references: [id])
+  startDate    DateTime?
+  endDate      DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  members ProjectMember[]
+  tasks   Task[]
+  tickets Ticket[]
+  labels  TaskLabel[]
+}
+
+model ProjectMember {
+  id        String @id @default(cuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User    @relation(fields: [userId], references: [id])
+  role      String  @default("MEMBER") // LEAD or MEMBER
+
+  @@unique([projectId, userId])
+}
+
+model Task {
+  id          String     @id @default(cuid())
+  projectId   String
+  project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  status      TaskStatus @default(TODO)
+  priority    Priority   @default(MEDIUM)
+  assigneeId  String?
+  assignee    User?      @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  dueDate     DateTime?
+  order       Int        @default(0)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  comments Comment[]
+  labels   TaskLabel[]
+}
+
+model TaskLabel {
+  id        String  @id @default(cuid())
+  name      String
+  color     String  @default("#6366f1")
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  tasks Task[]
+}
+
+// ─── Creative Tickets ───────────────────────────────────
+
+model Ticket {
+  id          String       @id @default(cuid())
+  title       String
+  description String?
+  status      TicketStatus @default(SUBMITTED)
+  priority    Priority     @default(MEDIUM)
+  projectId   String?
+  project     Project?     @relation(fields: [projectId], references: [id])
+  creatorId   String
+  creator     User         @relation("TicketCreator", fields: [creatorId], references: [id])
+  assigneeId  String?
+  assignee    User?        @relation("TicketAssignee", fields: [assigneeId], references: [id])
+  dueDate     DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  revisions Revision[]
+  approvals Approval[]
+  comments  Comment[]
+}
+
+model Revision {
+  id           String   @id @default(cuid())
+  ticketId     String
+  ticket       Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  version      Int
+  s3Key        String
+  s3Url        String
+  fileName     String
+  note         String?
+  uploadedById String
+  uploadedBy   User     @relation(fields: [uploadedById], references: [id])
+  createdAt    DateTime @default(now())
+}
+
+model Approval {
+  id         String         @id @default(cuid())
+  ticketId   String
+  ticket     Ticket         @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  approverId String
+  approver   User           @relation(fields: [approverId], references: [id])
+  status     ApprovalStatus @default(PENDING)
+  comment    String?
+  createdAt  DateTime       @default(now())
+}
+
+// ─── Shared ─────────────────────────────────────────────
+
+model Comment {
+  id        String   @id @default(cuid())
+  content   String
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  taskId    String?
+  task      Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  ticketId  String?
+  ticket    Ticket?  @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─── Asset Management ───────────────────────────────────
+
+model Asset {
+  id           String    @id @default(cuid())
+  name         String
+  description  String?
+  type         AssetType @default(OTHER)
+  s3Key        String
+  s3Url        String
+  thumbnailUrl String?
+  fileSize     Int
+  mimeType     String
+  folderId     String?
+  folder       AssetFolder? @relation(fields: [folderId], references: [id])
+  uploadedById String
+  uploadedBy   User      @relation(fields: [uploadedById], references: [id])
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  versions AssetVersion[]
+  tags     AssetTag[]
+}
+
+model AssetVersion {
+  id           String   @id @default(cuid())
+  assetId      String
+  asset        Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  version      Int
+  s3Key        String
+  s3Url        String
+  fileSize     Int
+  changeNote   String?
+  uploadedById String
+  uploadedBy   User     @relation(fields: [uploadedById], references: [id])
+  createdAt    DateTime @default(now())
+}
+
+model AssetFolder {
+  id       String        @id @default(cuid())
+  name     String
+  parentId String?
+  parent   AssetFolder?  @relation("FolderHierarchy", fields: [parentId], references: [id])
+  children AssetFolder[] @relation("FolderHierarchy")
+  assets   Asset[]
+  createdAt DateTime     @default(now())
+}
+
+model AssetTag {
+  id     String  @id @default(cuid())
+  name   String  @unique
+  assets Asset[]
+}
+
+// ─── MIS / Repository ───────────────────────────────────
+
+model Client {
+  id           String   @id @default(cuid())
+  name         String
+  industry     String?
+  contactName  String?
+  contactEmail String?
+  contactPhone String?
+  website      String?
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  campaigns Campaign[]
+  projects  Project[]
+}
+
+model Campaign {
+  id        String         @id @default(cuid())
+  clientId  String
+  client    Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  name      String
+  status    CampaignStatus @default(DRAFT)
+  platform  String?
+  startDate DateTime?
+  endDate   DateTime?
+  budget    Float?
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  metrics CampaignMetric[]
+}
+
+model CampaignMetric {
+  id         String   @id @default(cuid())
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  name       String
+  value      Float
+  date       DateTime
+  createdAt  DateTime @default(now())
+}
