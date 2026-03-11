@@ -4,7 +4,15 @@ import type { NextRequest } from "next/server";
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
-  const token = await getToken({ req, secret: process.env.AUTH_SECRET });
+  const isSecure = req.nextUrl.protocol === "https:";
+  const token = await getToken({
+    req,
+    secret: process.env.AUTH_SECRET,
+    secureCookie: isSecure,
+    salt: isSecure
+      ? "__Secure-authjs.session-token"
+      : "authjs.session-token",
+  });
   const isLoggedIn = !!token;
 
   // Public routes
