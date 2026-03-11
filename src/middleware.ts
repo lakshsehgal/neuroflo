@@ -1,12 +1,17 @@
-import { auth } from "@/lib/auth";
+import { getToken } from "next-auth/jwt";
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
-export default auth((req) => {
+export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
-  const isLoggedIn = !!req.auth;
+  const token = await getToken({ req });
+  const isLoggedIn = !!token;
 
   // Public routes
-  const isAuthRoute = pathname.startsWith("/login") || pathname.startsWith("/accept-invite") || pathname.startsWith("/forgot-password");
+  const isAuthRoute =
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/accept-invite") ||
+    pathname.startsWith("/forgot-password");
 
   if (isAuthRoute) {
     if (isLoggedIn) {
@@ -21,7 +26,7 @@ export default auth((req) => {
   }
 
   return NextResponse.next();
-});
+}
 
 export const config = {
   matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
