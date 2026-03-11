@@ -93,3 +93,35 @@ body {
   background: var(--background);
   color: var(--foreground);
 }
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Smooth focus transitions */
+*:focus-visible {
+  transition: box-shadow 0.15s ease;
+}
+
+/* Table row hover highlight */
+tr {
+  transition: background-color 0.15s ease;
+}
+
+/* Loading shimmer for skeletons */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--muted) 25%,
+    oklch(0.94 0 0) 50%,
+    var(--muted) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}

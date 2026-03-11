@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import { createTask, updateTask } from "@/actions/tasks";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, GripVertical } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { motion, AnimatePresence } from "framer-motion";
 
 type Task = {
   id: string;
@@ -65,9 +66,17 @@ export function TaskBoard({ projectId, tasksByStatus }: TaskBoardProps) {
 
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-      {columns.map((column) => (
-        <div key={column.key} className="flex flex-col">
-          <div className={`mb-3 flex items-center justify-between rounded-lg px-3 py-2 ${column.color}`}>
+      {columns.map((column, colIdx) => (
+        <motion.div
+          key={column.key}
+          className="flex flex-col"
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: colIdx * 0.08, duration: 0.3 }}
+        >
+          <div
+            className={`mb-3 flex items-center justify-between rounded-lg px-3 py-2 ${column.color}`}
+          >
             <h3 className="text-sm font-semibold">{column.label}</h3>
             <Badge variant="secondary" className="text-xs">
               {tasksByStatus[column.key]?.length || 0}
@@ -75,80 +84,119 @@ export function TaskBoard({ projectId, tasksByStatus }: TaskBoardProps) {
           </div>
 
           <div className="flex-1 space-y-2">
-            {tasksByStatus[column.key]?.map((task) => (
-              <Card key={task.id} className="cursor-pointer hover:shadow-sm transition-shadow">
-                <CardContent className="p-3">
-                  <div className="flex items-start gap-2">
-                    <GripVertical className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium">{task.title}</p>
-                      <div className="mt-2 flex items-center gap-2">
-                        <Badge className={priorityColors[task.priority] || ""} variant="secondary">
-                          {task.priority}
-                        </Badge>
-                        {task.assignee && (
-                          <Avatar className="h-5 w-5">
-                            <AvatarFallback className="text-[8px]">
-                              {task.assignee.name.split(" ").map((n) => n[0]).join("")}
-                            </AvatarFallback>
-                          </Avatar>
-                        )}
-                      </div>
-                      {/* Quick move buttons */}
-                      <div className="mt-2 flex gap-1">
-                        {columns
-                          .filter((c) => c.key !== column.key)
-                          .map((c) => (
-                            <button
-                              key={c.key}
-                              onClick={() => handleMoveTask(task.id, c.key)}
-                              className="rounded px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-accent"
-                              title={`Move to ${c.label}`}
+            <AnimatePresence mode="popLayout">
+              {tasksByStatus[column.key]?.map((task) => (
+                <motion.div
+                  key={task.id}
+                  layout
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{
+                    layout: { type: "spring", stiffness: 350, damping: 30 },
+                    opacity: { duration: 0.2 },
+                  }}
+                  whileHover={{ y: -1, boxShadow: "0 4px 12px rgba(0,0,0,0.08)" }}
+                >
+                  <Card className="cursor-pointer transition-shadow">
+                    <CardContent className="p-3">
+                      <div className="flex items-start gap-2">
+                        <GripVertical className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium">{task.title}</p>
+                          <div className="mt-2 flex items-center gap-2">
+                            <Badge
+                              className={priorityColors[task.priority] || ""}
+                              variant="secondary"
                             >
-                              {c.label}
-                            </button>
-                          ))}
+                              {task.priority}
+                            </Badge>
+                            {task.assignee && (
+                              <Avatar className="h-5 w-5">
+                                <AvatarFallback className="text-[8px]">
+                                  {task.assignee.name
+                                    .split(" ")
+                                    .map((n) => n[0])
+                                    .join("")}
+                                </AvatarFallback>
+                              </Avatar>
+                            )}
+                          </div>
+                          {/* Quick move buttons */}
+                          <div className="mt-2 flex gap-1">
+                            {columns
+                              .filter((c) => c.key !== column.key)
+                              .map((c) => (
+                                <button
+                                  key={c.key}
+                                  onClick={() => handleMoveTask(task.id, c.key)}
+                                  className="rounded px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent"
+                                  title={`Move to ${c.label}`}
+                                >
+                                  {c.label}
+                                </button>
+                              ))}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))}
+            </AnimatePresence>
 
             {/* Add task */}
-            {addingTo === column.key ? (
-              <div className="space-y-2">
-                <Input
-                  placeholder="Task title..."
-                  value={newTaskTitle}
-                  onChange={(e) => setNewTaskTitle(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleAddTask(column.key);
-                    if (e.key === "Escape") setAddingTo(null);
-                  }}
-                  autoFocus
-                />
-                <div className="flex gap-2">
-                  <Button size="sm" onClick={() => handleAddTask(column.key)}>
-                    Add
+            <AnimatePresence mode="wait">
+              {addingTo === column.key ? (
+                <motion.div
+                  key="add-form"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="space-y-2 overflow-hidden"
+                >
+                  <Input
+                    placeholder="Task title..."
+                    value={newTaskTitle}
+                    onChange={(e) => setNewTaskTitle(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleAddTask(column.key);
+                      if (e.key === "Escape") setAddingTo(null);
+                    }}
+                    autoFocus
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => handleAddTask(column.key)}
+                    >
+                      Add
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setAddingTo(null)}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.div key="add-button">
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start text-muted-foreground"
+                    onClick={() => setAddingTo(column.key)}
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add task
                   </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setAddingTo(null)}>
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <Button
-                variant="ghost"
-                className="w-full justify-start text-muted-foreground"
-                onClick={() => setAddingTo(column.key)}
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add task
-              </Button>
-            )}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
-        </div>
+        </motion.div>
       ))}
     </div>
   );
