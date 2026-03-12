@@ -21,7 +21,7 @@ export default async function OnboardingPage({
   const hasGoogleAds = client.sow?.toLowerCase().includes("google ads") ?? false;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
+    <div className="min-h-screen bg-gradient-to-br from-amber-50/30 via-white to-slate-50">
       <div className="mx-auto max-w-2xl px-4 py-12">
         {/* Header */}
         <div className="mb-10 text-center">

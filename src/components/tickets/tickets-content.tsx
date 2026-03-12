@@ -45,6 +45,7 @@ import {
   Check,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { formatDate, isOverdue } from "@/lib/utils";
 import { updateTicket, updateTicketStatus } from "@/actions/tickets";
 import {
@@ -254,6 +255,7 @@ export function TicketsContent({ tickets: initialTickets, users, clients, worklo
         if (t.id !== ticketId) return t;
         if (field === "status") return { ...t, status: value };
         if (field === "priority") return { ...t, priority: value };
+        if (field === "dueDate") return { ...t, dueDate: value || null };
         if (field === "assigneeId") {
           const user = users.find((u) => u.id === value);
           return {
@@ -452,6 +454,7 @@ function TableView({
   onUpdate: (id: string, field: string, value: string) => void;
   visibleColumns: string[];
 }) {
+  const router = useRouter();
   const isCol = (key: string) => visibleColumns.includes(key);
 
   if (tickets.length === 0) {
@@ -465,6 +468,13 @@ function TableView({
         </CardContent>
       </Card>
     );
+  }
+
+  function handleRowClick(e: React.MouseEvent, ticketId: string) {
+    // Don't navigate if clicking on interactive elements
+    const target = e.target as HTMLElement;
+    if (target.closest("select, button, input, [role='listbox'], [role='option'], [data-radix-collection-item], a")) return;
+    router.push(`/tickets/${ticketId}`);
   }
 
   return (
@@ -483,9 +493,13 @@ function TableView({
         </thead>
         <AnimatedTableBody>
           {tickets.map((ticket) => (
-            <AnimatedRow key={ticket.id} className="border-b last:border-0 transition-colors hover:bg-muted/20">
+            <AnimatedRow
+              key={ticket.id}
+              className="border-b last:border-0 transition-colors hover:bg-muted/20 cursor-pointer"
+              onClick={(e: React.MouseEvent) => handleRowClick(e, ticket.id)}
+            >
               <td className="px-4 py-2.5">
-                <Link href={`/tickets/${ticket.id}`} className="text-sm font-medium hover:text-primary transition-colors">{ticket.title}</Link>
+                <span className="text-sm font-medium">{ticket.title}</span>
                 {ticket.assignedByName && (
                   <p className="text-[10px] text-muted-foreground mt-0.5">by {ticket.assignedByName}</p>
                 )}
@@ -494,7 +508,7 @@ function TableView({
                 <td className="px-3 py-2.5 text-xs text-muted-foreground">{ticket.clientName || "\u2014"}</td>
               )}
               {isCol("status") && (
-                <td className="px-3 py-2.5">
+                <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
                   <Select value={ticket.status} onValueChange={(v) => onUpdate(ticket.id, "status", v)}>
                     <SelectTrigger className="h-7 w-[140px] text-[10px] border-0 bg-transparent hover:bg-muted/40 px-1.5 focus:ring-0 focus:ring-offset-0">
                       <Badge className={`${statusColors[ticket.status] || ""} text-[10px] border`} variant="secondary">
@@ -514,7 +528,7 @@ function TableView({
                 </td>
               )}
               {isCol("priority") && (
-                <td className="px-3 py-2.5">
+                <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
                   <Select value={ticket.priority} onValueChange={(v) => onUpdate(ticket.id, "priority", v)}>
                     <SelectTrigger className="h-7 w-[90px] text-[10px] border-0 bg-transparent hover:bg-muted/40 px-1.5 focus:ring-0 focus:ring-offset-0">
                       <Badge className={`${priorityColors[ticket.priority] || ""} text-[10px]`} variant="secondary">{ticket.priority}</Badge>
@@ -530,7 +544,7 @@ function TableView({
                 </td>
               )}
               {isCol("assignee") && (
-                <td className="px-3 py-2.5">
+                <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
                   <Select value={ticket.assigneeId || "unassigned"} onValueChange={(v) => onUpdate(ticket.id, "assigneeId", v === "unassigned" ? "" : v)}>
                     <SelectTrigger className="h-7 w-[130px] text-[10px] border-0 bg-transparent hover:bg-muted/40 px-1.5 focus:ring-0 focus:ring-offset-0">
                       {ticket.assigneeName ? (
@@ -550,12 +564,15 @@ function TableView({
                 </td>
               )}
               {isCol("due") && (
-                <td className="px-3 py-2.5">
-                  {ticket.dueDate ? (
-                    <span className={`text-xs ${isOverdue(ticket.dueDate) ? "font-semibold text-red-600" : "text-muted-foreground"}`}>
-                      {formatDate(new Date(ticket.dueDate))}
-                    </span>
-                  ) : <span className="text-xs text-muted-foreground">{"\u2014"}</span>}
+                <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
+                  <input
+                    type="date"
+                    value={ticket.dueDate ? new Date(ticket.dueDate).toISOString().split("T")[0] : ""}
+                    onChange={(e) => onUpdate(ticket.id, "dueDate", e.target.value ? new Date(e.target.value).toISOString() : "")}
+                    className={`h-7 w-[120px] rounded border-0 bg-transparent px-1.5 text-xs hover:bg-muted/40 focus:bg-muted/40 focus:outline-none focus:ring-0 ${
+                      ticket.dueDate && isOverdue(ticket.dueDate) ? "font-semibold text-red-600" : "text-muted-foreground"
+                    }`}
+                  />
                 </td>
               )}
               {isCol("info") && (

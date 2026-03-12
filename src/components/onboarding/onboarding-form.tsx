@@ -167,14 +167,14 @@ export function OnboardingForm({ token, clientName, existing, hasGoogleAds, isRe
   }
 
   const inputClass =
-    "block w-full rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-900 shadow-sm transition-all placeholder:text-gray-400 focus:border-[#1a1a2e] focus:outline-none focus:ring-2 focus:ring-[#1a1a2e]/10";
+    "block w-full rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-900 shadow-sm transition-all placeholder:text-gray-400 focus:border-[#F5C518] focus:outline-none focus:ring-2 focus:ring-[#F5C518]/20";
 
   return (
     <form onSubmit={handleSubmit} className={`space-y-5 ${isResubmit ? "mt-6" : ""}`}>
       {/* Contact Details */}
       <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
         <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-gray-500">
-          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#1a1a2e] text-[10px] font-bold text-white">1</span>
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#F5C518] text-[10px] font-bold text-[#1a1a2e]">1</span>
           Contact Information
         </h3>
         <div className="space-y-4">
@@ -223,7 +223,7 @@ export function OnboardingForm({ token, clientName, existing, hasGoogleAds, isRe
       {/* Company Details */}
       <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
         <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-gray-500">
-          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#1a1a2e] text-[10px] font-bold text-white">2</span>
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#F5C518] text-[10px] font-bold text-[#1a1a2e]">2</span>
           Company Details
         </h3>
         <div className="space-y-4">
@@ -313,7 +313,7 @@ export function OnboardingForm({ token, clientName, existing, hasGoogleAds, isRe
       {/* Platform Details */}
       <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
         <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-gray-500">
-          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#1a1a2e] text-[10px] font-bold text-white">3</span>
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#F5C518] text-[10px] font-bold text-[#1a1a2e]">3</span>
           Platform Details
         </h3>
         <div className="space-y-4">
@@ -362,7 +362,7 @@ export function OnboardingForm({ token, clientName, existing, hasGoogleAds, isRe
       <button
         type="submit"
         disabled={isPending || uploading}
-        className="w-full rounded-lg bg-[#1a1a2e] px-4 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[#2a2a4e] disabled:opacity-50"
+        className="w-full rounded-lg bg-[#1a1a2e] px-4 py-3 text-sm font-semibold text-white shadow-md transition-all hover:bg-[#2a2a4e] hover:shadow-lg disabled:opacity-50"
       >
         {isPending ? "Submitting..." : isResubmit ? "Update Details" : "Submit"}
       </button>

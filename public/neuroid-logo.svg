@@ -1,5 +1,38 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 48" fill="none">
-  <circle cx="24" cy="24" r="20" fill="#1a1a2e"/>
-  <text x="24" y="31" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="22" font-weight="700" fill="white">N</text>
-  <text x="56" y="32" font-family="system-ui, -apple-system, sans-serif" font-size="26" font-weight="700" fill="#1a1a2e" letter-spacing="-0.5">neuroid</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 60" fill="none">
+  <!-- Yellow 3D N icon made of blocks -->
+  <g transform="translate(4, 2) scale(0.7)">
+    <!-- Back-left column of N -->
+    <polygon points="10,65 10,20 22,14 22,59" fill="#F5C518" stroke="#B8930E" stroke-width="1"/>
+    <polygon points="10,20 22,14 34,20 22,26" fill="#FFD93D" stroke="#B8930E" stroke-width="1"/>
+    <polygon points="10,20 22,26 22,71 10,65" fill="#E0AE0D" stroke="#B8930E" stroke-width="1"/>
+    <polygon points="22,14 34,20 34,65 22,59" fill="#F5C518" stroke="#B8930E" stroke-width="1"/>
+
+    <!-- Diagonal of N -->
+    <polygon points="22,26 34,20 55,50 43,56" fill="#FFD93D" stroke="#B8930E" stroke-width="1"/>
+    <polygon points="22,26 22,35 43,65 43,56" fill="#E0AE0D" stroke="#B8930E" stroke-width="1"/>
+    <polygon points="34,20 34,29 55,59 55,50" fill="#F5C518" stroke="#B8930E" stroke-width="1"/>
+
+    <!-- Back-right column of N -->
+    <polygon points="43,56 43,11 55,5 55,50" fill="#E0AE0D" stroke="#B8930E" stroke-width="1"/>
+    <polygon points="43,11 55,5 67,11 55,17" fill="#FFD93D" stroke="#B8930E" stroke-width="1"/>
+    <polygon points="55,5 67,11 67,56 55,50" fill="#F5C518" stroke="#B8930E" stroke-width="1"/>
+    <polygon points="43,11 55,17 55,62 43,56" fill="#E0AE0D" stroke="#B8930E" stroke-width="1"/>
+
+    <!-- Top blocks/cubes -->
+    <polygon points="15,18 22,14 29,18 22,22" fill="#FFE066" stroke="#B8930E" stroke-width="0.8"/>
+    <polygon points="48,9 55,5 62,9 55,13" fill="#FFE066" stroke="#B8930E" stroke-width="0.8"/>
+
+    <!-- Extra cube on top-left -->
+    <polygon points="22,8 29,4 36,8 29,12" fill="#FFE066" stroke="#B8930E" stroke-width="0.8"/>
+    <polygon points="22,8 22,14 29,18 29,12" fill="#E0AE0D" stroke="#B8930E" stroke-width="0.8"/>
+    <polygon points="29,4 36,8 36,14 29,10" fill="#F5C518" stroke="#B8930E" stroke-width="0.8"/>
+
+    <!-- Extra cube on top-right -->
+    <polygon points="55,0 62,4 55,8 48,4" fill="#FFE066" stroke="#B8930E" stroke-width="0.8"/>
+    <polygon points="48,4 48,10 55,14 55,8" fill="#E0AE0D" stroke="#B8930E" stroke-width="0.8"/>
+    <polygon points="55,0 62,4 62,10 55,6" fill="#F5C518" stroke="#B8930E" stroke-width="0.8"/>
+  </g>
+
+  <!-- "Neuroid" text -->
+  <text x="72" y="42" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="34" font-weight="800" fill="#1a1a1a" letter-spacing="-1">Neuroid</text>
 </svg>
