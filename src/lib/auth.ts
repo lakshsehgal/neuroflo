@@ -63,14 +63,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       const ROLE_REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes
       const lastRefresh = (token.roleRefreshedAt as number) || 0;
       if (token.id && Date.now() - lastRefresh > ROLE_REFRESH_INTERVAL) {
-        const dbUser = await db.user.findUnique({
-          where: { id: token.id as string },
-          select: { role: true, isActive: true },
-        });
-        if (dbUser) {
-          token.role = dbUser.role;
+        try {
+          const dbUser = await db.user.findUnique({
+            where: { id: token.id as string },
+            select: { role: true, isActive: true },
+          });
+          if (dbUser) {
+            token.role = dbUser.role;
+          }
+          token.roleRefreshedAt = Date.now();
+        } catch (error) {
+          console.error("[auth] JWT role refresh error:", error);
+          // Keep existing role in token, retry next time
         }
-        token.roleRefreshedAt = Date.now();
       }
       return token;
     },

@@ -3,6 +3,7 @@
 import * as bcrypt from "bcryptjs";
 import { signIn } from "@/lib/auth";
 import { AuthError } from "next-auth";
+import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { z } from "zod";
 import type { ActionResponse } from "@/types";
@@ -15,25 +16,16 @@ export async function login(
     await signIn("credentials", {
       email,
       password,
-      redirectTo: "/dashboard",
+      redirect: false,
     });
   } catch (error) {
     if (error instanceof AuthError) {
       return { error: "Invalid email or password" };
     }
-    // NEXT_REDIRECT has a `digest` property containing "NEXT_REDIRECT"
-    if (
-      error instanceof Error &&
-      "digest" in error &&
-      typeof (error as Record<string, unknown>).digest === "string" &&
-      ((error as Record<string, unknown>).digest as string).startsWith("NEXT_REDIRECT")
-    ) {
-      throw error;
-    }
-    // Any other error (DB connection, etc.) — return a user-friendly message
     console.error("[login] Unexpected error:", error);
     return { error: "Something went wrong. Please try again." };
   }
+  redirect("/dashboard");
 }
 
 const acceptInviteSchema = z.object({
