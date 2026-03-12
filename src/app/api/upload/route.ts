@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { put } from "@vercel/blob";
 
-// Server-side upload handler — avoids all S3 CORS issues
-// Accepts FormData with a "file" field and optional "folder" field
-// Tries S3 first; falls back to base64 data URL for images under 2MB
+// Server-side upload handler
+// Uses Vercel Blob for persistent storage (primary)
+// Falls back to S3 if configured, then base64 for small images
 export async function POST(req: NextRequest) {
-  // Check auth (allow unauthenticated for onboarding with token)
   const folder = req.nextUrl.searchParams.get("folder") || "uploads";
   const isOnboarding = folder === "onboarding";
 
@@ -28,10 +28,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "File too large (max 25MB)" }, { status: 400 });
     }
 
-    const buffer = Buffer.from(await file.arrayBuffer());
     const fileName = file.name;
     const contentType = file.type;
     const fileSize = file.size;
+
+    // Try Vercel Blob first (recommended for Vercel deployments)
+    if (process.env.BLOB_READ_WRITE_TOKEN) {
+      try {
+        const blob = await put(`${folder}/${Date.now()}-${fileName}`, file, {
+          access: "public",
+          contentType,
+        });
+
+        return NextResponse.json({
+          url: blob.url,
+          fileName,
+          fileType: contentType,
+          fileSize,
+        });
+      } catch (err) {
+        console.error("Vercel Blob upload failed:", err);
+      }
+    }
+
+    const buffer = Buffer.from(await file.arrayBuffer());
 
     // Try S3 upload
     const s3Result = await tryS3Upload(buffer, fileName, contentType, folder);
@@ -56,21 +76,10 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Fallback: store in /tmp and serve via API (works on Vercel for ~10min)
-    const { writeFile, mkdir } = await import("fs/promises");
-    const tmpDir = "/tmp/neuroflo-uploads";
-    await mkdir(tmpDir, { recursive: true });
-    const uniqueName = `${Date.now()}-${fileName.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
-    const tmpPath = `${tmpDir}/${uniqueName}`;
-    await writeFile(tmpPath, buffer);
-
-    const serveUrl = `/api/upload/serve?file=${encodeURIComponent(uniqueName)}`;
-    return NextResponse.json({
-      url: serveUrl,
-      fileName,
-      fileType: contentType,
-      fileSize,
-    });
+    return NextResponse.json(
+      { error: "No storage configured. Add BLOB_READ_WRITE_TOKEN or AWS S3 credentials." },
+      { status: 500 }
+    );
   } catch (error) {
     console.error("Upload error:", error);
     return NextResponse.json({ error: "Upload failed" }, { status: 500 });
