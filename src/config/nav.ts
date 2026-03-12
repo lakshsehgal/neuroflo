@@ -2,6 +2,7 @@ import {
   LayoutDashboard,
   FolderKanban,
   Ticket,
+  MessageSquare,
   Building2,
   Settings,
   Users,
@@ -36,6 +37,7 @@ export const navConfig: NavSection[] = [
     items: [
       { title: "Projects", href: "/projects", icon: FolderKanban },
       { title: "Creative Tickets", href: "/tickets", icon: Ticket },
+      { title: "Chat", href: "/chat", icon: MessageSquare },
     ],
   },
   {

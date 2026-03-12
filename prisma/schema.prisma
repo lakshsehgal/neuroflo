@@ -129,6 +129,8 @@ model User {
   assetVersions  AssetVersion[]
   revisions      Revision[]
   activityLogs   ActivityLog[]
+  channelMembers ChannelMember[]
+  chatMessages   Message[]
 }
 
 model Department {
@@ -462,4 +464,48 @@ model CampaignMetric {
   value      Float
   date       DateTime
   createdAt  DateTime @default(now())
+}
+
+// ─── Chat / Messaging ──────────────────────────────────
+
+enum ChannelType {
+  PUBLIC
+  PRIVATE
+}
+
+model Channel {
+  id          String      @id @default(cuid())
+  name        String
+  description String?
+  type        ChannelType @default(PUBLIC)
+  isGeneral   Boolean     @default(false)
+  createdById String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  members  ChannelMember[]
+  messages Message[]
+}
+
+model ChannelMember {
+  id        String   @id @default(cuid())
+  channelId String
+  channel   Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  role      String   @default("MEMBER") // OWNER or MEMBER
+  joinedAt  DateTime @default(now())
+
+  @@unique([channelId, userId])
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  content   String
+  channelId String
+  channel   Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
