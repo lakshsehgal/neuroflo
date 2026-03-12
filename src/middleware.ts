@@ -1,9 +1,44 @@
+import { getToken } from "next-auth/jwt";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 export async function middleware(req: NextRequest) {
-  // Auth protection is handled at the layout level
-  // Middleware only handles basic redirects
+  const { pathname } = req.nextUrl;
+  const isSecure = req.nextUrl.protocol === "https:";
+  const token = await getToken({
+    req,
+    secret: process.env.AUTH_SECRET,
+    secureCookie: isSecure,
+    salt: isSecure
+      ? "__Secure-authjs.session-token"
+      : "authjs.session-token",
+  });
+  const isLoggedIn = !!token;
+
+  // Public routes
+  const isAuthRoute =
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/accept-invite") ||
+    pathname.startsWith("/forgot-password") ||
+    pathname.startsWith("/onboarding");
+
+  // Onboarding is fully public (no redirect even for logged-in users)
+  if (pathname.startsWith("/onboarding")) {
+    return NextResponse.next();
+  }
+
+  if (isAuthRoute) {
+    if (isLoggedIn) {
+      return NextResponse.redirect(new URL("/dashboard", req.nextUrl));
+    }
+    return NextResponse.next();
+  }
+
+  // Protect all other routes
+  if (!isLoggedIn) {
+    return NextResponse.redirect(new URL("/login", req.nextUrl));
+  }
+
   return NextResponse.next();
 }
 
