@@ -256,6 +256,8 @@ export function TicketsContent({ tickets: initialTickets, users, clients, worklo
         if (field === "status") return { ...t, status: value };
         if (field === "priority") return { ...t, priority: value };
         if (field === "dueDate") return { ...t, dueDate: value || null };
+        if (field === "title") return { ...t, title: value };
+        if (field === "clientName") return { ...t, clientName: value || null };
         if (field === "assigneeId") {
           const user = users.find((u) => u.id === value);
           return {
@@ -463,7 +465,7 @@ export function TicketsContent({ tickets: initialTickets, users, clients, worklo
         </AnimatePresence>
 
         {/* Content */}
-        {view === "table" && <TableView tickets={filtered} users={users} onUpdate={handleInlineUpdate} visibleColumns={visibleColumns} />}
+        {view === "table" && <TableView tickets={filtered} users={users} clients={clients} onUpdate={handleInlineUpdate} visibleColumns={visibleColumns} />}
         {view === "kanban" && <KanbanView tickets={filtered} onStatusChange={handleInlineUpdate} />}
         {view === "workload" && <WorkloadView tickets={workloadTickets} />}
       </div>
@@ -475,15 +477,19 @@ export function TicketsContent({ tickets: initialTickets, users, clients, worklo
 function TableView({
   tickets,
   users,
+  clients,
   onUpdate,
   visibleColumns,
 }: {
   tickets: TicketData[];
   users: User[];
+  clients: Client[];
   onUpdate: (id: string, field: string, value: string) => void;
   visibleColumns: string[];
 }) {
   const router = useRouter();
+  const [editingTitle, setEditingTitle] = useState<string | null>(null);
+  const [titleDraft, setTitleDraft] = useState("");
   const isCol = (key: string) => visibleColumns.includes(key);
 
   if (tickets.length === 0) {
@@ -532,17 +538,49 @@ function TableView({
                 }`}
                 onClick={(e: React.MouseEvent) => handleRowClick(e, ticket.id)}
               >
-                <td className="px-4 py-3">
+                <td className="px-4 py-3" onClick={(e) => { if (editingTitle === ticket.id) e.stopPropagation(); }}>
                   <div className="flex items-start gap-2">
                     <div className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
                       ticket.priority === "URGENT" ? "bg-red-500" :
                       ticket.priority === "HIGH" ? "bg-orange-500" :
                       ticket.priority === "MEDIUM" ? "bg-blue-500" : "bg-gray-300"
                     }`} />
-                    <div className="min-w-0">
-                      <span className="text-sm font-medium leading-tight group-hover:text-primary transition-colors line-clamp-1">
-                        {ticket.title}
-                      </span>
+                    <div className="min-w-0 flex-1">
+                      {editingTitle === ticket.id ? (
+                        <Input
+                          value={titleDraft}
+                          onChange={(e) => setTitleDraft(e.target.value)}
+                          onBlur={() => {
+                            if (titleDraft.trim() && titleDraft !== ticket.title) {
+                              onUpdate(ticket.id, "title", titleDraft.trim());
+                            }
+                            setEditingTitle(null);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              if (titleDraft.trim() && titleDraft !== ticket.title) {
+                                onUpdate(ticket.id, "title", titleDraft.trim());
+                              }
+                              setEditingTitle(null);
+                            }
+                            if (e.key === "Escape") setEditingTitle(null);
+                          }}
+                          autoFocus
+                          className="h-7 text-sm font-medium px-1.5 -ml-1.5"
+                        />
+                      ) : (
+                        <span
+                          className="text-sm font-medium leading-tight group-hover:text-primary transition-colors line-clamp-1 cursor-text"
+                          onDoubleClick={(e) => {
+                            e.stopPropagation();
+                            setEditingTitle(ticket.id);
+                            setTitleDraft(ticket.title);
+                          }}
+                          title="Double-click to edit"
+                        >
+                          {ticket.title}
+                        </span>
+                      )}
                       <div className="flex items-center gap-2 mt-0.5">
                         {ticket.format && (
                           <span className="text-[10px] text-muted-foreground/70 font-medium uppercase">{ticket.format.replace(/_/g, " ")}</span>
@@ -555,8 +593,18 @@ function TableView({
                   </div>
                 </td>
                 {isCol("client") && (
-                  <td className="px-3 py-3">
-                    <span className="text-xs font-medium text-muted-foreground">{ticket.clientName || "\u2014"}</span>
+                  <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
+                    <Select value={ticket.clientName || "none"} onValueChange={(v) => onUpdate(ticket.id, "clientName", v === "none" ? "" : v)}>
+                      <SelectTrigger className="h-7 w-[130px] text-[10px] border-0 bg-transparent hover:bg-muted/40 px-1.5 focus:ring-0 focus:ring-offset-0">
+                        <span className="text-xs font-medium text-muted-foreground truncate">{ticket.clientName || "\u2014"}</span>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none"><span className="text-muted-foreground">None</span></SelectItem>
+                        {clients.map((c) => (
+                          <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </td>
                 )}
                 {isCol("status") && (

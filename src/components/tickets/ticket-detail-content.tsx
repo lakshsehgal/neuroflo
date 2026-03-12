@@ -33,10 +33,13 @@ import {
   XCircle,
   Package,
   Layers,
+  Pencil,
 } from "lucide-react";
 import type { getTicket } from "@/actions/tickets";
 
 type TicketData = NonNullable<Awaited<ReturnType<typeof getTicket>>>;
+type UserOption = { id: string; name: string; avatar: string | null };
+type ClientOption = { id: string; name: string };
 
 const statusOptions = [
   { value: "NEW_REQUEST", label: "New Request", color: "bg-gray-100 text-gray-800" },
@@ -61,17 +64,43 @@ const formatLabels: Record<string, string> = {
   STATIC: "Static", VIDEO: "Video", UGC: "UGC", GIF: "GIF", CAROUSEL: "Carousel", DPA_FRAME: "DPA Frame",
 };
 
-export function TicketDetailContent({ ticket: initialTicket }: { ticket: TicketData }) {
+const formatOptions = ["STATIC", "VIDEO", "UGC", "GIF", "CAROUSEL", "DPA_FRAME"];
+
+export function TicketDetailContent({
+  ticket: initialTicket,
+  users,
+  clients,
+}: {
+  ticket: TicketData;
+  users: UserOption[];
+  clients: ClientOption[];
+}) {
   const [ticket, setTicket] = useState(initialTicket);
   const [isPending, startTransition] = useTransition();
   const [commentText, setCommentText] = useState("");
   const [editingDelivery, setEditingDelivery] = useState(false);
   const [deliveryLink, setDeliveryLink] = useState(ticket.deliveryLink || "");
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState(ticket.title);
+  const [editingDescription, setEditingDescription] = useState(false);
+  const [descriptionDraft, setDescriptionDraft] = useState(ticket.description || "");
 
   function handleUpdateField(field: string, value: string) {
     startTransition(async () => {
       await updateTicket(ticket.id, { [field]: value || null });
       setTicket((prev) => ({ ...prev, [field]: value || null }));
+    });
+  }
+
+  function handleAssigneeChange(userId: string) {
+    const user = users.find((u) => u.id === userId);
+    startTransition(async () => {
+      await updateTicket(ticket.id, { assigneeId: userId || null });
+      setTicket((prev) => ({
+        ...prev,
+        assigneeId: userId || null,
+        assignee: user ? { id: user.id, name: user.name, email: "", avatar: user.avatar } : null,
+      }));
     });
   }
 
@@ -87,7 +116,6 @@ export function TicketDetailContent({ ticket: initialTicket }: { ticket: TicketD
     startTransition(async () => {
       await addTicketComment(ticket.id, commentText.trim());
       setCommentText("");
-      // Optimistically add to UI - we don't refetch since server revalidates
       window.location.reload();
     });
   }
@@ -95,6 +123,22 @@ export function TicketDetailContent({ ticket: initialTicket }: { ticket: TicketD
   function handleSaveDelivery() {
     handleUpdateField("deliveryLink", deliveryLink);
     setEditingDelivery(false);
+  }
+
+  function handleSaveTitle() {
+    if (titleDraft.trim() && titleDraft !== ticket.title) {
+      handleUpdateField("title", titleDraft.trim());
+      setTicket((prev) => ({ ...prev, title: titleDraft.trim() }));
+    }
+    setEditingTitle(false);
+  }
+
+  function handleSaveDescription() {
+    if (descriptionDraft !== (ticket.description || "")) {
+      handleUpdateField("description", descriptionDraft);
+      setTicket((prev) => ({ ...prev, description: descriptionDraft || null }));
+    }
+    setEditingDescription(false);
   }
 
   const currentStatus = statusOptions.find((s) => s.value === ticket.status);
@@ -129,7 +173,27 @@ export function TicketDetailContent({ ticket: initialTicket }: { ticket: TicketD
                 </Badge>
               )}
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">{ticket.title}</h1>
+            {editingTitle ? (
+              <Input
+                value={titleDraft}
+                onChange={(e) => setTitleDraft(e.target.value)}
+                onBlur={handleSaveTitle}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleSaveTitle();
+                  if (e.key === "Escape") { setTitleDraft(ticket.title); setEditingTitle(false); }
+                }}
+                autoFocus
+                className="text-2xl font-bold tracking-tight h-auto py-1 px-2 -ml-2"
+              />
+            ) : (
+              <h1
+                className="text-2xl font-bold tracking-tight text-foreground group/title cursor-text inline-flex items-center gap-2"
+                onClick={() => { setEditingTitle(true); setTitleDraft(ticket.title); }}
+              >
+                {ticket.title}
+                <Pencil className="h-4 w-4 text-muted-foreground/0 group-hover/title:text-muted-foreground/60 transition-colors" />
+              </h1>
+            )}
             <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
               <Avatar className="h-5 w-5">
                 <AvatarFallback className="text-[9px] bg-primary/10 text-primary font-medium">
@@ -141,18 +205,25 @@ export function TicketDetailContent({ ticket: initialTicket }: { ticket: TicketD
               <span>{formatRelativeTime(ticket.createdAt)}</span>
             </div>
           </div>
-          {ticket.dueDate && (
-            <div className={`flex items-center gap-2 rounded-lg border px-3.5 py-2 text-sm font-medium shrink-0 transition-colors ${
-              overdue
-                ? "border-red-200 bg-red-50 text-red-700"
-                : dueSoon
-                ? "border-amber-200 bg-amber-50 text-amber-700"
-                : "border-border bg-muted/50 text-muted-foreground"
-            }`}>
-              <CalendarDays className="h-4 w-4" />
-              {formatDate(ticket.dueDate)}
-            </div>
-          )}
+          <div className={`flex items-center gap-2 rounded-lg border px-3.5 py-2 text-sm font-medium shrink-0 transition-colors ${
+            overdue
+              ? "border-red-200 bg-red-50 text-red-700"
+              : dueSoon
+              ? "border-amber-200 bg-amber-50 text-amber-700"
+              : "border-border bg-muted/50 text-muted-foreground"
+          }`}>
+            <CalendarDays className="h-4 w-4" />
+            <input
+              type="date"
+              value={ticket.dueDate ? new Date(ticket.dueDate).toISOString().split("T")[0] : ""}
+              onChange={(e) => {
+                const val = e.target.value ? new Date(e.target.value).toISOString() : "";
+                handleUpdateField("dueDate", val);
+                if (val) setTicket((prev) => ({ ...prev, dueDate: new Date(val) }));
+              }}
+              className="bg-transparent border-0 outline-none text-sm font-medium cursor-pointer p-0 w-[120px]"
+            />
+          </div>
         </div>
       </div>
 
@@ -162,21 +233,56 @@ export function TicketDetailContent({ ticket: initialTicket }: { ticket: TicketD
         <div className="space-y-5">
 
           {/* Description */}
-          {ticket.description && (
-            <Card className="shadow-sm border-border/60">
-              <CardHeader className="pb-3">
+          <Card className="shadow-sm border-border/60">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2 text-sm font-semibold text-foreground">
                   <FileText className="h-4 w-4 text-muted-foreground" />
                   Description
                 </CardTitle>
-              </CardHeader>
-              <CardContent>
+                {!editingDescription && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs text-muted-foreground"
+                    onClick={() => { setEditingDescription(true); setDescriptionDraft(ticket.description || ""); }}
+                  >
+                    <Pencil className="h-3 w-3 mr-1" />
+                    Edit
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {editingDescription ? (
+                <div className="space-y-2">
+                  <Textarea
+                    value={descriptionDraft}
+                    onChange={(e) => setDescriptionDraft(e.target.value)}
+                    rows={4}
+                    autoFocus
+                    className="text-sm"
+                    placeholder="Add a description..."
+                  />
+                  <div className="flex gap-2">
+                    <Button size="sm" className="h-7 px-3 text-xs" onClick={handleSaveDescription}>Save</Button>
+                    <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setEditingDescription(false)}>Cancel</Button>
+                  </div>
+                </div>
+              ) : ticket.description ? (
                 <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
                   {ticket.description}
                 </p>
-              </CardContent>
-            </Card>
-          )}
+              ) : (
+                <p
+                  className="text-sm text-muted-foreground/60 italic cursor-pointer hover:text-muted-foreground transition-colors"
+                  onClick={() => { setEditingDescription(true); setDescriptionDraft(""); }}
+                >
+                  Click to add a description...
+                </p>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Creative Brief + Delivery row */}
           <div className="grid gap-4 sm:grid-cols-2">
@@ -467,26 +573,59 @@ export function TicketDetailContent({ ticket: initialTicket }: { ticket: TicketD
               <Separator className="!my-3" />
 
               {/* Client */}
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Client</span>
-                <span className="text-sm font-medium text-foreground">{ticket.clientName || <span className="text-muted-foreground font-normal italic">None</span>}</span>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Client</label>
+                <Select value={ticket.clientName || "none"} onValueChange={(v) => {
+                  const val = v === "none" ? "" : v;
+                  handleUpdateField("clientName", val);
+                  setTicket((prev) => ({ ...prev, clientName: val || null }));
+                }}>
+                  <SelectTrigger className="h-9 text-sm border-border/60 hover:border-border transition-colors">
+                    <SelectValue placeholder="Select client" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none"><span className="text-muted-foreground">None</span></SelectItem>
+                    {clients.map((c) => (
+                      <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Assignee */}
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Assignee</span>
-                {ticket.assignee ? (
-                  <div className="flex items-center gap-2">
-                    <Avatar className="h-6 w-6 ring-1 ring-border">
-                      <AvatarFallback className="text-[9px] bg-primary/10 text-primary font-semibold">
-                        {ticket.assignee.name.split(" ").map((n) => n[0]).join("")}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="text-sm font-medium">{ticket.assignee.name}</span>
-                  </div>
-                ) : (
-                  <span className="text-sm text-muted-foreground italic">Unassigned</span>
-                )}
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Assignee</label>
+                <Select value={ticket.assignee?.id || "unassigned"} onValueChange={(v) => handleAssigneeChange(v === "unassigned" ? "" : v)}>
+                  <SelectTrigger className="h-9 text-sm border-border/60 hover:border-border transition-colors">
+                    {ticket.assignee ? (
+                      <div className="flex items-center gap-2">
+                        <Avatar className="h-5 w-5 ring-1 ring-border">
+                          <AvatarFallback className="text-[8px] bg-primary/10 text-primary font-semibold">
+                            {ticket.assignee.name.split(" ").map((n) => n[0]).join("")}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="text-sm">{ticket.assignee.name}</span>
+                      </div>
+                    ) : (
+                      <span className="text-sm text-muted-foreground italic">Unassigned</span>
+                    )}
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unassigned"><span className="text-muted-foreground">Unassigned</span></SelectItem>
+                    {users.map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        <div className="flex items-center gap-2">
+                          <Avatar className="h-5 w-5">
+                            <AvatarFallback className="text-[8px] bg-primary/10 text-primary font-semibold">
+                              {u.name.split(" ").map((n) => n[0]).join("")}
+                            </AvatarFallback>
+                          </Avatar>
+                          {u.name}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Assigned By */}
@@ -500,40 +639,79 @@ export function TicketDetailContent({ ticket: initialTicket }: { ticket: TicketD
               <Separator className="!my-3" />
 
               {/* Format */}
-              {ticket.format && (
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Format</span>
-                  <Badge variant="outline" className="text-xs font-medium">
-                    <Package className="mr-1 h-3 w-3" />
-                    {formatLabels[ticket.format] || ticket.format}
-                  </Badge>
-                </div>
-              )}
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Format</label>
+                <Select value={ticket.format || "none"} onValueChange={(v) => {
+                  const val = v === "none" ? "" : v;
+                  handleUpdateField("format", val);
+                  setTicket((prev) => ({ ...prev, format: (val || null) as TicketData["format"] }));
+                }}>
+                  <SelectTrigger className="h-9 text-sm border-border/60 hover:border-border transition-colors">
+                    <SelectValue placeholder="Select format" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none"><span className="text-muted-foreground">None</span></SelectItem>
+                    {formatOptions.map((f) => (
+                      <SelectItem key={f} value={f}>
+                        <div className="flex items-center gap-2">
+                          <Package className="h-3 w-3 text-muted-foreground" />
+                          {formatLabels[f] || f}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
               {/* Creative Type */}
-              {ticket.creativeType && (
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Type</span>
-                  <Badge variant="outline" className="text-xs font-medium">
-                    <Palette className="mr-1 h-3 w-3" />
-                    {ticket.creativeType === "NET_NEW" ? "Net New" : "Iteration"}
-                  </Badge>
-                </div>
-              )}
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Type</label>
+                <Select value={ticket.creativeType || "none"} onValueChange={(v) => {
+                  const val = v === "none" ? "" : v;
+                  handleUpdateField("creativeType", val);
+                  setTicket((prev) => ({ ...prev, creativeType: (val || null) as TicketData["creativeType"] }));
+                }}>
+                  <SelectTrigger className="h-9 text-sm border-border/60 hover:border-border transition-colors">
+                    <SelectValue placeholder="Select type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none"><span className="text-muted-foreground">None</span></SelectItem>
+                    <SelectItem value="NET_NEW">
+                      <div className="flex items-center gap-2">
+                        <Palette className="h-3 w-3 text-muted-foreground" />
+                        Net New
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="ITERATION">
+                      <div className="flex items-center gap-2">
+                        <Palette className="h-3 w-3 text-muted-foreground" />
+                        Iteration
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
               {/* Due Date */}
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Due Date</span>
-                {ticket.dueDate ? (
-                  <span className={`text-sm font-medium ${
-                    overdue ? "text-red-600" : dueSoon ? "text-amber-600" : "text-foreground"
-                  }`}>
-                    {overdue && <AlertTriangle className="mr-1 inline h-3 w-3" />}
-                    {formatDate(ticket.dueDate)}
-                  </span>
-                ) : (
-                  <span className="text-sm text-muted-foreground italic">Not set</span>
-                )}
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Due Date</label>
+                <div className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm ${
+                  overdue ? "border-red-200 text-red-600" : dueSoon ? "border-amber-200 text-amber-600" : "border-border/60 text-foreground"
+                }`}>
+                  {overdue && <AlertTriangle className="h-3 w-3 shrink-0" />}
+                  <CalendarDays className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <input
+                    type="date"
+                    value={ticket.dueDate ? new Date(ticket.dueDate).toISOString().split("T")[0] : ""}
+                    onChange={(e) => {
+                      const val = e.target.value ? new Date(e.target.value).toISOString() : "";
+                      handleUpdateField("dueDate", val);
+                      if (val) setTicket((prev) => ({ ...prev, dueDate: new Date(val) }));
+                      else setTicket((prev) => ({ ...prev, dueDate: null }));
+                    }}
+                    className="bg-transparent border-0 outline-none text-sm font-medium cursor-pointer p-0 flex-1"
+                  />
+                </div>
               </div>
             </CardContent>
           </Card>
