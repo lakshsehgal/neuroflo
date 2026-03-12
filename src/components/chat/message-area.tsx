@@ -7,6 +7,8 @@ import {
   getNewMessages,
   joinChannel,
   leaveChannel,
+  createPoll,
+  votePoll,
 } from "@/actions/chat";
 import { uploadFile } from "@/lib/upload";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -24,9 +26,25 @@ import {
   Image as ImageIcon,
   File,
   X,
+  BarChart3,
+  Plus,
+  Minus,
+  Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { AvailableUser } from "./chat-layout";
+
+interface PollOptionData {
+  id: string;
+  text: string;
+  votes: { userId: string }[];
+}
+
+interface PollData {
+  id: string;
+  question: string;
+  options: PollOptionData[];
+}
 
 interface MessageData {
   id: string;
@@ -36,6 +54,7 @@ interface MessageData {
   fileUrl?: string | null;
   fileType?: string | null;
   fileSize?: number | null;
+  poll?: PollData | null;
   author: {
     id: string;
     name: string;
@@ -85,6 +104,10 @@ export function MessageArea({
   const [showMentions, setShowMentions] = useState(false);
   const [mentionQuery, setMentionQuery] = useState("");
   const [mentionIndex, setMentionIndex] = useState(0);
+  const [showPollForm, setShowPollForm] = useState(false);
+  const [pollQuestion, setPollQuestion] = useState("");
+  const [pollOptions, setPollOptions] = useState(["", ""]);
+  const [creatingPoll, setCreatingPoll] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -288,6 +311,31 @@ export function MessageArea({
     setSending(false);
   }
 
+  async function handleCreatePoll() {
+    const validOptions = pollOptions.filter((o) => o.trim());
+    if (!pollQuestion.trim() || validOptions.length < 2) return;
+
+    setCreatingPoll(true);
+    const result = await createPoll(channelId, pollQuestion, validOptions);
+    if (result.success) {
+      setPollQuestion("");
+      setPollOptions(["", ""]);
+      setShowPollForm(false);
+      // Refresh messages to show the new poll
+      const data = await getMessages(channelId);
+      setMessages(data.messages as MessageData[]);
+      setTimeout(scrollToBottom, 100);
+    }
+    setCreatingPoll(false);
+  }
+
+  async function handleVote(optionId: string) {
+    await votePoll(optionId);
+    // Refresh messages to show updated votes
+    const data = await getMessages(channelId);
+    setMessages(data.messages as MessageData[]);
+  }
+
   async function handleJoin() {
     const result = await joinChannel(channelId);
     if (result.success) onJoin();
@@ -376,6 +424,8 @@ export function MessageArea({
                   message={msg}
                   isConsecutive={!!isConsecutive}
                   isOwn={isOwn}
+                  currentUserId={currentUserId}
+                  onVote={handleVote}
                 />
               );
             })}
@@ -387,6 +437,70 @@ export function MessageArea({
       {/* Input */}
       {isMember || channelType === "PUBLIC" ? (
         <div className="border-t px-4 py-3">
+          {/* Poll creation form */}
+          {showPollForm && (
+            <div className="mb-3 rounded-lg border bg-muted/30 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <BarChart3 className="h-4 w-4 text-indigo-500" />
+                  Create Poll
+                </div>
+                <button onClick={() => setShowPollForm(false)} className="rounded-full p-0.5 hover:bg-muted">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <input
+                value={pollQuestion}
+                onChange={(e) => setPollQuestion(e.target.value)}
+                placeholder="Ask a question..."
+                className="w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+              />
+              <div className="space-y-1.5">
+                {pollOptions.map((opt, i) => (
+                  <div key={i} className="flex items-center gap-1.5">
+                    <input
+                      value={opt}
+                      onChange={(e) => {
+                        const updated = [...pollOptions];
+                        updated[i] = e.target.value;
+                        setPollOptions(updated);
+                      }}
+                      placeholder={`Option ${i + 1}`}
+                      className="flex-1 rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                    />
+                    {pollOptions.length > 2 && (
+                      <button
+                        onClick={() => setPollOptions(pollOptions.filter((_, idx) => idx !== i))}
+                        className="rounded-full p-1 hover:bg-muted text-muted-foreground hover:text-destructive"
+                      >
+                        <Minus className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center justify-between">
+                {pollOptions.length < 6 && (
+                  <button
+                    onClick={() => setPollOptions([...pollOptions, ""])}
+                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    <Plus className="h-3 w-3" /> Add option
+                  </button>
+                )}
+                <Button
+                  size="sm"
+                  className="ml-auto h-7 text-xs"
+                  disabled={!pollQuestion.trim() || pollOptions.filter((o) => o.trim()).length < 2 || creatingPoll}
+                  onClick={handleCreatePoll}
+                >
+                  {creatingPoll ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                  Send Poll
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* Pending file preview */}
           {pendingFile && (
             <div className="mb-2 flex items-center gap-2 rounded-md border bg-muted/50 px-3 py-2 text-sm">
@@ -455,6 +569,16 @@ export function MessageArea({
                 ) : (
                   <Paperclip className="h-4 w-4" />
                 )}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className={cn("h-9 w-9 shrink-0", showPollForm && "text-indigo-500")}
+                onClick={() => setShowPollForm(!showPollForm)}
+                title="Create poll"
+              >
+                <BarChart3 className="h-4 w-4" />
               </Button>
               <textarea
                 ref={inputRef}
@@ -616,14 +740,85 @@ function formatFileSize(bytes: number): string {
 
 // ─── Message bubble ─────────────────────────────────────
 
+function PollWidget({
+  poll,
+  currentUserId,
+  onVote,
+}: {
+  poll: PollData;
+  currentUserId: string;
+  onVote: (optionId: string) => void;
+}) {
+  const totalVotes = poll.options.reduce((s, o) => s + o.votes.length, 0);
+  const userVotedOption = poll.options.find((o) =>
+    o.votes.some((v) => v.userId === currentUserId)
+  );
+
+  return (
+    <div className="mt-2 max-w-sm rounded-lg border bg-muted/20 p-3 space-y-2">
+      <div className="flex items-center gap-2 text-sm font-semibold">
+        <BarChart3 className="h-4 w-4 text-indigo-500" />
+        {poll.question}
+      </div>
+      <div className="space-y-1.5">
+        {poll.options.map((opt) => {
+          const votes = opt.votes.length;
+          const pct = totalVotes > 0 ? (votes / totalVotes) * 100 : 0;
+          const isVoted = userVotedOption?.id === opt.id;
+
+          return (
+            <button
+              key={opt.id}
+              onClick={() => onVote(opt.id)}
+              className={cn(
+                "relative w-full rounded-md border px-3 py-2 text-left text-sm transition-all overflow-hidden",
+                isVoted
+                  ? "border-indigo-300 bg-indigo-50 dark:border-indigo-700 dark:bg-indigo-950/30"
+                  : "hover:border-muted-foreground/30 hover:bg-muted/50"
+              )}
+            >
+              {/* Progress bar background */}
+              {totalVotes > 0 && (
+                <div
+                  className={cn(
+                    "absolute inset-y-0 left-0 transition-all duration-500",
+                    isVoted ? "bg-indigo-200/50 dark:bg-indigo-800/30" : "bg-muted/60"
+                  )}
+                  style={{ width: `${pct}%` }}
+                />
+              )}
+              <div className="relative flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {isVoted && <Check className="h-3.5 w-3.5 text-indigo-600" />}
+                  <span className={isVoted ? "font-medium" : ""}>{opt.text}</span>
+                </div>
+                {totalVotes > 0 && (
+                  <span className="text-xs text-muted-foreground ml-2">
+                    {votes} ({pct.toFixed(0)}%)
+                  </span>
+                )}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+      <p className="text-[10px] text-muted-foreground">{totalVotes} vote{totalVotes !== 1 ? "s" : ""}</p>
+    </div>
+  );
+}
+
 function MessageBubble({
   message,
   isConsecutive,
   isOwn,
+  currentUserId,
+  onVote,
 }: {
   message: MessageData;
   isConsecutive: boolean;
   isOwn: boolean;
+  currentUserId: string;
+  onVote: (optionId: string) => void;
 }) {
   const time = new Date(message.createdAt);
   const timeStr = time.toLocaleTimeString([], {
@@ -637,25 +832,34 @@ function MessageBubble({
     .toUpperCase()
     .slice(0, 2);
 
+  const messageContent = (
+    <>
+      {message.content && !message.poll && (
+        <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
+          <RenderContent text={message.content} />
+        </p>
+      )}
+      {message.fileUrl && message.fileName && (
+        <FileAttachment
+          fileName={message.fileName}
+          fileUrl={message.fileUrl}
+          fileType={message.fileType}
+          fileSize={message.fileSize}
+        />
+      )}
+      {message.poll && (
+        <PollWidget poll={message.poll} currentUserId={currentUserId} onVote={onVote} />
+      )}
+    </>
+  );
+
   if (isConsecutive) {
     return (
       <div className="group flex items-start gap-3 pl-12 py-0.5 hover:bg-muted/50 rounded">
         <span className="invisible group-hover:visible text-[10px] text-muted-foreground min-w-[3rem] text-right pt-0.5">
           {timeStr}
         </span>
-        <div className="min-w-0">
-          <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
-            <RenderContent text={message.content} />
-          </p>
-          {message.fileUrl && message.fileName && (
-            <FileAttachment
-              fileName={message.fileName}
-              fileUrl={message.fileUrl}
-              fileType={message.fileType}
-              fileSize={message.fileSize}
-            />
-          )}
-        </div>
+        <div className="min-w-0">{messageContent}</div>
       </div>
     );
   }
@@ -682,17 +886,7 @@ function MessageBubble({
           </span>
           <span className="text-[10px] text-muted-foreground">{timeStr}</span>
         </div>
-        <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
-          <RenderContent text={message.content} />
-        </p>
-        {message.fileUrl && message.fileName && (
-          <FileAttachment
-            fileName={message.fileName}
-            fileUrl={message.fileUrl}
-            fileType={message.fileType}
-            fileSize={message.fileSize}
-          />
-        )}
+        {messageContent}
       </div>
     </div>
   );

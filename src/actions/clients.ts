@@ -163,6 +163,36 @@ export async function updateInvoiceStatus(
   return { success: true };
 }
 
+export async function updateInvoice(
+  id: string,
+  input: { amount?: number; dueDate?: string; invoiceNumber?: string; notes?: string }
+): Promise<ActionResponse> {
+  await requireRole("MANAGER");
+
+  const data: Record<string, unknown> = {};
+  if (input.amount !== undefined) data.amount = input.amount;
+  if (input.dueDate) data.dueDate = new Date(input.dueDate);
+  if (input.invoiceNumber !== undefined) data.invoiceNumber = input.invoiceNumber || null;
+  if (input.notes !== undefined) data.notes = input.notes || null;
+
+  const invoice = await db.invoice.update({ where: { id }, data });
+
+  revalidatePath(`/admin/clients/${invoice.clientId}`);
+  return { success: true };
+}
+
+export async function deleteInvoice(id: string): Promise<ActionResponse> {
+  await requireRole("MANAGER");
+
+  const invoice = await db.invoice.findUnique({ where: { id }, select: { clientId: true } });
+  if (!invoice) return { success: false, error: "Invoice not found" };
+
+  await db.invoice.delete({ where: { id } });
+
+  revalidatePath(`/admin/clients/${invoice.clientId}`);
+  return { success: true };
+}
+
 // Revenue forecasting
 export async function getRevenueForecasting() {
   await requireRole("MANAGER");

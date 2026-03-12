@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { updateClient, createInvoice, updateInvoiceStatus } from "@/actions/clients";
+import { updateClient, createInvoice, updateInvoiceStatus, updateInvoice, deleteInvoice } from "@/actions/clients";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { formatDate } from "@/lib/utils";
 import { AnimatedTableBody, AnimatedRow } from "@/components/motion";
-import { Plus, ArrowLeft, Link2, Copy, CheckCircle2, UserPlus } from "lucide-react";
+import { Plus, ArrowLeft, Link2, Copy, CheckCircle2, UserPlus, Pencil, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { generateOnboardingToken } from "@/actions/onboarding";
 import type { getClient } from "@/actions/clients";
@@ -142,6 +142,42 @@ export function ClientDetailContent({ client: initial, onboarding: initialOnboar
   function handleInvoiceStatus(id: string, status: "PENDING" | "SENT" | "PAID" | "OVERDUE" | "CANCELLED") {
     startTransition(async () => {
       await updateInvoiceStatus(id, status);
+      window.location.reload();
+    });
+  }
+
+  const [editingInvoice, setEditingInvoice] = useState<string | null>(null);
+  const [editInvoiceForm, setEditInvoiceForm] = useState({ amount: "", dueDate: "", invoiceNumber: "", notes: "" });
+
+  function startEditInvoice(inv: { id: string; amount: number; dueDate: string | Date; invoiceNumber?: string | null; notes?: string | null }) {
+    setEditingInvoice(inv.id);
+    setEditInvoiceForm({
+      amount: inv.amount.toString(),
+      dueDate: new Date(inv.dueDate).toISOString().split("T")[0],
+      invoiceNumber: inv.invoiceNumber || "",
+      notes: inv.notes || "",
+    });
+  }
+
+  function handleEditInvoice(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingInvoice) return;
+    startTransition(async () => {
+      await updateInvoice(editingInvoice, {
+        amount: parseFloat(editInvoiceForm.amount),
+        dueDate: editInvoiceForm.dueDate,
+        invoiceNumber: editInvoiceForm.invoiceNumber || undefined,
+        notes: editInvoiceForm.notes || undefined,
+      });
+      setEditingInvoice(null);
+      window.location.reload();
+    });
+  }
+
+  function handleDeleteInvoice(id: string) {
+    if (!confirm("Delete this invoice? This cannot be undone.")) return;
+    startTransition(async () => {
+      await deleteInvoice(id);
       window.location.reload();
     });
   }
@@ -340,16 +376,24 @@ export function ClientDetailContent({ client: initial, onboarding: initialOnboar
                             <Badge className={`${invoiceStatusColors[inv.status]} text-[10px]`} variant="secondary">{inv.status}</Badge>
                           </td>
                           <td className="px-3 py-2">
-                            <Select value={inv.status} onValueChange={(v) => handleInvoiceStatus(inv.id, v as "PENDING" | "SENT" | "PAID" | "OVERDUE" | "CANCELLED")}>
-                              <SelectTrigger className="h-7 text-xs w-28"><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="PENDING">Pending</SelectItem>
-                                <SelectItem value="SENT">Sent</SelectItem>
-                                <SelectItem value="PAID">Paid</SelectItem>
-                                <SelectItem value="OVERDUE">Overdue</SelectItem>
-                                <SelectItem value="CANCELLED">Cancelled</SelectItem>
-                              </SelectContent>
-                            </Select>
+                            <div className="flex items-center gap-1">
+                              <Select value={inv.status} onValueChange={(v) => handleInvoiceStatus(inv.id, v as "PENDING" | "SENT" | "PAID" | "OVERDUE" | "CANCELLED")}>
+                                <SelectTrigger className="h-7 text-xs w-28"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="PENDING">Pending</SelectItem>
+                                  <SelectItem value="SENT">Sent</SelectItem>
+                                  <SelectItem value="PAID">Paid</SelectItem>
+                                  <SelectItem value="OVERDUE">Overdue</SelectItem>
+                                  <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => startEditInvoice(inv)}>
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => handleDeleteInvoice(inv.id)}>
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
                           </td>
                         </AnimatedRow>
                       ))}
@@ -359,6 +403,37 @@ export function ClientDetailContent({ client: initial, onboarding: initialOnboar
               )}
             </CardContent>
           </Card>
+
+          {/* Edit Invoice Dialog */}
+          <Dialog open={!!editingInvoice} onOpenChange={(open) => { if (!open) setEditingInvoice(null); }}>
+            <DialogContent>
+              <DialogHeader><DialogTitle>Edit Invoice</DialogTitle></DialogHeader>
+              <form onSubmit={handleEditInvoice} className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label>Amount *</Label>
+                    <Input type="number" step="0.01" value={editInvoiceForm.amount} onChange={(e) => setEditInvoiceForm({ ...editInvoiceForm, amount: e.target.value })} required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Due Date *</Label>
+                    <Input type="date" value={editInvoiceForm.dueDate} onChange={(e) => setEditInvoiceForm({ ...editInvoiceForm, dueDate: e.target.value })} required />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Invoice Number</Label>
+                  <Input value={editInvoiceForm.invoiceNumber} onChange={(e) => setEditInvoiceForm({ ...editInvoiceForm, invoiceNumber: e.target.value })} placeholder="INV-001" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Notes</Label>
+                  <Input value={editInvoiceForm.notes} onChange={(e) => setEditInvoiceForm({ ...editInvoiceForm, notes: e.target.value })} />
+                </div>
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" className="flex-1" onClick={() => setEditingInvoice(null)}>Cancel</Button>
+                  <Button type="submit" className="flex-1" disabled={isPending}>{isPending ? "Saving..." : "Save Changes"}</Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
         </div>
 
         {/* Sidebar */}

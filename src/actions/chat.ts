@@ -165,11 +165,21 @@ export async function getMessages(channelId: string, cursor?: string) {
   }
 
   const take = 50;
+  const messageInclude = {
+    author: { select: { id: true, name: true, avatar: true } },
+    poll: {
+      include: {
+        options: {
+          include: { votes: { select: { userId: true } } },
+          orderBy: { id: "asc" as const },
+        },
+      },
+    },
+  };
+
   const messages = await db.message.findMany({
     where: { channelId },
-    include: {
-      author: { select: { id: true, name: true, avatar: true } },
-    },
+    include: messageInclude,
     orderBy: { createdAt: "desc" },
     take: take + 1,
     ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
@@ -276,6 +286,14 @@ export async function getNewMessages(channelId: string, afterId: string) {
     },
     include: {
       author: { select: { id: true, name: true, avatar: true } },
+      poll: {
+        include: {
+          options: {
+            include: { votes: { select: { userId: true } } },
+            orderBy: { id: "asc" as const },
+          },
+        },
+      },
     },
     orderBy: { createdAt: "asc" },
     take: 100,
@@ -354,4 +372,82 @@ export async function getAvailableUsers() {
     select: { id: true, name: true, email: true, avatar: true },
     orderBy: { name: "asc" },
   });
+}
+
+// ─── Polls ──────────────────────────────────────────────
+
+export async function createPoll(
+  channelId: string,
+  question: string,
+  options: string[]
+): Promise<ActionResponse<{ id: string }>> {
+  const user = await requireAuth();
+
+  if (!question.trim() || options.length < 2) {
+    return { success: false, error: "Poll needs a question and at least 2 options" };
+  }
+
+  const channel = await db.channel.findUnique({
+    where: { id: channelId },
+    select: { type: true, members: { where: { userId: user.id } } },
+  });
+  if (!channel) return { success: false, error: "Channel not found" };
+
+  // Create poll, then message linked to it
+  const poll = await db.poll.create({
+    data: {
+      question: question.trim(),
+      options: {
+        create: options.filter((o) => o.trim()).map((o) => ({ text: o.trim() })),
+      },
+    },
+  });
+
+  const message = await db.message.create({
+    data: {
+      content: `📊 Poll: ${question.trim()}`,
+      channelId,
+      authorId: user.id,
+      pollId: poll.id,
+    },
+  });
+
+  return { success: true, data: { id: message.id } };
+}
+
+export async function votePoll(
+  optionId: string
+): Promise<ActionResponse> {
+  const user = await requireAuth();
+
+  // Check option exists
+  const option = await db.pollOption.findUnique({
+    where: { id: optionId },
+    include: { poll: { include: { message: { select: { channelId: true } } } } },
+  });
+  if (!option) return { success: false, error: "Poll option not found" };
+
+  // Remove any existing vote on this poll by this user
+  const existingVotes = await db.pollVote.findMany({
+    where: {
+      userId: user.id,
+      option: { pollId: option.pollId },
+    },
+  });
+
+  if (existingVotes.length > 0) {
+    await db.pollVote.deleteMany({
+      where: { id: { in: existingVotes.map((v) => v.id) } },
+    });
+  }
+
+  // Cast new vote (unless they clicked the same option to unvote)
+  const wasVotedBefore = existingVotes.some((v) => v.optionId === optionId);
+  if (!wasVotedBefore) {
+    await db.pollVote.create({
+      data: { optionId, userId: user.id },
+    });
+  }
+
+  return { success: true };
 }

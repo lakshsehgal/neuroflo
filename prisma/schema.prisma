@@ -530,8 +530,36 @@ model Message {
   fileUrl   String?
   fileType  String?
   fileSize  Int?
+  pollId    String?  @unique
+  poll      Poll?    @relation(fields: [pollId], references: [id])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Poll {
+  id        String       @id @default(cuid())
+  question  String
+  options   PollOption[]
+  message   Message?
+  createdAt DateTime     @default(now())
+}
+
+model PollOption {
+  id     String     @id @default(cuid())
+  text   String
+  pollId String
+  poll   Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  votes  PollVote[]
+}
+
+model PollVote {
+  id       String     @id @default(cuid())
+  optionId String
+  option   PollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  userId   String
+  votedAt  DateTime   @default(now())
+
+  @@unique([optionId, userId])
 }
 
 // ─── Notifications ─────────────────────────────────────
