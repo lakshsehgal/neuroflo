@@ -69,6 +69,11 @@ enum SentimentStatus {
   CHURNED
 }
 
+enum ClientStatus {
+  ACTIVE
+  CHURNED
+}
+
 enum InvoiceStatus {
   PENDING
   SENT
@@ -369,6 +374,7 @@ model Client {
   website             String?
   notes               String?
   sow                 String?
+  status              ClientStatus    @default(ACTIVE)
   sentimentStatus     SentimentStatus @default(NEUTRAL)
   avgBillingAmount    Float?
   decidedCommercials  String?

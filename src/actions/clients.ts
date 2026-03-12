@@ -15,6 +15,7 @@ const clientSchema = z.object({
   website: z.string().optional(),
   notes: z.string().optional(),
   sow: z.string().optional(),
+  status: z.enum(["ACTIVE", "CHURNED"]).optional(),
   sentimentStatus: z.enum(["HAPPY", "NEUTRAL", "AT_RISK", "CHURNED"]).optional(),
   avgBillingAmount: z.number().optional().nullable(),
   decidedCommercials: z.string().optional(),

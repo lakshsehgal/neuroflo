@@ -170,3 +170,18 @@ export async function deleteTicket(id: string): Promise<ActionResponse> {
   revalidatePath("/tickets");
   return { success: true };
 }
+
+export async function getTicketWorkloadData() {
+  await requireAuth();
+
+  return db.ticket.findMany({
+    where: { status: { notIn: ["APPROVED"] } },
+    select: {
+      id: true,
+      status: true,
+      dueDate: true,
+      assigneeId: true,
+      assignee: { select: { id: true, name: true, avatar: true } },
+    },
+  });
+}

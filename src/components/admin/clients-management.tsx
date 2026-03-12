@@ -33,7 +33,7 @@ import {
 import { formatDate } from "@/lib/utils";
 import {
   Plus,
-  DollarSign,
+  IndianRupee,
   TrendingUp,
   Bell,
   Smile,
@@ -58,6 +58,11 @@ const invoiceStatusColors: Record<string, string> = {
   CANCELLED: "bg-gray-100 text-gray-800",
 };
 
+const clientStatusConfig: Record<string, { label: string; color: string }> = {
+  ACTIVE: { label: "Active", color: "bg-green-100 text-green-800" },
+  CHURNED: { label: "Churned", color: "bg-red-100 text-red-800" },
+};
+
 type ClientData = {
   id: string;
   name: string;
@@ -65,6 +70,7 @@ type ClientData = {
   contactName: string | null;
   contactEmail: string | null;
   sow: string | null;
+  status: string;
   sentimentStatus: string;
   avgBillingAmount: number | null;
   decidedCommercials: string | null;
@@ -97,7 +103,7 @@ export function ClientsManagement({ clients, reminders, thisMonthRevenue, nextMo
   // Form state
   const [form, setForm] = useState({
     name: "", industry: "", contactName: "", contactEmail: "", contactPhone: "",
-    website: "", notes: "", sow: "", sentimentStatus: "NEUTRAL",
+    website: "", notes: "", sow: "", status: "ACTIVE", sentimentStatus: "NEUTRAL",
     avgBillingAmount: "", decidedCommercials: "", invoicingDueDay: "", reminderDaysBefore: "3",
   });
 
@@ -113,6 +119,7 @@ export function ClientsManagement({ clients, reminders, thisMonthRevenue, nextMo
         website: form.website || undefined,
         notes: form.notes || undefined,
         sow: form.sow || undefined,
+        status: form.status as "ACTIVE" | "CHURNED",
         sentimentStatus: form.sentimentStatus as "HAPPY" | "NEUTRAL" | "AT_RISK" | "CHURNED",
         avgBillingAmount: form.avgBillingAmount ? parseFloat(form.avgBillingAmount) : null,
         decidedCommercials: form.decidedCommercials || undefined,
@@ -123,7 +130,7 @@ export function ClientsManagement({ clients, reminders, thisMonthRevenue, nextMo
         setDialogOpen(false);
         setForm({
           name: "", industry: "", contactName: "", contactEmail: "", contactPhone: "",
-          website: "", notes: "", sow: "", sentimentStatus: "NEUTRAL",
+          website: "", notes: "", sow: "", status: "ACTIVE", sentimentStatus: "NEUTRAL",
           avgBillingAmount: "", decidedCommercials: "", invoicingDueDay: "", reminderDaysBefore: "3",
         });
       }
@@ -138,7 +145,7 @@ export function ClientsManagement({ clients, reminders, thisMonthRevenue, nextMo
   }
 
   const fmt = (n: number) =>
-    new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
+    new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n);
 
   return (
     <PageTransition>
@@ -179,6 +186,16 @@ export function ClientsManagement({ clients, reminders, thisMonthRevenue, nextMo
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
+                    <Label>Client Status</Label>
+                    <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ACTIVE">Active</SelectItem>
+                        <SelectItem value="CHURNED">Churned</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
                     <Label>Sentiment</Label>
                     <Select value={form.sentimentStatus} onValueChange={(v) => setForm({ ...form, sentimentStatus: v })}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
@@ -190,10 +207,10 @@ export function ClientsManagement({ clients, reminders, thisMonthRevenue, nextMo
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Avg Monthly Billing</Label>
-                    <Input type="number" value={form.avgBillingAmount} onChange={(e) => setForm({ ...form, avgBillingAmount: e.target.value })} placeholder="$" />
-                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Avg Monthly Billing</Label>
+                  <Input type="number" value={form.avgBillingAmount} onChange={(e) => setForm({ ...form, avgBillingAmount: e.target.value })} placeholder="Amount in INR" />
                 </div>
                 <div className="space-y-2">
                   <Label>Decided Commercials</Label>
@@ -222,7 +239,7 @@ export function ClientsManagement({ clients, reminders, thisMonthRevenue, nextMo
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-2">
-                <DollarSign className="h-4 w-4 text-green-600" />
+                <IndianRupee className="h-4 w-4 text-green-600" />
                 <p className="text-xs font-medium text-muted-foreground">This Month (Est.)</p>
               </div>
               <p className="mt-2 text-2xl font-bold">{fmt(thisMonthRevenue)}</p>
@@ -290,6 +307,7 @@ export function ClientsManagement({ clients, reminders, thisMonthRevenue, nextMo
             <thead>
               <tr className="border-b bg-muted/50">
                 <th className="px-4 py-3 text-left text-xs font-medium">Client</th>
+                <th className="px-3 py-3 text-left text-xs font-medium">Status</th>
                 <th className="px-3 py-3 text-left text-xs font-medium">Sentiment</th>
                 <th className="px-3 py-3 text-left text-xs font-medium">SOW</th>
                 <th className="px-3 py-3 text-left text-xs font-medium">Avg Billing</th>
@@ -308,6 +326,11 @@ export function ClientsManagement({ clients, reminders, thisMonthRevenue, nextMo
                     <td className="px-4 py-3">
                       <p className="text-sm font-medium">{client.name}</p>
                       {client.contactName && <p className="text-[10px] text-muted-foreground">{client.contactName}</p>}
+                    </td>
+                    <td className="px-3 py-3">
+                      <Badge className={`${clientStatusConfig[client.status]?.color || ""} text-[10px]`} variant="secondary">
+                        {clientStatusConfig[client.status]?.label || client.status}
+                      </Badge>
                     </td>
                     <td className="px-3 py-3">
                       <Badge className={`${sentiment.color} text-[10px] gap-1`} variant="secondary">

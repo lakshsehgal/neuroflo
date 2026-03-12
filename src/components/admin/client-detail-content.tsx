@@ -30,6 +30,11 @@ import type { getClient } from "@/actions/clients";
 
 type ClientData = NonNullable<Awaited<ReturnType<typeof getClient>>>;
 
+const clientStatusOptions = [
+  { value: "ACTIVE", label: "Active", color: "bg-green-100 text-green-800" },
+  { value: "CHURNED", label: "Churned", color: "bg-red-100 text-red-800" },
+];
+
 const sentimentOptions = [
   { value: "HAPPY", label: "Happy", color: "bg-green-100 text-green-800" },
   { value: "NEUTRAL", label: "Neutral", color: "bg-gray-100 text-gray-800" },
@@ -54,6 +59,7 @@ export function ClientDetailContent({ client: initial }: { client: ClientData })
   // Edit form
   const [form, setForm] = useState({
     sow: client.sow || "",
+    status: client.status,
     sentimentStatus: client.sentimentStatus,
     avgBillingAmount: client.avgBillingAmount?.toString() || "",
     decidedCommercials: client.decidedCommercials || "",
@@ -72,6 +78,7 @@ export function ClientDetailContent({ client: initial }: { client: ClientData })
       await updateClient(client.id, {
         name: client.name,
         sow: form.sow || undefined,
+        status: form.status as "ACTIVE" | "CHURNED",
         sentimentStatus: form.sentimentStatus as "HAPPY" | "NEUTRAL" | "AT_RISK" | "CHURNED",
         avgBillingAmount: form.avgBillingAmount ? parseFloat(form.avgBillingAmount) : null,
         decidedCommercials: form.decidedCommercials || undefined,
@@ -107,7 +114,7 @@ export function ClientDetailContent({ client: initial }: { client: ClientData })
   }
 
   const fmt = (n: number) =>
-    new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
+    new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n);
 
   const totalPaid = client.invoices.filter((i) => i.status === "PAID").reduce((s, i) => s + i.amount, 0);
   const totalPending = client.invoices.filter((i) => ["PENDING", "SENT", "OVERDUE"].includes(i.status)).reduce((s, i) => s + i.amount, 0);
@@ -140,7 +147,18 @@ export function ClientDetailContent({ client: initial }: { client: ClientData })
                     <Label>SOW (Scope of Work)</Label>
                     <Textarea value={form.sow} onChange={(e) => setForm({ ...form, sow: e.target.value })} rows={3} />
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="space-y-2">
+                      <Label>Status</Label>
+                      <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {clientStatusOptions.map((s) => (
+                            <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                     <div className="space-y-2">
                       <Label>Sentiment</Label>
                       <Select value={form.sentimentStatus} onValueChange={(v) => setForm({ ...form, sentimentStatus: v as ClientData["sentimentStatus"] })}>
@@ -180,6 +198,12 @@ export function ClientDetailContent({ client: initial }: { client: ClientData })
               ) : (
                 <div className="grid grid-cols-2 gap-4">
                   <div>
+                    <p className="text-xs text-muted-foreground">Status</p>
+                    <Badge className={`mt-1 ${clientStatusOptions.find((s) => s.value === client.status)?.color || ""}`} variant="secondary">
+                      {clientStatusOptions.find((s) => s.value === client.status)?.label || client.status}
+                    </Badge>
+                  </div>
+                  <div>
                     <p className="text-xs text-muted-foreground">Sentiment</p>
                     <Badge className={`mt-1 ${sentimentOptions.find((s) => s.value === client.sentimentStatus)?.color || ""}`} variant="secondary">
                       {sentimentOptions.find((s) => s.value === client.sentimentStatus)?.label}
@@ -187,7 +211,7 @@ export function ClientDetailContent({ client: initial }: { client: ClientData })
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Avg Monthly Billing</p>
-                    <p className="mt-1 text-sm font-medium">{client.avgBillingAmount ? fmt(client.avgBillingAmount) : "—"}</p>
+                    <p className="mt-1 text-sm font-medium">{client.avgBillingAmount ? fmt(client.avgBillingAmount) : "\u2014"}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Decided Commercials</p>
