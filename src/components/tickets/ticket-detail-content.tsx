@@ -296,7 +296,7 @@ export function TicketDetailContent({
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-medium text-muted-foreground">Creative Brief</p>
                     <a
-                      href={ticket.creativeBriefUrl}
+                      href={ticket.creativeBriefUrl.startsWith("http") ? ticket.creativeBriefUrl : `https://${ticket.creativeBriefUrl}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-sm font-medium text-primary hover:underline truncate block"
@@ -341,7 +341,7 @@ export function TicketDetailContent({
                       <p className="text-xs font-medium text-muted-foreground">Delivery</p>
                       {ticket.deliveryLink ? (
                         <a
-                          href={ticket.deliveryLink}
+                          href={ticket.deliveryLink.startsWith("http") ? ticket.deliveryLink : `https://${ticket.deliveryLink}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-sm font-medium text-primary hover:underline truncate block"

@@ -707,7 +707,7 @@ function TableView({
                         </span>
                       )}
                       {ticket.deliveryLink && (
-                        <a href={ticket.deliveryLink} target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80" onClick={(e) => e.stopPropagation()} title="View delivery">
+                        <a href={ticket.deliveryLink.startsWith("http") ? ticket.deliveryLink : `https://${ticket.deliveryLink}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80" onClick={(e) => e.stopPropagation()} title="View delivery">
                           <ExternalLink className="h-3.5 w-3.5" />
                         </a>
                       )}
