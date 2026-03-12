@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { login } from "@/actions/auth";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,6 +19,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -26,12 +27,19 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const result = await login(email, password);
-      if (result?.error) {
-        setError(result.error);
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Invalid email or password");
         setLoading(false);
+        return;
       }
-      // If no error, the server action redirects to /dashboard
+      router.push("/dashboard");
+      router.refresh();
     } catch {
       setError("Something went wrong. Please try again.");
       setLoading(false);
