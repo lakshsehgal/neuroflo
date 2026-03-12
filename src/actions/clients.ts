@@ -18,6 +18,7 @@ const clientSchema = z.object({
   status: z.enum(["ACTIVE", "CHURNED"]).optional(),
   sentimentStatus: z.enum(["HAPPY", "NEUTRAL", "AT_RISK", "CHURNED"]).optional(),
   avgBillingAmount: z.number().optional().nullable(),
+  oneTimeProjectAmount: z.number().optional().nullable(),
   decidedCommercials: z.string().optional(),
   invoicingDueDay: z.number().optional().nullable(),
   reminderDaysBefore: z.number().optional(),
@@ -47,6 +48,31 @@ export async function updateClient(
   if (!parsed.success) return { success: false, error: "Invalid input" };
 
   await db.client.update({ where: { id }, data: parsed.data });
+
+  revalidatePath("/admin/clients");
+  revalidatePath(`/admin/clients/${id}`);
+  return { success: true };
+}
+
+// Partial update for inline editing from the list
+export async function updateClientField(
+  id: string,
+  field: string,
+  value: string | number | null
+): Promise<ActionResponse> {
+  await requireRole("ADMIN");
+
+  const allowedFields = [
+    "status", "sentimentStatus", "avgBillingAmount", "oneTimeProjectAmount",
+    "decidedCommercials", "invoicingDueDay", "reminderDaysBefore",
+    "sow", "notes", "contactName", "contactEmail", "contactPhone",
+    "website", "industry", "name",
+  ];
+  if (!allowedFields.includes(field)) {
+    return { success: false, error: "Invalid field" };
+  }
+
+  await db.client.update({ where: { id }, data: { [field]: value } });
 
   revalidatePath("/admin/clients");
   revalidatePath(`/admin/clients/${id}`);
@@ -147,6 +173,7 @@ export async function getRevenueForecasting() {
       id: true,
       name: true,
       avgBillingAmount: true,
+      oneTimeProjectAmount: true,
       invoicingDueDay: true,
       invoices: {
         where: {
@@ -159,6 +186,45 @@ export async function getRevenueForecasting() {
   });
 
   return clients;
+}
+
+// Dashboard analytics
+export async function getClientDashboardData() {
+  await requireRole("ADMIN");
+
+  // All invoices for chart data (last 12 months)
+  const twelveMonthsAgo = new Date();
+  twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 11);
+  twelveMonthsAgo.setDate(1);
+
+  const [allInvoices, clients] = await Promise.all([
+    db.invoice.findMany({
+      where: { dueDate: { gte: twelveMonthsAgo } },
+      select: {
+        id: true,
+        amount: true,
+        status: true,
+        dueDate: true,
+        paidDate: true,
+        clientId: true,
+        client: { select: { name: true } },
+      },
+      orderBy: { dueDate: "asc" },
+    }),
+    db.client.findMany({
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        sentimentStatus: true,
+        avgBillingAmount: true,
+        oneTimeProjectAmount: true,
+        _count: { select: { invoices: true, projects: true } },
+      },
+    }),
+  ]);
+
+  return { allInvoices, clients };
 }
 
 // Get upcoming invoice reminders

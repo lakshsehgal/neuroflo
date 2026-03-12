@@ -376,9 +376,10 @@ model Client {
   sow                 String?
   status              ClientStatus    @default(ACTIVE)
   sentimentStatus     SentimentStatus @default(NEUTRAL)
-  avgBillingAmount    Float?
-  decidedCommercials  String?
-  invoicingDueDay     Int?
+  avgBillingAmount       Float?
+  oneTimeProjectAmount   Float?
+  decidedCommercials     String?
+  invoicingDueDay        Int?
   reminderDaysBefore  Int             @default(3)
   createdAt           DateTime        @default(now())
   updatedAt           DateTime        @updatedAt

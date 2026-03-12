@@ -62,6 +62,7 @@ export function ClientDetailContent({ client: initial }: { client: ClientData })
     status: client.status,
     sentimentStatus: client.sentimentStatus,
     avgBillingAmount: client.avgBillingAmount?.toString() || "",
+    oneTimeProjectAmount: client.oneTimeProjectAmount?.toString() || "",
     decidedCommercials: client.decidedCommercials || "",
     invoicingDueDay: client.invoicingDueDay?.toString() || "",
     reminderDaysBefore: client.reminderDaysBefore.toString(),
@@ -81,6 +82,7 @@ export function ClientDetailContent({ client: initial }: { client: ClientData })
         status: form.status as "ACTIVE" | "CHURNED",
         sentimentStatus: form.sentimentStatus as "HAPPY" | "NEUTRAL" | "AT_RISK" | "CHURNED",
         avgBillingAmount: form.avgBillingAmount ? parseFloat(form.avgBillingAmount) : null,
+        oneTimeProjectAmount: form.oneTimeProjectAmount ? parseFloat(form.oneTimeProjectAmount) : null,
         decidedCommercials: form.decidedCommercials || undefined,
         invoicingDueDay: form.invoicingDueDay ? parseInt(form.invoicingDueDay) : null,
         reminderDaysBefore: parseInt(form.reminderDaysBefore) || 3,
@@ -175,9 +177,15 @@ export function ClientDetailContent({ client: initial }: { client: ClientData })
                       <Input type="number" value={form.avgBillingAmount} onChange={(e) => setForm({ ...form, avgBillingAmount: e.target.value })} />
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Decided Commercials</Label>
-                    <Input value={form.decidedCommercials} onChange={(e) => setForm({ ...form, decidedCommercials: e.target.value })} />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label>One-Time Project Amount</Label>
+                      <Input type="number" value={form.oneTimeProjectAmount} onChange={(e) => setForm({ ...form, oneTimeProjectAmount: e.target.value })} placeholder="For creative one-time projects" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Decided Commercials</Label>
+                      <Input value={form.decidedCommercials} onChange={(e) => setForm({ ...form, decidedCommercials: e.target.value })} />
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2">
@@ -212,6 +220,10 @@ export function ClientDetailContent({ client: initial }: { client: ClientData })
                   <div>
                     <p className="text-xs text-muted-foreground">Avg Monthly Billing</p>
                     <p className="mt-1 text-sm font-medium">{client.avgBillingAmount ? fmt(client.avgBillingAmount) : "\u2014"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">One-Time Project</p>
+                    <p className="mt-1 text-sm font-medium">{client.oneTimeProjectAmount ? fmt(client.oneTimeProjectAmount) : "\u2014"}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Decided Commercials</p>
