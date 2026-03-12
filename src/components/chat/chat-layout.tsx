@@ -96,6 +96,7 @@ export function ChatLayout({
             isMember={activeChannel.isMember}
             currentUserId={currentUserId}
             currentUserName={currentUserName}
+            availableUsers={availableUsers}
             onJoin={() => handleChannelJoined(activeChannel.id)}
             onLeave={() => handleChannelLeft(activeChannel.id)}
             onToggleMembers={() => setShowMembers(!showMembers)}

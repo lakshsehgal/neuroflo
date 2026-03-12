@@ -1,10 +1,16 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { getMessages, sendMessage, getNewMessages, joinChannel, leaveChannel } from "@/actions/chat";
+import {
+  getMessages,
+  sendMessage,
+  getNewMessages,
+  joinChannel,
+  leaveChannel,
+  getChatUploadUrl,
+} from "@/actions/chat";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Hash,
   Lock,
@@ -13,13 +19,23 @@ import {
   LogOut,
   LogIn,
   Loader2,
+  Paperclip,
+  FileText,
+  Image as ImageIcon,
+  File,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { AvailableUser } from "./chat-layout";
 
 interface MessageData {
   id: string;
   content: string;
   createdAt: Date;
+  fileName?: string | null;
+  fileUrl?: string | null;
+  fileType?: string | null;
+  fileSize?: number | null;
   author: {
     id: string;
     name: string;
@@ -35,6 +51,7 @@ interface MessageAreaProps {
   isMember: boolean;
   currentUserId: string;
   currentUserName: string;
+  availableUsers: AvailableUser[];
   onJoin: () => void;
   onLeave: () => void;
   onToggleMembers: () => void;
@@ -48,6 +65,7 @@ export function MessageArea({
   isMember,
   currentUserId,
   currentUserName,
+  availableUsers,
   onJoin,
   onLeave,
   onToggleMembers,
@@ -56,8 +74,21 @@ export function MessageArea({
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [pendingFile, setPendingFile] = useState<{
+    file: globalThis.File;
+    url: string;
+    name: string;
+    type: string;
+    size: number;
+  } | null>(null);
+  const [showMentions, setShowMentions] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState("");
+  const [mentionIndex, setMentionIndex] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const scrollToBottom = useCallback(() => {
@@ -111,19 +142,132 @@ export function MessageArea({
     };
   }, [channelId, messages, scrollToBottom]);
 
-  async function handleSend(e: React.FormEvent) {
-    e.preventDefault();
+  // Mention filtering
+  const mentionUsers = availableUsers.filter(
+    (u) =>
+      u.id !== currentUserId &&
+      u.name.toLowerCase().includes(mentionQuery.toLowerCase())
+  );
+
+  function handleInputChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    const val = e.target.value;
+    setInput(val);
+
+    // Check for @ mention trigger
+    const cursorPos = e.target.selectionStart;
+    const textBeforeCursor = val.slice(0, cursorPos);
+    const atMatch = textBeforeCursor.match(/@(\w*)$/);
+
+    if (atMatch) {
+      setShowMentions(true);
+      setMentionQuery(atMatch[1]);
+      setMentionIndex(0);
+    } else {
+      setShowMentions(false);
+    }
+  }
+
+  function insertMention(user: AvailableUser) {
+    const textarea = inputRef.current;
+    if (!textarea) return;
+
+    const cursorPos = textarea.selectionStart;
+    const textBeforeCursor = input.slice(0, cursorPos);
+    const textAfterCursor = input.slice(cursorPos);
+    const atMatch = textBeforeCursor.match(/@(\w*)$/);
+
+    if (atMatch) {
+      const beforeAt = textBeforeCursor.slice(0, atMatch.index);
+      const newText = `${beforeAt}@${user.name} ${textAfterCursor}`;
+      setInput(newText);
+      setShowMentions(false);
+
+      setTimeout(() => {
+        const newPos = (beforeAt + `@${user.name} `).length;
+        textarea.focus();
+        textarea.setSelectionRange(newPos, newPos);
+      }, 0);
+    }
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (showMentions && mentionUsers.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setMentionIndex((prev) => Math.min(prev + 1, mentionUsers.length - 1));
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setMentionIndex((prev) => Math.max(prev - 1, 0));
+      } else if (e.key === "Tab" || e.key === "Enter") {
+        e.preventDefault();
+        insertMention(mentionUsers[mentionIndex]);
+        return;
+      } else if (e.key === "Escape") {
+        setShowMentions(false);
+        return;
+      }
+    }
+
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  }
+
+  async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 25 * 1024 * 1024) {
+      alert("File size must be under 25MB");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const result = await getChatUploadUrl(channelId, file.name, file.type);
+      if (result.success && result.data) {
+        // Upload to S3
+        await fetch(result.data.uploadUrl, {
+          method: "PUT",
+          body: file,
+          headers: { "Content-Type": file.type },
+        });
+
+        setPendingFile({
+          file,
+          url: result.data.fileUrl,
+          name: file.name,
+          type: file.type,
+          size: file.size,
+        });
+      }
+    } catch {
+      alert("Failed to upload file");
+    }
+    setUploading(false);
+
+    // Reset file input
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  async function handleSend() {
     const content = input.trim();
-    if (!content || sending) return;
+    if ((!content && !pendingFile) || sending) return;
 
     setSending(true);
     setInput("");
+    setShowMentions(false);
 
     // Optimistic update
     const optimisticMsg: MessageData = {
       id: `temp-${Date.now()}`,
       content,
       createdAt: new Date(),
+      fileName: pendingFile?.name,
+      fileUrl: pendingFile?.url,
+      fileType: pendingFile?.type,
+      fileSize: pendingFile?.size,
       author: {
         id: currentUserId,
         name: currentUserName,
@@ -133,15 +277,23 @@ export function MessageArea({
     setMessages((prev) => [...prev, optimisticMsg]);
     setTimeout(scrollToBottom, 50);
 
-    const result = await sendMessage({ channelId, content });
+    const result = await sendMessage({
+      channelId,
+      content,
+      fileName: pendingFile?.name,
+      fileUrl: pendingFile?.url,
+      fileType: pendingFile?.type,
+      fileSize: pendingFile?.size,
+    });
+
     if (result.success && result.data) {
-      // Replace optimistic message with real one
       setMessages((prev) =>
         prev.map((m) =>
           m.id === optimisticMsg.id ? { ...m, id: result.data!.id } : m
         )
       );
     }
+    setPendingFile(null);
     setSending(false);
   }
 
@@ -243,25 +395,106 @@ export function MessageArea({
 
       {/* Input */}
       {isMember || channelType === "PUBLIC" ? (
-        <form onSubmit={handleSend} className="border-t px-4 py-3">
-          <div className="flex gap-2">
-            <Input
-              placeholder={`Message #${channelName}`}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              className="flex-1"
-              autoFocus
-            />
-            <Button
-              type="submit"
-              size="icon"
-              disabled={!input.trim() || sending}
-              className="shrink-0"
-            >
-              <Send className="h-4 w-4" />
-            </Button>
+        <div className="border-t px-4 py-3">
+          {/* Pending file preview */}
+          {pendingFile && (
+            <div className="mb-2 flex items-center gap-2 rounded-md border bg-muted/50 px-3 py-2 text-sm">
+              <FileIcon type={pendingFile.type} />
+              <span className="truncate flex-1">{pendingFile.name}</span>
+              <span className="text-xs text-muted-foreground">
+                {formatFileSize(pendingFile.size)}
+              </span>
+              <button
+                onClick={() => setPendingFile(null)}
+                className="rounded-full p-0.5 hover:bg-muted"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+
+          <div className="relative">
+            {/* Mention dropdown */}
+            {showMentions && mentionUsers.length > 0 && (
+              <div className="absolute bottom-full left-0 mb-1 w-64 rounded-md border bg-popover shadow-lg z-10">
+                {mentionUsers.slice(0, 6).map((user, idx) => (
+                  <button
+                    key={user.id}
+                    onClick={() => insertMention(user)}
+                    className={cn(
+                      "flex w-full items-center gap-2 px-3 py-1.5 text-sm transition-colors",
+                      idx === mentionIndex
+                        ? "bg-accent text-accent-foreground"
+                        : "hover:bg-muted/50"
+                    )}
+                  >
+                    <Avatar className="h-5 w-5">
+                      {user.avatar && <AvatarImage src={user.avatar} />}
+                      <AvatarFallback className="text-[8px]">
+                        {user.name[0]}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="font-medium">{user.name}</span>
+                    <span className="text-xs text-muted-foreground ml-auto">
+                      {user.email}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div className="flex gap-2 items-end">
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                onChange={handleFileSelect}
+                accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.txt,.csv"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 shrink-0"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+              >
+                {uploading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Paperclip className="h-4 w-4" />
+                )}
+              </Button>
+              <textarea
+                ref={inputRef}
+                placeholder={`Message #${channelName} — type @ to mention`}
+                value={input}
+                onChange={handleInputChange}
+                onKeyDown={handleKeyDown}
+                rows={1}
+                className="flex-1 resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring max-h-32 min-h-9"
+                style={{
+                  height: "auto",
+                  minHeight: "36px",
+                }}
+                onInput={(e) => {
+                  const target = e.target as HTMLTextAreaElement;
+                  target.style.height = "auto";
+                  target.style.height = Math.min(target.scrollHeight, 128) + "px";
+                }}
+              />
+              <Button
+                type="button"
+                size="icon"
+                disabled={(!input.trim() && !pendingFile) || sending}
+                className="shrink-0 h-9 w-9"
+                onClick={handleSend}
+              >
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
-        </form>
+        </div>
       ) : (
         <div className="border-t px-4 py-3 text-center text-sm text-muted-foreground">
           You must be a member to send messages in this channel.
@@ -270,6 +503,127 @@ export function MessageArea({
     </>
   );
 }
+
+// ─── Render message content with @mentions and links ────
+
+function RenderContent({ text }: { text: string }) {
+  if (!text) return null;
+
+  // Split on @mentions and URLs
+  // URL pattern
+  const urlRegex = /(https?:\/\/[^\s<]+[^\s<.,:;"')\]!?])/g;
+  // @mention pattern
+  const mentionRegex = /(@[\w\s]+?)(?=\s@|\s[^@]|$)/g;
+
+  // Combined regex that matches either
+  const combinedRegex = /(https?:\/\/[^\s<]+[^\s<.,:;"')\]!?])|(@\w[\w\s]*?\w(?=\s|$))/g;
+
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match;
+
+  const combined = new RegExp(combinedRegex);
+  while ((match = combined.exec(text)) !== null) {
+    // Add text before match
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index));
+    }
+
+    if (match[1]) {
+      // URL match
+      const url = match[1];
+      parts.push(
+        <a
+          key={`link-${match.index}`}
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary underline underline-offset-2 hover:text-primary/80 break-all"
+        >
+          {url}
+        </a>
+      );
+    } else if (match[2]) {
+      // @mention match
+      parts.push(
+        <span
+          key={`mention-${match.index}`}
+          className="rounded bg-primary/10 px-1 py-0.5 text-primary font-medium"
+        >
+          {match[2]}
+        </span>
+      );
+    }
+
+    lastIndex = match.index + match[0].length;
+  }
+
+  // Add remaining text
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+
+  return <>{parts.length > 0 ? parts : text}</>;
+}
+
+// ─── File attachment display ────────────────────────────
+
+function FileAttachment({
+  fileName,
+  fileUrl,
+  fileType,
+  fileSize,
+}: {
+  fileName: string;
+  fileUrl: string;
+  fileType?: string | null;
+  fileSize?: number | null;
+}) {
+  const isImage = fileType?.startsWith("image/");
+
+  if (isImage) {
+    return (
+      <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="block mt-1.5">
+        <img
+          src={fileUrl}
+          alt={fileName}
+          className="max-w-xs max-h-64 rounded-md border object-cover hover:opacity-90 transition-opacity"
+        />
+      </a>
+    );
+  }
+
+  return (
+    <a
+      href={fileUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="mt-1.5 flex items-center gap-2 rounded-md border bg-muted/50 px-3 py-2 text-sm hover:bg-muted/80 transition-colors max-w-xs"
+    >
+      <FileIcon type={fileType || ""} />
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-medium">{fileName}</p>
+        {fileSize && (
+          <p className="text-xs text-muted-foreground">{formatFileSize(fileSize)}</p>
+        )}
+      </div>
+    </a>
+  );
+}
+
+function FileIcon({ type }: { type: string }) {
+  if (type.startsWith("image/")) return <ImageIcon className="h-4 w-4 text-green-500 shrink-0" />;
+  if (type.includes("pdf")) return <FileText className="h-4 w-4 text-red-500 shrink-0" />;
+  return <File className="h-4 w-4 text-blue-500 shrink-0" />;
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+// ─── Message bubble ─────────────────────────────────────
 
 function MessageBubble({
   message,
@@ -298,15 +652,30 @@ function MessageBubble({
         <span className="invisible group-hover:visible text-[10px] text-muted-foreground min-w-[3rem] text-right pt-0.5">
           {timeStr}
         </span>
-        <p className="text-sm leading-relaxed whitespace-pre-wrap break-words min-w-0">
-          {message.content}
-        </p>
+        <div className="min-w-0">
+          <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
+            <RenderContent text={message.content} />
+          </p>
+          {message.fileUrl && message.fileName && (
+            <FileAttachment
+              fileName={message.fileName}
+              fileUrl={message.fileUrl}
+              fileType={message.fileType}
+              fileSize={message.fileSize}
+            />
+          )}
+        </div>
       </div>
     );
   }
 
   return (
-    <div className={cn("group flex items-start gap-3 py-2 hover:bg-muted/50 rounded px-1", !isConsecutive && "mt-2")}>
+    <div
+      className={cn(
+        "group flex items-start gap-3 py-2 hover:bg-muted/50 rounded px-1",
+        !isConsecutive && "mt-2"
+      )}
+    >
       <Avatar className="h-8 w-8 mt-0.5 shrink-0">
         {message.author.avatar && (
           <AvatarImage src={message.author.avatar} alt={message.author.name} />
@@ -316,18 +685,23 @@ function MessageBubble({
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-2">
           <span
-            className={cn(
-              "text-sm font-semibold",
-              isOwn && "text-primary"
-            )}
+            className={cn("text-sm font-semibold", isOwn && "text-primary")}
           >
             {message.author.name}
           </span>
           <span className="text-[10px] text-muted-foreground">{timeStr}</span>
         </div>
         <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
-          {message.content}
+          <RenderContent text={message.content} />
         </p>
+        {message.fileUrl && message.fileName && (
+          <FileAttachment
+            fileName={message.fileName}
+            fileUrl={message.fileUrl}
+            fileType={message.fileType}
+            fileSize={message.fileSize}
+          />
+        )}
       </div>
     </div>
   );

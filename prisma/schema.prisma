@@ -506,6 +506,10 @@ model Message {
   channel   Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
   authorId  String
   author    User     @relation(fields: [authorId], references: [id])
+  fileName  String?
+  fileUrl   String?
+  fileType  String?
+  fileSize  Int?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

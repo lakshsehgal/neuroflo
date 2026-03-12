@@ -347,6 +347,12 @@ export function TicketsContent({ tickets: initialTickets, users, clients, worklo
                 Workload
               </button>
             </div>
+            <Link href="/tickets/dashboard">
+              <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
+                <BarChart3 className="h-3.5 w-3.5" />
+                Dashboard
+              </Button>
+            </Link>
           </div>
           <div className="flex items-center gap-1.5">
             <div className="relative">

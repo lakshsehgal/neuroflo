@@ -5,6 +5,7 @@ import { requireAuth } from "@/lib/permissions";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import type { ActionResponse } from "@/types";
+import { generateUploadUrl } from "@/lib/s3";
 
 // ─── Schemas ────────────────────────────────────────────
 
@@ -17,7 +18,11 @@ const createChannelSchema = z.object({
 
 const sendMessageSchema = z.object({
   channelId: z.string().min(1),
-  content: z.string().min(1).max(4000),
+  content: z.string().max(4000),
+  fileName: z.string().optional(),
+  fileUrl: z.string().optional(),
+  fileType: z.string().optional(),
+  fileSize: z.number().optional(),
 });
 
 // ─── Channels ───────────────────────────────────────────
@@ -25,7 +30,6 @@ const sendMessageSchema = z.object({
 export async function getChannels() {
   const user = await requireAuth();
 
-  // Get all public channels + private channels the user is a member of
   const channels = await db.channel.findMany({
     where: {
       OR: [
@@ -59,7 +63,6 @@ export async function getChannel(channelId: string) {
 
   if (!channel) return null;
 
-  // For private channels, check membership
   if (channel.type === "PRIVATE") {
     const isMember = channel.members.some((m) => m.userId === user.id);
     if (!isMember) return null;
@@ -78,11 +81,9 @@ export async function createChannel(
 
   const { name, description, type, memberIds } = parsed.data;
 
-  // Slugify name for consistency
   const slug = name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
   if (!slug) return { success: false, error: "Invalid channel name" };
 
-  // Check if channel name already exists
   const existing = await db.channel.findFirst({
     where: { name: { equals: name, mode: "insensitive" } },
   });
@@ -112,11 +113,9 @@ export async function createChannel(
 export async function ensureGeneralChannel(): Promise<string> {
   const user = await requireAuth();
 
-  // Check if general channel exists
   let general = await db.channel.findFirst({ where: { isGeneral: true } });
 
   if (!general) {
-    // Create the general channel with all active users
     const allUsers = await db.user.findMany({
       where: { isActive: true },
       select: { id: true },
@@ -138,7 +137,6 @@ export async function ensureGeneralChannel(): Promise<string> {
       },
     });
   } else {
-    // Auto-join current user if not already a member
     const membership = await db.channelMember.findUnique({
       where: { channelId_userId: { channelId: general.id, userId: user.id } },
     });
@@ -157,7 +155,6 @@ export async function ensureGeneralChannel(): Promise<string> {
 export async function getMessages(channelId: string, cursor?: string) {
   const user = await requireAuth();
 
-  // Verify access
   const channel = await db.channel.findUnique({
     where: { id: channelId },
     select: { type: true, members: { where: { userId: user.id } } },
@@ -192,9 +189,10 @@ export async function sendMessage(
   const parsed = sendMessageSchema.safeParse(input);
   if (!parsed.success) return { success: false, error: "Invalid input" };
 
-  const { channelId, content } = parsed.data;
+  const { channelId, content, fileName, fileUrl, fileType, fileSize } = parsed.data;
 
-  // Verify access
+  if (!content && !fileUrl) return { success: false, error: "Message cannot be empty" };
+
   const channel = await db.channel.findUnique({
     where: { id: channelId },
     select: { type: true, members: { where: { userId: user.id } } },
@@ -204,7 +202,6 @@ export async function sendMessage(
     return { success: false, error: "Not a member of this channel" };
   }
 
-  // Auto-join public channels on first message
   if (channel.type === "PUBLIC" && channel.members.length === 0) {
     await db.channelMember.create({
       data: { channelId, userId: user.id },
@@ -213,9 +210,13 @@ export async function sendMessage(
 
   const message = await db.message.create({
     data: {
-      content,
+      content: content || "",
       channelId,
       authorId: user.id,
+      fileName,
+      fileUrl,
+      fileType,
+      fileSize,
     },
   });
 
@@ -225,7 +226,6 @@ export async function sendMessage(
 export async function getNewMessages(channelId: string, afterId: string) {
   const user = await requireAuth();
 
-  // Verify access
   const channel = await db.channel.findUnique({
     where: { id: channelId },
     select: { type: true, members: { where: { userId: user.id } } },
@@ -233,7 +233,6 @@ export async function getNewMessages(channelId: string, afterId: string) {
   if (!channel) return [];
   if (channel.type === "PRIVATE" && channel.members.length === 0) return [];
 
-  // Get the timestamp of the reference message
   const refMessage = await db.message.findUnique({
     where: { id: afterId },
     select: { createdAt: true },
@@ -253,6 +252,26 @@ export async function getNewMessages(channelId: string, afterId: string) {
   });
 
   return messages;
+}
+
+// ─── File Upload ────────────────────────────────────────
+
+export async function getChatUploadUrl(
+  channelId: string,
+  fileName: string,
+  contentType: string
+): Promise<ActionResponse<{ uploadUrl: string; fileUrl: string }>> {
+  const user = await requireAuth();
+
+  const key = `chat/${channelId}/${user.id}/${Date.now()}-${fileName}`;
+
+  try {
+    const uploadUrl = await generateUploadUrl(key, contentType);
+    const fileUrl = `https://${process.env.AWS_S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
+    return { success: true, data: { uploadUrl, fileUrl } };
+  } catch {
+    return { success: false, error: "Failed to generate upload URL" };
+  }
 }
 
 // ─── Members ────────────────────────────────────────────
@@ -301,12 +320,10 @@ export async function addMembersToChannel(
   });
   if (!channel) return { success: false, error: "Channel not found" };
 
-  // Only channel members can add others to private channels
   if (channel.type === "PRIVATE" && channel.members.length === 0) {
     return { success: false, error: "Not a member of this channel" };
   }
 
-  // Add members (skip duplicates)
   for (const uid of userIds) {
     await db.channelMember.upsert({
       where: { channelId_userId: { channelId, userId: uid } },
