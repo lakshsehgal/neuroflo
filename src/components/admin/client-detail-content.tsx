@@ -24,11 +24,26 @@ import {
 } from "@/components/ui/dialog";
 import { formatDate } from "@/lib/utils";
 import { AnimatedTableBody, AnimatedRow } from "@/components/motion";
-import { Plus, ArrowLeft } from "lucide-react";
+import { Plus, ArrowLeft, Link2, Copy, CheckCircle2, UserPlus } from "lucide-react";
 import Link from "next/link";
+import { generateOnboardingToken } from "@/actions/onboarding";
 import type { getClient } from "@/actions/clients";
 
 type ClientData = NonNullable<Awaited<ReturnType<typeof getClient>>>;
+
+type OnboardingData = {
+  id: string;
+  clientId: string;
+  contactName: string | null;
+  contactEmail: string | null;
+  contactPhone: string | null;
+  authorisedSignatory: string | null;
+  gstin: string | null;
+  legalCompanyName: string | null;
+  submittedAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
+} | null;
 
 const clientStatusOptions = [
   { value: "ACTIVE", label: "Active", color: "bg-green-100 text-green-800" },
@@ -50,11 +65,15 @@ const invoiceStatusColors: Record<string, string> = {
   CANCELLED: "bg-gray-100 text-gray-800",
 };
 
-export function ClientDetailContent({ client: initial }: { client: ClientData }) {
+export function ClientDetailContent({ client: initial, onboarding: initialOnboarding }: { client: ClientData; onboarding?: OnboardingData }) {
   const [client, setClient] = useState(initial);
   const [isPending, startTransition] = useTransition();
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [onboardingLink, setOnboardingLink] = useState<string | null>(
+    initial.onboardingToken ? `${typeof window !== "undefined" ? window.location.origin : ""}/onboarding/${initial.onboardingToken}` : null
+  );
+  const [copied, setCopied] = useState(false);
 
   // Edit form
   const [form, setForm] = useState({
@@ -378,6 +397,127 @@ export function ClientDetailContent({ client: initial }: { client: ClientData })
               </CardContent>
             </Card>
           )}
+
+          {/* Onboarding */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm flex items-center gap-2">
+                <UserPlus className="h-4 w-4" />
+                Client Onboarding
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {onboardingLink ? (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">Onboarding link:</p>
+                  <div className="flex items-center gap-1.5">
+                    <Input
+                      value={onboardingLink}
+                      readOnly
+                      className="h-8 text-xs"
+                    />
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8 shrink-0"
+                      onClick={() => {
+                        navigator.clipboard.writeText(onboardingLink);
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                      }}
+                    >
+                      {copied ? <CheckCircle2 className="h-3.5 w-3.5 text-green-600" /> : <Copy className="h-3.5 w-3.5" />}
+                    </Button>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full text-xs"
+                    disabled={isPending}
+                    onClick={() => {
+                      startTransition(async () => {
+                        const result = await generateOnboardingToken(client.id);
+                        if (result.success && result.data) {
+                          const link = `${window.location.origin}/onboarding/${result.data.token}`;
+                          setOnboardingLink(link);
+                        }
+                      });
+                    }}
+                  >
+                    <Link2 className="mr-1.5 h-3 w-3" />
+                    {isPending ? "Regenerating..." : "Regenerate Link"}
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  size="sm"
+                  className="w-full"
+                  disabled={isPending}
+                  onClick={() => {
+                    startTransition(async () => {
+                      const result = await generateOnboardingToken(client.id);
+                      if (result.success && result.data) {
+                        const link = `${window.location.origin}/onboarding/${result.data.token}`;
+                        setOnboardingLink(link);
+                      }
+                    });
+                  }}
+                >
+                  <UserPlus className="mr-1.5 h-3.5 w-3.5" />
+                  {isPending ? "Starting..." : "Start Onboarding"}
+                </Button>
+              )}
+
+              {/* Onboarding responses */}
+              {initialOnboarding && (
+                <div className="space-y-2 border-t pt-3">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+                    <p className="text-xs font-medium text-green-700">Form Submitted</p>
+                    <span className="text-[10px] text-muted-foreground ml-auto">
+                      {formatDate(initialOnboarding.submittedAt)}
+                    </span>
+                  </div>
+                  {initialOnboarding.contactName && (
+                    <div>
+                      <p className="text-[10px] text-muted-foreground">Name</p>
+                      <p className="text-xs">{initialOnboarding.contactName}</p>
+                    </div>
+                  )}
+                  {initialOnboarding.contactEmail && (
+                    <div>
+                      <p className="text-[10px] text-muted-foreground">Email</p>
+                      <p className="text-xs">{initialOnboarding.contactEmail}</p>
+                    </div>
+                  )}
+                  {initialOnboarding.contactPhone && (
+                    <div>
+                      <p className="text-[10px] text-muted-foreground">Phone</p>
+                      <p className="text-xs">{initialOnboarding.contactPhone}</p>
+                    </div>
+                  )}
+                  {initialOnboarding.authorisedSignatory && (
+                    <div>
+                      <p className="text-[10px] text-muted-foreground">Authorised Signatory</p>
+                      <p className="text-xs">{initialOnboarding.authorisedSignatory}</p>
+                    </div>
+                  )}
+                  {initialOnboarding.gstin && (
+                    <div>
+                      <p className="text-[10px] text-muted-foreground">GSTIN</p>
+                      <p className="text-xs font-mono">{initialOnboarding.gstin}</p>
+                    </div>
+                  )}
+                  {initialOnboarding.legalCompanyName && (
+                    <div>
+                      <p className="text-[10px] text-muted-foreground">Legal Company Name</p>
+                      <p className="text-xs">{initialOnboarding.legalCompanyName}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

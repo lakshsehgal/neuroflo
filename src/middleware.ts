@@ -19,7 +19,13 @@ export async function middleware(req: NextRequest) {
   const isAuthRoute =
     pathname.startsWith("/login") ||
     pathname.startsWith("/accept-invite") ||
-    pathname.startsWith("/forgot-password");
+    pathname.startsWith("/forgot-password") ||
+    pathname.startsWith("/onboarding");
+
+  // Onboarding is fully public (no redirect even for logged-in users)
+  if (pathname.startsWith("/onboarding")) {
+    return NextResponse.next();
+  }
 
   if (isAuthRoute) {
     if (isLoggedIn) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useTransition } from "react";
+import { useState, useMemo, useCallback, useTransition, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,6 +13,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   PageTransition,
   AnimatedTableBody,
@@ -34,6 +39,10 @@ import {
   Users,
   AlertTriangle,
   Clock,
+  Settings2,
+  Eye,
+  EyeOff,
+  Check,
 } from "lucide-react";
 import Link from "next/link";
 import { formatDate, isOverdue } from "@/lib/utils";
@@ -162,6 +171,19 @@ type WorkloadTicket = {
 type User = { id: string; name: string; avatar: string | null };
 type Client = { id: string; name: string };
 
+// Ticket column definitions
+const TICKET_COLUMNS = [
+  { key: "title", label: "Title", required: true },
+  { key: "client", label: "Client", required: false },
+  { key: "status", label: "Status", required: false },
+  { key: "priority", label: "Priority", required: false },
+  { key: "assignee", label: "Assignee", required: false },
+  { key: "due", label: "Due", required: false },
+  { key: "info", label: "Info", required: false },
+];
+
+const DEFAULT_TICKET_COLUMNS = ["title", "client", "status", "priority", "assignee", "due", "info"];
+
 interface Props {
   tickets: TicketData[];
   users: User[];
@@ -177,6 +199,26 @@ export function TicketsContent({ tickets: initialTickets, users, clients, worklo
   const [filterAssignee, setFilterAssignee] = useState<string>("all");
   const [filterClient, setFilterClient] = useState<string>("all");
   const [showFilters, setShowFilters] = useState(false);
+
+  // Column visibility
+  const [visibleColumns, setVisibleColumns] = useState<string[]>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("neuroflo-ticket-columns");
+      if (saved) return JSON.parse(saved);
+    }
+    return DEFAULT_TICKET_COLUMNS;
+  });
+
+  useEffect(() => {
+    localStorage.setItem("neuroflo-ticket-columns", JSON.stringify(visibleColumns));
+  }, [visibleColumns]);
+
+  const toggleColumn = (key: string) => {
+    setVisibleColumns((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+    );
+  };
+
   // Local optimistic ticket state for inline edits + kanban
   const [localTickets, setLocalTickets] = useState<TicketData[]>(initialTickets);
   const [isPending, startTransition] = useTransition();
@@ -308,6 +350,32 @@ export function TicketsContent({ tickets: initialTickets, users, clients, worklo
                 <X className="h-3 w-3" /> Clear
               </Button>
             )}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5">
+                  <Settings2 className="h-3 w-3" />
+                  Columns
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-52 p-2">
+                <p className="px-2 pb-2 text-xs font-semibold text-muted-foreground">Toggle Columns</p>
+                {TICKET_COLUMNS.filter((c) => !c.required).map((col) => (
+                  <button
+                    key={col.key}
+                    onClick={() => toggleColumn(col.key)}
+                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted/50 transition-colors"
+                  >
+                    {visibleColumns.includes(col.key) ? (
+                      <Eye className="h-3.5 w-3.5 text-primary" />
+                    ) : (
+                      <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
+                    )}
+                    <span className={visibleColumns.includes(col.key) ? "" : "text-muted-foreground"}>{col.label}</span>
+                    {visibleColumns.includes(col.key) && <Check className="ml-auto h-3 w-3 text-primary" />}
+                  </button>
+                ))}
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
 
@@ -364,7 +432,7 @@ export function TicketsContent({ tickets: initialTickets, users, clients, worklo
         </AnimatePresence>
 
         {/* Content */}
-        {view === "table" && <TableView tickets={filtered} users={users} onUpdate={handleInlineUpdate} />}
+        {view === "table" && <TableView tickets={filtered} users={users} onUpdate={handleInlineUpdate} visibleColumns={visibleColumns} />}
         {view === "kanban" && <KanbanView tickets={filtered} onStatusChange={handleInlineUpdate} />}
         {view === "workload" && <WorkloadView tickets={workloadTickets} />}
       </div>
@@ -377,11 +445,15 @@ function TableView({
   tickets,
   users,
   onUpdate,
+  visibleColumns,
 }: {
   tickets: TicketData[];
   users: User[];
   onUpdate: (id: string, field: string, value: string) => void;
+  visibleColumns: string[];
 }) {
+  const isCol = (key: string) => visibleColumns.includes(key);
+
   if (tickets.length === 0) {
     return (
       <Card>
@@ -401,12 +473,12 @@ function TableView({
         <thead>
           <tr className="border-b bg-muted/40">
             <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Title</th>
-            <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Client</th>
-            <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Status</th>
-            <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Priority</th>
-            <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Assignee</th>
-            <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Due</th>
-            <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground w-16">Info</th>
+            {isCol("client") && <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Client</th>}
+            {isCol("status") && <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Status</th>}
+            {isCol("priority") && <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Priority</th>}
+            {isCol("assignee") && <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Assignee</th>}
+            {isCol("due") && <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Due</th>}
+            {isCol("info") && <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground w-16">Info</th>}
           </tr>
         </thead>
         <AnimatedTableBody>
@@ -418,79 +490,91 @@ function TableView({
                   <p className="text-[10px] text-muted-foreground mt-0.5">by {ticket.assignedByName}</p>
                 )}
               </td>
-              <td className="px-3 py-2.5 text-xs text-muted-foreground">{ticket.clientName || "\u2014"}</td>
-              <td className="px-3 py-2.5">
-                <Select value={ticket.status} onValueChange={(v) => onUpdate(ticket.id, "status", v)}>
-                  <SelectTrigger className="h-7 w-[140px] text-[10px] border-0 bg-transparent hover:bg-muted/40 px-1.5 focus:ring-0 focus:ring-offset-0">
-                    <Badge className={`${statusColors[ticket.status] || ""} text-[10px] border`} variant="secondary">
-                      {statusLabels[ticket.status] || ticket.status.replace(/_/g, " ")}
-                    </Badge>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {statusColumnOrder.map((s) => (
-                      <SelectItem key={s} value={s}>
-                        <Badge className={`${statusColors[s]} text-[10px] border`} variant="secondary">
-                          {statusLabels[s]}
-                        </Badge>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </td>
-              <td className="px-3 py-2.5">
-                <Select value={ticket.priority} onValueChange={(v) => onUpdate(ticket.id, "priority", v)}>
-                  <SelectTrigger className="h-7 w-[90px] text-[10px] border-0 bg-transparent hover:bg-muted/40 px-1.5 focus:ring-0 focus:ring-offset-0">
-                    <Badge className={`${priorityColors[ticket.priority] || ""} text-[10px]`} variant="secondary">{ticket.priority}</Badge>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {["LOW", "MEDIUM", "HIGH", "URGENT"].map((p) => (
-                      <SelectItem key={p} value={p}>
-                        <Badge className={`${priorityColors[p]} text-[10px]`} variant="secondary">{p}</Badge>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </td>
-              <td className="px-3 py-2.5">
-                <Select value={ticket.assigneeId || "unassigned"} onValueChange={(v) => onUpdate(ticket.id, "assigneeId", v === "unassigned" ? "" : v)}>
-                  <SelectTrigger className="h-7 w-[130px] text-[10px] border-0 bg-transparent hover:bg-muted/40 px-1.5 focus:ring-0 focus:ring-offset-0">
-                    {ticket.assigneeName ? (
-                      <div className="flex items-center gap-1.5">
-                        <Avatar className="h-5 w-5 ring-1 ring-border"><AvatarFallback className="text-[8px] bg-primary/10">{ticket.assigneeInitials}</AvatarFallback></Avatar>
-                        <span className="text-xs truncate">{ticket.assigneeName}</span>
-                      </div>
-                    ) : <span className="text-xs text-muted-foreground">Unassigned</span>}
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="unassigned">Unassigned</SelectItem>
-                    {users.map((u) => (
-                      <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </td>
-              <td className="px-3 py-2.5">
-                {ticket.dueDate ? (
-                  <span className={`text-xs ${isOverdue(ticket.dueDate) ? "font-semibold text-red-600" : "text-muted-foreground"}`}>
-                    {formatDate(new Date(ticket.dueDate))}
-                  </span>
-                ) : <span className="text-xs text-muted-foreground">{"\u2014"}</span>}
-              </td>
-              <td className="px-3 py-2.5">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  {ticket.revisionCount > 0 && (
-                    <span className="flex items-center gap-0.5 text-[10px]"><FileText className="h-3 w-3" />{ticket.revisionCount}</span>
-                  )}
-                  {ticket.commentCount > 0 && (
-                    <span className="flex items-center gap-0.5 text-[10px]"><MessageSquare className="h-3 w-3" />{ticket.commentCount}</span>
-                  )}
-                  {ticket.deliveryLink && (
-                    <a href={ticket.deliveryLink} target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80" onClick={(e) => e.stopPropagation()}>
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
-                  )}
-                </div>
-              </td>
+              {isCol("client") && (
+                <td className="px-3 py-2.5 text-xs text-muted-foreground">{ticket.clientName || "\u2014"}</td>
+              )}
+              {isCol("status") && (
+                <td className="px-3 py-2.5">
+                  <Select value={ticket.status} onValueChange={(v) => onUpdate(ticket.id, "status", v)}>
+                    <SelectTrigger className="h-7 w-[140px] text-[10px] border-0 bg-transparent hover:bg-muted/40 px-1.5 focus:ring-0 focus:ring-offset-0">
+                      <Badge className={`${statusColors[ticket.status] || ""} text-[10px] border`} variant="secondary">
+                        {statusLabels[ticket.status] || ticket.status.replace(/_/g, " ")}
+                      </Badge>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {statusColumnOrder.map((s) => (
+                        <SelectItem key={s} value={s}>
+                          <Badge className={`${statusColors[s]} text-[10px] border`} variant="secondary">
+                            {statusLabels[s]}
+                          </Badge>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </td>
+              )}
+              {isCol("priority") && (
+                <td className="px-3 py-2.5">
+                  <Select value={ticket.priority} onValueChange={(v) => onUpdate(ticket.id, "priority", v)}>
+                    <SelectTrigger className="h-7 w-[90px] text-[10px] border-0 bg-transparent hover:bg-muted/40 px-1.5 focus:ring-0 focus:ring-offset-0">
+                      <Badge className={`${priorityColors[ticket.priority] || ""} text-[10px]`} variant="secondary">{ticket.priority}</Badge>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {["LOW", "MEDIUM", "HIGH", "URGENT"].map((p) => (
+                        <SelectItem key={p} value={p}>
+                          <Badge className={`${priorityColors[p]} text-[10px]`} variant="secondary">{p}</Badge>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </td>
+              )}
+              {isCol("assignee") && (
+                <td className="px-3 py-2.5">
+                  <Select value={ticket.assigneeId || "unassigned"} onValueChange={(v) => onUpdate(ticket.id, "assigneeId", v === "unassigned" ? "" : v)}>
+                    <SelectTrigger className="h-7 w-[130px] text-[10px] border-0 bg-transparent hover:bg-muted/40 px-1.5 focus:ring-0 focus:ring-offset-0">
+                      {ticket.assigneeName ? (
+                        <div className="flex items-center gap-1.5">
+                          <Avatar className="h-5 w-5 ring-1 ring-border"><AvatarFallback className="text-[8px] bg-primary/10">{ticket.assigneeInitials}</AvatarFallback></Avatar>
+                          <span className="text-xs truncate">{ticket.assigneeName}</span>
+                        </div>
+                      ) : <span className="text-xs text-muted-foreground">Unassigned</span>}
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="unassigned">Unassigned</SelectItem>
+                      {users.map((u) => (
+                        <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </td>
+              )}
+              {isCol("due") && (
+                <td className="px-3 py-2.5">
+                  {ticket.dueDate ? (
+                    <span className={`text-xs ${isOverdue(ticket.dueDate) ? "font-semibold text-red-600" : "text-muted-foreground"}`}>
+                      {formatDate(new Date(ticket.dueDate))}
+                    </span>
+                  ) : <span className="text-xs text-muted-foreground">{"\u2014"}</span>}
+                </td>
+              )}
+              {isCol("info") && (
+                <td className="px-3 py-2.5">
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    {ticket.revisionCount > 0 && (
+                      <span className="flex items-center gap-0.5 text-[10px]"><FileText className="h-3 w-3" />{ticket.revisionCount}</span>
+                    )}
+                    {ticket.commentCount > 0 && (
+                      <span className="flex items-center gap-0.5 text-[10px]"><MessageSquare className="h-3 w-3" />{ticket.commentCount}</span>
+                    )}
+                    {ticket.deliveryLink && (
+                      <a href={ticket.deliveryLink} target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80" onClick={(e) => e.stopPropagation()}>
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    )}
+                  </div>
+                </td>
+              )}
             </AnimatedRow>
           ))}
         </AnimatedTableBody>

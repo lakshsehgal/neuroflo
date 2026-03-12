@@ -470,7 +470,7 @@ function ClientsTab({
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-semibold">{fmt(r.amount)}</p>
-                      <Badge className={`${invoiceStatusColors[r.status]} text-[10px]`} variant="secondary">{r.status}</Badge>
+                      <Badge className={`${invoiceStatusColors[r.status]} text-[11px]`} variant="secondary">{r.status}</Badge>
                     </div>
                   </div>
                 );
@@ -535,13 +535,13 @@ function ClientsTab({
                   <AnimatedRow key={client.id} className="border-b hover:bg-muted/30">
                     <td className="px-4 py-2.5 cursor-pointer" onClick={() => router.push(`/admin/clients/${client.id}`)}>
                       <p className="text-sm font-medium hover:text-primary transition-colors">{client.name}</p>
-                      {client.contactName && <p className="text-[10px] text-muted-foreground">{client.contactName}</p>}
+                      {client.contactName && <p className="text-xs text-muted-foreground">{client.contactName}</p>}
                     </td>
                     {isColVisible("status") && (
                       <td className="px-3 py-2.5">
                         <Select value={client.status} onValueChange={(v) => handleInlineUpdate(client.id, "status", v)}>
                           <SelectTrigger className="h-7 w-[100px] text-[10px] border-0 bg-transparent hover:bg-muted/40 px-1 focus:ring-0 focus:ring-offset-0">
-                            <Badge className={`${clientStatusConfig[client.status]?.color || ""} text-[10px]`} variant="secondary">
+                            <Badge className={`${clientStatusConfig[client.status]?.color || ""} text-[11px]`} variant="secondary">
                               {clientStatusConfig[client.status]?.label || client.status}
                             </Badge>
                           </SelectTrigger>
@@ -606,8 +606,8 @@ function ClientsTab({
                       <td className="px-3 py-2.5">
                         {nextInvoice ? (
                           <div>
-                            <Badge className={`${invoiceStatusColors[nextInvoice.status]} text-[10px]`} variant="secondary">{nextInvoice.status}</Badge>
-                            <p className="text-[10px] text-muted-foreground mt-0.5">{formatDate(nextInvoice.dueDate)}</p>
+                            <Badge className={`${invoiceStatusColors[nextInvoice.status]} text-[11px]`} variant="secondary">{nextInvoice.status}</Badge>
+                            <p className="text-xs text-muted-foreground mt-0.5">{formatDate(nextInvoice.dueDate)}</p>
                           </div>
                         ) : <span className="text-xs text-muted-foreground">—</span>}
                       </td>
