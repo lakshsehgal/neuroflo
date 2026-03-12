@@ -150,7 +150,7 @@ export function ClientDetailContent({ client: initial }: { client: ClientData })
                   <div className="grid grid-cols-3 gap-3">
                     <div className="space-y-2">
                       <Label>Status</Label>
-                      <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
+                      <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as ClientData["status"] })}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
                           {clientStatusOptions.map((s) => (
