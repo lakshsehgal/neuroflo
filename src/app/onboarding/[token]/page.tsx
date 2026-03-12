@@ -32,6 +32,7 @@ export default async function OnboardingPage({
               width={180}
               height={44}
               priority
+              unoptimized
             />
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-gray-900">

@@ -279,62 +279,90 @@ export function TicketsContent({ tickets: initialTickets, users, clients, worklo
     });
   }, [users]);
 
+  // Quick stats
+  const totalCount = tickets.length;
+  const urgentCount = tickets.filter((t) => t.priority === "URGENT" || t.priority === "HIGH").length;
+  const overdueCount = tickets.filter((t) => t.dueDate && isOverdue(t.dueDate)).length;
+
   return (
     <PageTransition>
-      <div className="space-y-5">
+      <div className="space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Creative Tickets</h1>
-            <p className="text-sm text-muted-foreground">Manage creative requests and approvals</p>
+          <div className="flex items-center gap-4">
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight">Creative Tickets</h1>
+              <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
+                <span>{totalCount} total</span>
+                <span className="h-1 w-1 rounded-full bg-muted-foreground/40" />
+                <span>{filtered.length} showing</span>
+                {urgentCount > 0 && (
+                  <>
+                    <span className="h-1 w-1 rounded-full bg-muted-foreground/40" />
+                    <span className="text-orange-600 font-medium">{urgentCount} high/urgent</span>
+                  </>
+                )}
+                {overdueCount > 0 && (
+                  <>
+                    <span className="h-1 w-1 rounded-full bg-muted-foreground/40" />
+                    <span className="text-red-600 font-medium">{overdueCount} overdue</span>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
-          <Button asChild size="sm" className="shadow-sm">
+          <Button asChild className="shadow-sm bg-primary hover:bg-primary/90">
             <Link href="/tickets/new">
-              <Plus className="mr-1.5 h-3.5 w-3.5" />
+              <Plus className="mr-1.5 h-4 w-4" />
               New Ticket
             </Link>
           </Button>
         </div>
 
-        {/* View switcher + search + filters */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        {/* Toolbar */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-lg border bg-card/50 p-2">
           <div className="flex items-center gap-2">
-            <div className="flex items-center rounded-lg border bg-muted/30 p-0.5">
+            <div className="flex items-center rounded-md border bg-muted/30 p-0.5">
               <button
                 onClick={() => setView("table")}
-                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${view === "table" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                className={`flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-all ${view === "table" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
               >
                 <LayoutList className="h-3.5 w-3.5" />
                 Table
               </button>
               <button
                 onClick={() => setView("kanban")}
-                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${view === "kanban" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                className={`flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-all ${view === "kanban" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
               >
                 <Columns3 className="h-3.5 w-3.5" />
                 Kanban
               </button>
               <button
                 onClick={() => setView("workload")}
-                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${view === "workload" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                className={`flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-all ${view === "workload" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
               >
                 <BarChart3 className="h-3.5 w-3.5" />
                 Workload
               </button>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Search tickets..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="h-8 w-48 pl-8 text-xs"
+                className="h-8 w-52 pl-8 text-xs bg-background"
               />
+              {search && (
+                <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                  <X className="h-3 w-3" />
+                </button>
+              )}
             </div>
             <Button
-              variant={showFilters ? "secondary" : "outline"}
+              variant={showFilters ? "secondary" : "ghost"}
               size="sm"
               className="h-8 text-xs gap-1.5"
               onClick={() => setShowFilters(!showFilters)}
@@ -342,19 +370,20 @@ export function TicketsContent({ tickets: initialTickets, users, clients, worklo
               <Filter className="h-3 w-3" />
               Filters
               {activeFilterCount > 0 && (
-                <Badge variant="secondary" className="h-4 w-4 p-0 flex items-center justify-center text-[9px] bg-primary text-primary-foreground rounded-full">
+                <span className="ml-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground px-1">
                   {activeFilterCount}
-                </Badge>
+                </span>
               )}
             </Button>
             {activeFilterCount > 0 && (
-              <Button variant="ghost" size="sm" className="h-8 text-xs gap-1" onClick={clearFilters}>
+              <Button variant="ghost" size="sm" className="h-8 text-xs gap-1 text-muted-foreground" onClick={clearFilters}>
                 <X className="h-3 w-3" /> Clear
               </Button>
             )}
+            <div className="h-4 w-px bg-border" />
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5">
+                <Button variant="ghost" size="sm" className="h-8 text-xs gap-1.5">
                   <Settings2 className="h-3 w-3" />
                   Columns
                 </Button>
@@ -481,119 +510,165 @@ function TableView({
     <div className="rounded-lg border bg-card shadow-sm overflow-x-auto">
       <table className="w-full">
         <thead>
-          <tr className="border-b bg-muted/40">
-            <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Title</th>
-            {isCol("client") && <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Client</th>}
-            {isCol("status") && <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Status</th>}
-            {isCol("priority") && <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Priority</th>}
-            {isCol("assignee") && <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Assignee</th>}
-            {isCol("due") && <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Due</th>}
-            {isCol("info") && <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground w-16">Info</th>}
+          <tr className="border-b bg-muted/30">
+            <th className="px-4 py-2 text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/80">Title</th>
+            {isCol("client") && <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/80">Client</th>}
+            {isCol("status") && <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/80">Status</th>}
+            {isCol("priority") && <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/80">Priority</th>}
+            {isCol("assignee") && <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/80">Assignee</th>}
+            {isCol("due") && <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/80">Due</th>}
+            {isCol("info") && <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/80 w-20">Info</th>}
           </tr>
         </thead>
         <AnimatedTableBody>
-          {tickets.map((ticket) => (
-            <AnimatedRow
-              key={ticket.id}
-              className="border-b last:border-0 transition-colors hover:bg-muted/20 cursor-pointer"
-              onClick={(e: React.MouseEvent) => handleRowClick(e, ticket.id)}
-            >
-              <td className="px-4 py-2.5">
-                <span className="text-sm font-medium">{ticket.title}</span>
-                {ticket.assignedByName && (
-                  <p className="text-[10px] text-muted-foreground mt-0.5">by {ticket.assignedByName}</p>
-                )}
-              </td>
-              {isCol("client") && (
-                <td className="px-3 py-2.5 text-xs text-muted-foreground">{ticket.clientName || "\u2014"}</td>
-              )}
-              {isCol("status") && (
-                <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
-                  <Select value={ticket.status} onValueChange={(v) => onUpdate(ticket.id, "status", v)}>
-                    <SelectTrigger className="h-7 w-[140px] text-[10px] border-0 bg-transparent hover:bg-muted/40 px-1.5 focus:ring-0 focus:ring-offset-0">
-                      <Badge className={`${statusColors[ticket.status] || ""} text-[10px] border`} variant="secondary">
-                        {statusLabels[ticket.status] || ticket.status.replace(/_/g, " ")}
-                      </Badge>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {statusColumnOrder.map((s) => (
-                        <SelectItem key={s} value={s}>
-                          <Badge className={`${statusColors[s]} text-[10px] border`} variant="secondary">
-                            {statusLabels[s]}
-                          </Badge>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </td>
-              )}
-              {isCol("priority") && (
-                <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
-                  <Select value={ticket.priority} onValueChange={(v) => onUpdate(ticket.id, "priority", v)}>
-                    <SelectTrigger className="h-7 w-[90px] text-[10px] border-0 bg-transparent hover:bg-muted/40 px-1.5 focus:ring-0 focus:ring-offset-0">
-                      <Badge className={`${priorityColors[ticket.priority] || ""} text-[10px]`} variant="secondary">{ticket.priority}</Badge>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {["LOW", "MEDIUM", "HIGH", "URGENT"].map((p) => (
-                        <SelectItem key={p} value={p}>
-                          <Badge className={`${priorityColors[p]} text-[10px]`} variant="secondary">{p}</Badge>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </td>
-              )}
-              {isCol("assignee") && (
-                <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
-                  <Select value={ticket.assigneeId || "unassigned"} onValueChange={(v) => onUpdate(ticket.id, "assigneeId", v === "unassigned" ? "" : v)}>
-                    <SelectTrigger className="h-7 w-[130px] text-[10px] border-0 bg-transparent hover:bg-muted/40 px-1.5 focus:ring-0 focus:ring-offset-0">
-                      {ticket.assigneeName ? (
-                        <div className="flex items-center gap-1.5">
-                          <Avatar className="h-5 w-5 ring-1 ring-border"><AvatarFallback className="text-[8px] bg-primary/10">{ticket.assigneeInitials}</AvatarFallback></Avatar>
-                          <span className="text-xs truncate">{ticket.assigneeName}</span>
-                        </div>
-                      ) : <span className="text-xs text-muted-foreground">Unassigned</span>}
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="unassigned">Unassigned</SelectItem>
-                      {users.map((u) => (
-                        <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </td>
-              )}
-              {isCol("due") && (
-                <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
-                  <input
-                    type="date"
-                    value={ticket.dueDate ? new Date(ticket.dueDate).toISOString().split("T")[0] : ""}
-                    onChange={(e) => onUpdate(ticket.id, "dueDate", e.target.value ? new Date(e.target.value).toISOString() : "")}
-                    className={`h-7 w-[120px] rounded border-0 bg-transparent px-1.5 text-xs hover:bg-muted/40 focus:bg-muted/40 focus:outline-none focus:ring-0 ${
-                      ticket.dueDate && isOverdue(ticket.dueDate) ? "font-semibold text-red-600" : "text-muted-foreground"
-                    }`}
-                  />
-                </td>
-              )}
-              {isCol("info") && (
-                <td className="px-3 py-2.5">
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    {ticket.revisionCount > 0 && (
-                      <span className="flex items-center gap-0.5 text-[10px]"><FileText className="h-3 w-3" />{ticket.revisionCount}</span>
-                    )}
-                    {ticket.commentCount > 0 && (
-                      <span className="flex items-center gap-0.5 text-[10px]"><MessageSquare className="h-3 w-3" />{ticket.commentCount}</span>
-                    )}
-                    {ticket.deliveryLink && (
-                      <a href={ticket.deliveryLink} target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80" onClick={(e) => e.stopPropagation()}>
-                        <ExternalLink className="h-3 w-3" />
-                      </a>
-                    )}
+          {tickets.map((ticket) => {
+            const isUrgent = ticket.priority === "URGENT" || ticket.priority === "HIGH";
+            const isTicketOverdue = ticket.dueDate && isOverdue(ticket.dueDate);
+            return (
+              <AnimatedRow
+                key={ticket.id}
+                className={`border-b last:border-0 transition-colors cursor-pointer group ${
+                  isTicketOverdue ? "bg-red-50/30 hover:bg-red-50/50" : isUrgent ? "hover:bg-orange-50/30" : "hover:bg-muted/30"
+                }`}
+                onClick={(e: React.MouseEvent) => handleRowClick(e, ticket.id)}
+              >
+                <td className="px-4 py-3">
+                  <div className="flex items-start gap-2">
+                    <div className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
+                      ticket.priority === "URGENT" ? "bg-red-500" :
+                      ticket.priority === "HIGH" ? "bg-orange-500" :
+                      ticket.priority === "MEDIUM" ? "bg-blue-500" : "bg-gray-300"
+                    }`} />
+                    <div className="min-w-0">
+                      <span className="text-sm font-medium leading-tight group-hover:text-primary transition-colors line-clamp-1">
+                        {ticket.title}
+                      </span>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        {ticket.format && (
+                          <span className="text-[10px] text-muted-foreground/70 font-medium uppercase">{ticket.format.replace(/_/g, " ")}</span>
+                        )}
+                        {ticket.assignedByName && (
+                          <span className="text-[10px] text-muted-foreground/60">by {ticket.assignedByName}</span>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </td>
-              )}
-            </AnimatedRow>
-          ))}
+                {isCol("client") && (
+                  <td className="px-3 py-3">
+                    <span className="text-xs font-medium text-muted-foreground">{ticket.clientName || "\u2014"}</span>
+                  </td>
+                )}
+                {isCol("status") && (
+                  <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
+                    <Select value={ticket.status} onValueChange={(v) => onUpdate(ticket.id, "status", v)}>
+                      <SelectTrigger className="h-7 w-[140px] text-[10px] border-0 bg-transparent hover:bg-muted/40 px-1.5 focus:ring-0 focus:ring-offset-0">
+                        <Badge className={`${statusColors[ticket.status] || ""} text-[10px] border font-medium`} variant="secondary">
+                          {statusLabels[ticket.status] || ticket.status.replace(/_/g, " ")}
+                        </Badge>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {statusColumnOrder.map((s) => (
+                          <SelectItem key={s} value={s}>
+                            <Badge className={`${statusColors[s]} text-[10px] border`} variant="secondary">
+                              {statusLabels[s]}
+                            </Badge>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </td>
+                )}
+                {isCol("priority") && (
+                  <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
+                    <Select value={ticket.priority} onValueChange={(v) => onUpdate(ticket.id, "priority", v)}>
+                      <SelectTrigger className="h-7 w-[95px] text-[10px] border-0 bg-transparent hover:bg-muted/40 px-1.5 focus:ring-0 focus:ring-offset-0">
+                        <div className="flex items-center gap-1.5">
+                          <div className={`h-2 w-2 rounded-full ${
+                            ticket.priority === "URGENT" ? "bg-red-500" :
+                            ticket.priority === "HIGH" ? "bg-orange-500" :
+                            ticket.priority === "MEDIUM" ? "bg-blue-500" : "bg-gray-400"
+                          }`} />
+                          <span className="text-xs font-medium capitalize">{ticket.priority.toLowerCase()}</span>
+                        </div>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {["LOW", "MEDIUM", "HIGH", "URGENT"].map((p) => (
+                          <SelectItem key={p} value={p}>
+                            <div className="flex items-center gap-2">
+                              <div className={`h-2 w-2 rounded-full ${
+                                p === "URGENT" ? "bg-red-500" :
+                                p === "HIGH" ? "bg-orange-500" :
+                                p === "MEDIUM" ? "bg-blue-500" : "bg-gray-400"
+                              }`} />
+                              <span className="capitalize">{p.toLowerCase()}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </td>
+                )}
+                {isCol("assignee") && (
+                  <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
+                    <Select value={ticket.assigneeId || "unassigned"} onValueChange={(v) => onUpdate(ticket.id, "assigneeId", v === "unassigned" ? "" : v)}>
+                      <SelectTrigger className="h-7 w-[130px] text-[10px] border-0 bg-transparent hover:bg-muted/40 px-1.5 focus:ring-0 focus:ring-offset-0">
+                        {ticket.assigneeName ? (
+                          <div className="flex items-center gap-1.5">
+                            <Avatar className="h-5 w-5 ring-1 ring-border">
+                              <AvatarFallback className="text-[8px] bg-primary/10 font-semibold">{ticket.assigneeInitials}</AvatarFallback>
+                            </Avatar>
+                            <span className="text-xs truncate">{ticket.assigneeName}</span>
+                          </div>
+                        ) : <span className="text-xs text-muted-foreground italic">Unassigned</span>}
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="unassigned"><span className="text-muted-foreground">Unassigned</span></SelectItem>
+                        {users.map((u) => (
+                          <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </td>
+                )}
+                {isCol("due") && (
+                  <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="date"
+                      value={ticket.dueDate ? new Date(ticket.dueDate).toISOString().split("T")[0] : ""}
+                      onChange={(e) => onUpdate(ticket.id, "dueDate", e.target.value ? new Date(e.target.value).toISOString() : "")}
+                      className={`h-7 w-[125px] rounded-md border-0 bg-transparent px-1.5 text-xs hover:bg-muted/40 focus:bg-muted/40 focus:outline-none focus:ring-0 cursor-pointer ${
+                        isTicketOverdue ? "font-bold text-red-600" : ticket.dueDate ? "text-foreground" : "text-muted-foreground"
+                      }`}
+                    />
+                  </td>
+                )}
+                {isCol("info") && (
+                  <td className="px-3 py-3">
+                    <div className="flex items-center gap-2.5 text-muted-foreground">
+                      {ticket.revisionCount > 0 && (
+                        <span className="flex items-center gap-0.5 text-[10px]" title={`${ticket.revisionCount} revision(s)`}>
+                          <FileText className="h-3 w-3" />
+                          <span className="font-medium">{ticket.revisionCount}</span>
+                        </span>
+                      )}
+                      {ticket.commentCount > 0 && (
+                        <span className="flex items-center gap-0.5 text-[10px]" title={`${ticket.commentCount} comment(s)`}>
+                          <MessageSquare className="h-3 w-3" />
+                          <span className="font-medium">{ticket.commentCount}</span>
+                        </span>
+                      )}
+                      {ticket.deliveryLink && (
+                        <a href={ticket.deliveryLink} target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80" onClick={(e) => e.stopPropagation()} title="View delivery">
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </a>
+                      )}
+                    </div>
+                  </td>
+                )}
+              </AnimatedRow>
+            );
+          })}
         </AnimatedTableBody>
       </table>
     </div>

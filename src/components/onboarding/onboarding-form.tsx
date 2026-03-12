@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { submitOnboardingForm, getGstCertificateUploadUrl } from "@/actions/onboarding";
 
 type OnboardingData = {
@@ -24,6 +25,7 @@ interface Props {
 }
 
 export function OnboardingForm({ token, clientName, existing, hasGoogleAds, isResubmit }: Props) {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [submitted, setSubmitted] = useState(false);
   const [showForm, setShowForm] = useState(!isResubmit);
@@ -104,7 +106,7 @@ export function OnboardingForm({ token, clientName, existing, hasGoogleAds, isRe
       return;
     }
 
-    if (hasGoogleAds && form.googleAdAccountId.trim()) {
+    if (form.googleAdAccountId.trim()) {
       const digits = form.googleAdAccountId.replace(/\D/g, "");
       if (digits.length !== 10) {
         setError("Google Ad Account ID must be a 10-digit number.");
@@ -121,12 +123,14 @@ export function OnboardingForm({ token, clientName, existing, hasGoogleAds, isRe
         gstin: form.gstin.trim() || undefined,
         legalCompanyName: form.legalCompanyName.trim() || undefined,
         shopifyCollaboratorCode: form.shopifyCollaboratorCode.trim() || undefined,
-        googleAdAccountId: hasGoogleAds ? form.googleAdAccountId.trim() || undefined : undefined,
+        googleAdAccountId: form.googleAdAccountId.trim() || undefined,
         gstCertificateUrl: form.gstCertificateUrl || undefined,
       });
 
       if (result.success) {
         setSubmitted(true);
+        // Refresh server component so accesses checklist appears
+        router.refresh();
       } else {
         setError(result.error || "Something went wrong. Please try again.");
       }
@@ -328,28 +332,26 @@ export function OnboardingForm({ token, clientName, existing, hasGoogleAds, isRe
             />
           </div>
 
-          {hasGoogleAds && (
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                Google Ad Account ID
-                <span className="ml-1 text-xs font-normal text-gray-500">(10-digit number)</span>
-              </label>
-              <input
-                type="text"
-                value={form.googleAdAccountId}
-                onChange={(e) => {
-                  const val = e.target.value.replace(/\D/g, "").slice(0, 10);
-                  setForm({ ...form, googleAdAccountId: val });
-                }}
-                className={inputClass}
-                placeholder="123 456 7890"
-                maxLength={10}
-              />
-              {form.googleAdAccountId && form.googleAdAccountId.length > 0 && form.googleAdAccountId.length < 10 && (
-                <p className="mt-1 text-xs text-amber-600">{10 - form.googleAdAccountId.length} more digits needed</p>
-              )}
-            </div>
-          )}
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">
+              Google Ad Account ID
+              <span className="ml-1 text-xs font-normal text-gray-500">(10-digit number, if applicable)</span>
+            </label>
+            <input
+              type="text"
+              value={form.googleAdAccountId}
+              onChange={(e) => {
+                const val = e.target.value.replace(/\D/g, "").slice(0, 10);
+                setForm({ ...form, googleAdAccountId: val });
+              }}
+              className={inputClass}
+              placeholder="123 456 7890"
+              maxLength={10}
+            />
+            {form.googleAdAccountId && form.googleAdAccountId.length > 0 && form.googleAdAccountId.length < 10 && (
+              <p className="mt-1 text-xs text-amber-600">{10 - form.googleAdAccountId.length} more digits needed</p>
+            )}
+          </div>
         </div>
       </div>
 

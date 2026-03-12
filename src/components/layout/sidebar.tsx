@@ -45,7 +45,7 @@ export function Sidebar({ userRole }: SidebarProps) {
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.15 }}
               >
-                <Image src="/neuroid-icon.svg" alt="Neuroid" width={28} height={28} />
+                <Image src="/neuroid-icon.svg" alt="Neuroid" width={28} height={28} unoptimized />
               </motion.div>
             ) : (
               <motion.div
@@ -55,7 +55,7 @@ export function Sidebar({ userRole }: SidebarProps) {
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.15 }}
               >
-                <Image src="/neuroid-logo.svg" alt="Neuroid" width={130} height={32} />
+                <Image src="/neuroid-logo.svg" alt="Neuroid" width={130} height={32} unoptimized />
               </motion.div>
             )}
           </AnimatePresence>
