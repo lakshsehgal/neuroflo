@@ -51,9 +51,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (user) {
         token.id = user.id!;
         token.role = (user as { role: Role }).role;
+        token.roleRefreshedAt = Date.now();
       }
-      // Always refresh role from DB so admin changes take effect immediately
-      if (token.id) {
+      // Refresh role from DB at most every 5 minutes so admin changes take effect
+      // without hitting the database on every single request
+      const ROLE_REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes
+      const lastRefresh = (token.roleRefreshedAt as number) || 0;
+      if (token.id && Date.now() - lastRefresh > ROLE_REFRESH_INTERVAL) {
         const dbUser = await db.user.findUnique({
           where: { id: token.id as string },
           select: { role: true, isActive: true },
@@ -61,6 +65,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (dbUser) {
           token.role = dbUser.role;
         }
+        token.roleRefreshedAt = Date.now();
       }
       return token;
     },
