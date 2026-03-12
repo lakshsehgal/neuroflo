@@ -394,18 +394,33 @@ model Client {
 }
 
 model ClientOnboarding {
-  id                 String   @id @default(cuid())
-  clientId           String   @unique
-  client             Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  contactName        String?
-  contactEmail       String?
-  contactPhone       String?
-  authorisedSignatory String?
-  gstin              String?
-  legalCompanyName   String?
-  submittedAt        DateTime @default(now())
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  id                      String   @id @default(cuid())
+  clientId                String   @unique
+  client                  Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  contactName             String?
+  contactEmail            String?
+  contactPhone            String?
+  authorisedSignatory     String?
+  gstin                   String?
+  legalCompanyName        String?
+  shopifyCollaboratorCode String?
+  googleAdAccountId       String?
+  gstCertificateUrl       String?
+
+  // Accesses checklist
+  metaBmId                String?
+  metaPageAccess          Boolean  @default(false)
+  metaAdAccountAccess     Boolean  @default(false)
+  googleAdsAccess         Boolean  @default(false)
+  googleAnalyticsAccess   Boolean  @default(false)
+  googleSearchConsole     Boolean  @default(false)
+  shopifyAccess           Boolean  @default(false)
+  websiteAccess           Boolean  @default(false)
+  otherAccesses           String?
+
+  submittedAt             DateTime @default(now())
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
 }
 
 model Invoice {

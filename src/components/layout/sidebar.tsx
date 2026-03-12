@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { navConfig, type NavItem } from "@/config/nav";
@@ -34,23 +35,31 @@ export function Sidebar({ userRole }: SidebarProps) {
     >
       {/* Logo */}
       <div className="flex h-14 items-center justify-between border-b px-4">
-        <AnimatePresence>
-          {!collapsed && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
-            >
-              <Link
-                href="/dashboard"
-                className="text-xl font-bold tracking-tight"
+        <Link href="/dashboard" className="flex items-center">
+          <AnimatePresence mode="wait">
+            {collapsed ? (
+              <motion.div
+                key="icon"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
               >
-                Neuroid
-              </Link>
-            </motion.div>
-          )}
-        </AnimatePresence>
+                <Image src="/neuroid-icon.svg" alt="Neuroid" width={28} height={28} />
+              </motion.div>
+            ) : (
+              <motion.div
+                key="logo"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+              >
+                <Image src="/neuroid-logo.svg" alt="Neuroid" width={130} height={32} />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </Link>
         <Button
           variant="ghost"
           size="icon"

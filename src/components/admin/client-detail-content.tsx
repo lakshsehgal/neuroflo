@@ -40,6 +40,18 @@ type OnboardingData = {
   authorisedSignatory: string | null;
   gstin: string | null;
   legalCompanyName: string | null;
+  shopifyCollaboratorCode: string | null;
+  googleAdAccountId: string | null;
+  gstCertificateUrl: string | null;
+  metaBmId: string | null;
+  metaPageAccess: boolean;
+  metaAdAccountAccess: boolean;
+  googleAdsAccess: boolean;
+  googleAnalyticsAccess: boolean;
+  googleSearchConsole: boolean;
+  shopifyAccess: boolean;
+  websiteAccess: boolean;
+  otherAccesses: string | null;
   submittedAt: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -512,6 +524,45 @@ export function ClientDetailContent({ client: initial, onboarding: initialOnboar
                     <div>
                       <p className="text-[10px] text-muted-foreground">Legal Company Name</p>
                       <p className="text-xs">{initialOnboarding.legalCompanyName}</p>
+                    </div>
+                  )}
+                  {initialOnboarding.shopifyCollaboratorCode && (
+                    <div>
+                      <p className="text-[10px] text-muted-foreground">Shopify Collaborator Code</p>
+                      <p className="text-xs font-mono">{initialOnboarding.shopifyCollaboratorCode}</p>
+                    </div>
+                  )}
+                  {initialOnboarding.googleAdAccountId && (
+                    <div>
+                      <p className="text-[10px] text-muted-foreground">Google Ad Account ID</p>
+                      <p className="text-xs font-mono">{initialOnboarding.googleAdAccountId}</p>
+                    </div>
+                  )}
+                  {initialOnboarding.gstCertificateUrl && (
+                    <div>
+                      <p className="text-[10px] text-muted-foreground">GST Certificate</p>
+                      <p className="text-xs text-green-600">Uploaded</p>
+                    </div>
+                  )}
+                  {initialOnboarding.metaBmId && (
+                    <div>
+                      <p className="text-[10px] text-muted-foreground">Meta BM ID</p>
+                      <p className="text-xs font-mono">{initialOnboarding.metaBmId}</p>
+                    </div>
+                  )}
+                  {/* Accesses summary */}
+                  {(initialOnboarding.metaPageAccess || initialOnboarding.metaAdAccountAccess || initialOnboarding.googleAdsAccess || initialOnboarding.googleAnalyticsAccess || initialOnboarding.googleSearchConsole || initialOnboarding.shopifyAccess || initialOnboarding.websiteAccess) && (
+                    <div>
+                      <p className="text-[10px] text-muted-foreground mb-1">Accesses Granted</p>
+                      <div className="flex flex-wrap gap-1">
+                        {initialOnboarding.metaPageAccess && <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] text-blue-700">Meta Page</span>}
+                        {initialOnboarding.metaAdAccountAccess && <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] text-blue-700">Meta Ads</span>}
+                        {initialOnboarding.googleAdsAccess && <span className="rounded bg-green-100 px-1.5 py-0.5 text-[10px] text-green-700">Google Ads</span>}
+                        {initialOnboarding.googleAnalyticsAccess && <span className="rounded bg-green-100 px-1.5 py-0.5 text-[10px] text-green-700">GA4</span>}
+                        {initialOnboarding.googleSearchConsole && <span className="rounded bg-green-100 px-1.5 py-0.5 text-[10px] text-green-700">Search Console</span>}
+                        {initialOnboarding.shopifyAccess && <span className="rounded bg-purple-100 px-1.5 py-0.5 text-[10px] text-purple-700">Shopify</span>}
+                        {initialOnboarding.websiteAccess && <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-700">Website</span>}
+                      </div>
                     </div>
                   )}
                 </div>
