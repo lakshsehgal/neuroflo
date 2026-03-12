@@ -5,9 +5,10 @@ import { notFound } from "next/navigation";
 export default async function OnboardingPage({
   params,
 }: {
-  params: { token: string };
+  params: Promise<{ token: string }>;
 }) {
-  const client = await getClientByOnboardingToken(params.token);
+  const { token } = await params;
+  const client = await getClientByOnboardingToken(token);
 
   if (!client) {
     notFound();
@@ -46,14 +47,14 @@ export default async function OnboardingPage({
             </p>
 
             <OnboardingForm
-              token={params.token}
+              token={token}
               clientName={client.name}
               existing={client.onboarding}
               isResubmit
             />
           </div>
         ) : (
-          <OnboardingForm token={params.token} clientName={client.name} />
+          <OnboardingForm token={token} clientName={client.name} />
         )}
       </div>
     </div>
