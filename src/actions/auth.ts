@@ -21,7 +21,18 @@ export async function login(
     if (error instanceof AuthError) {
       return { error: "Invalid email or password" };
     }
-    throw error; // Re-throw NEXT_REDIRECT and other errors
+    // NEXT_REDIRECT has a `digest` property containing "NEXT_REDIRECT"
+    if (
+      error instanceof Error &&
+      "digest" in error &&
+      typeof (error as Record<string, unknown>).digest === "string" &&
+      ((error as Record<string, unknown>).digest as string).startsWith("NEXT_REDIRECT")
+    ) {
+      throw error;
+    }
+    // Any other error (DB connection, etc.) — return a user-friendly message
+    console.error("[login] Unexpected error:", error);
+    return { error: "Something went wrong. Please try again." };
   }
 }
 
