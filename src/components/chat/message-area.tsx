@@ -7,8 +7,8 @@ import {
   getNewMessages,
   joinChannel,
   leaveChannel,
-  getChatUploadUrl,
 } from "@/actions/chat";
+import { uploadFile } from "@/lib/upload";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -225,23 +225,14 @@ export function MessageArea({
 
     setUploading(true);
     try {
-      const result = await getChatUploadUrl(channelId, file.name, file.type);
-      if (result.success && result.data) {
-        // Upload to S3
-        await fetch(result.data.uploadUrl, {
-          method: "PUT",
-          body: file,
-          headers: { "Content-Type": file.type },
-        });
-
-        setPendingFile({
-          file,
-          url: result.data.fileUrl,
-          name: file.name,
-          type: file.type,
-          size: file.size,
-        });
-      }
+      const uploaded = await uploadFile(file, `chat/${channelId}`);
+      setPendingFile({
+        file,
+        url: uploaded.url,
+        name: uploaded.fileName,
+        type: uploaded.fileType,
+        size: uploaded.fileSize,
+      });
     } catch {
       alert("Failed to upload file");
     }

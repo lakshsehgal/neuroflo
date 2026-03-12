@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { updateProfile, changePassword, getAvatarUploadUrl, updateAvatar } from "@/actions/profile";
+import { updateProfile, changePassword, updateAvatar } from "@/actions/profile";
+import { uploadFile } from "@/lib/upload";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,6 +17,7 @@ interface ProfileData {
   name: string;
   email: string;
   avatar: string | null;
+  position: string | null;
   role: string;
   department: string | null;
   createdAt: string;
@@ -27,10 +29,11 @@ interface ProfileContentProps {
 
 export function ProfileContent({ profile }: ProfileContentProps) {
   const [name, setName] = useState(profile.name);
+  const [position, setPosition] = useState(profile.position || "");
   const [avatarUrl, setAvatarUrl] = useState(profile.avatar);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
-  const [savingName, setSavingName] = useState(false);
-  const [nameMessage, setNameMessage] = useState("");
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileMessage, setProfileMessage] = useState("");
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -64,18 +67,10 @@ export function ProfileContent({ profile }: ProfileContentProps) {
 
     setUploadingAvatar(true);
     try {
-      const urlResult = await getAvatarUploadUrl(file.name, file.type);
-      if (urlResult.success && urlResult.data) {
-        await fetch(urlResult.data.uploadUrl, {
-          method: "PUT",
-          body: file,
-          headers: { "Content-Type": file.type },
-        });
-
-        const result = await updateAvatar(urlResult.data.avatarUrl);
-        if (result.success) {
-          setAvatarUrl(urlResult.data.avatarUrl);
-        }
+      const uploaded = await uploadFile(file, "avatars");
+      const result = await updateAvatar(uploaded.url);
+      if (result.success) {
+        setAvatarUrl(uploaded.url);
       }
     } catch {
       alert("Failed to upload avatar");
@@ -84,18 +79,18 @@ export function ProfileContent({ profile }: ProfileContentProps) {
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
-  async function handleUpdateName(e: React.FormEvent) {
+  async function handleUpdateProfile(e: React.FormEvent) {
     e.preventDefault();
     if (name.trim().length < 2) return;
 
-    setSavingName(true);
-    setNameMessage("");
-    const result = await updateProfile({ name: name.trim() });
+    setSavingProfile(true);
+    setProfileMessage("");
+    const result = await updateProfile({ name: name.trim(), position: position.trim() || undefined });
     if (result.success) {
-      setNameMessage("Name updated successfully");
-      setTimeout(() => setNameMessage(""), 3000);
+      setProfileMessage("Profile updated successfully");
+      setTimeout(() => setProfileMessage(""), 3000);
     }
-    setSavingName(false);
+    setSavingProfile(false);
   }
 
   async function handleChangePassword(e: React.FormEvent) {
@@ -173,6 +168,9 @@ export function ProfileContent({ profile }: ProfileContentProps) {
               <div className="flex items-center gap-3">
                 <div>
                   <p className="text-lg font-semibold">{profile.name}</p>
+                  {profile.position && (
+                    <p className="text-sm text-muted-foreground">{profile.position}</p>
+                  )}
                   <p className="text-sm text-muted-foreground">{profile.email}</p>
                 </div>
               </div>
@@ -200,41 +198,58 @@ export function ProfileContent({ profile }: ProfileContentProps) {
         </CardContent>
       </Card>
 
-      {/* Update Name */}
+      {/* Update Profile */}
       <Card>
         <CardHeader>
           <CardTitle className="text-sm flex items-center gap-2">
             <User className="h-4 w-4" />
-            Update Name
+            Update Profile
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleUpdateName} className="space-y-4">
-            {nameMessage && (
+          <form onSubmit={handleUpdateProfile} className="space-y-4">
+            {profileMessage && (
               <div className="flex items-center gap-2 rounded-md bg-green-50 p-3 text-sm text-green-700 dark:bg-green-900/20 dark:text-green-400">
                 <Check className="h-4 w-4" />
-                {nameMessage}
+                {profileMessage}
               </div>
             )}
-            <div className="space-y-2">
-              <Label htmlFor="name">Display Name</Label>
-              <Input
-                id="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Your display name"
-                required
-                minLength={2}
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Display Name</Label>
+                <Input
+                  id="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Your display name"
+                  required
+                  minLength={2}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="position">Position / Job Title</Label>
+                <Input
+                  id="position"
+                  value={position}
+                  onChange={(e) => setPosition(e.target.value)}
+                  placeholder="e.g. Senior Designer, Marketing Lead"
+                />
+              </div>
             </div>
-            <Button type="submit" disabled={savingName || name.trim() === profile.name}>
-              {savingName ? (
+            <Button
+              type="submit"
+              disabled={
+                savingProfile ||
+                (name.trim() === profile.name && position.trim() === (profile.position || ""))
+              }
+            >
+              {savingProfile ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Saving...
                 </>
               ) : (
-                "Update Name"
+                "Update Profile"
               )}
             </Button>
           </form>

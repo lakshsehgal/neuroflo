@@ -13,6 +13,7 @@ export default async function ProfilePage() {
         name: profile.name,
         email: profile.email,
         avatar: profile.avatar,
+        position: profile.position,
         role: profile.role,
         department: profile.department?.name || null,
         createdAt: profile.createdAt.toISOString(),

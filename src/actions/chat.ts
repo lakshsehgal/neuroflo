@@ -5,7 +5,7 @@ import { requireAuth } from "@/lib/permissions";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import type { ActionResponse } from "@/types";
-import { generateUploadUrl } from "@/lib/s3";
+import { notifyChatMention } from "@/actions/notifications";
 
 // ─── Schemas ────────────────────────────────────────────
 
@@ -220,6 +220,36 @@ export async function sendMessage(
     },
   });
 
+  // Detect @mentions and send notifications
+  if (content) {
+    const mentionRegex = /@([\w\s]+?)(?=\s@|\s[^@]|$)/g;
+    let match;
+    const mentionedNames: string[] = [];
+    while ((match = mentionRegex.exec(content)) !== null) {
+      mentionedNames.push(match[1].trim());
+    }
+
+    if (mentionedNames.length > 0) {
+      const channel = await db.channel.findUnique({
+        where: { id: channelId },
+        select: { name: true },
+      });
+      const mentionedUsers = await db.user.findMany({
+        where: {
+          name: { in: mentionedNames, mode: "insensitive" },
+          isActive: true,
+        },
+        select: { id: true },
+      });
+
+      for (const u of mentionedUsers) {
+        if (u.id !== user.id) {
+          notifyChatMention(channelId, channel?.name || "chat", u.id, user.name).catch(() => {});
+        }
+      }
+    }
+  }
+
   return { success: true, data: { id: message.id } };
 }
 
@@ -252,26 +282,6 @@ export async function getNewMessages(channelId: string, afterId: string) {
   });
 
   return messages;
-}
-
-// ─── File Upload ────────────────────────────────────────
-
-export async function getChatUploadUrl(
-  channelId: string,
-  fileName: string,
-  contentType: string
-): Promise<ActionResponse<{ uploadUrl: string; fileUrl: string }>> {
-  const user = await requireAuth();
-
-  const key = `chat/${channelId}/${user.id}/${Date.now()}-${fileName}`;
-
-  try {
-    const uploadUrl = await generateUploadUrl(key, contentType);
-    const fileUrl = `https://${process.env.AWS_S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
-    return { success: true, data: { uploadUrl, fileUrl } };
-  } catch {
-    return { success: false, error: "Failed to generate upload URL" };
-  }
 }
 
 // ─── Members ────────────────────────────────────────────

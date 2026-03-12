@@ -6,6 +6,11 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import type { ActionResponse } from "@/types";
 import type { TicketStatus } from "@prisma/client";
+import {
+  notifyTicketAssigned,
+  notifyTicketComment,
+  notifyTicketStatusChanged,
+} from "@/actions/notifications";
 
 const ticketSchema = z.object({
   title: z.string().min(1),
@@ -47,6 +52,11 @@ export async function createTicket(
     },
   });
 
+  // Notify assignee
+  if (parsed.data.assigneeId && parsed.data.assigneeId !== user.id) {
+    notifyTicketAssigned(ticket.id, ticket.title, parsed.data.assigneeId, user.name).catch(() => {});
+  }
+
   revalidatePath("/tickets");
   return { success: true, data: { id: ticket.id } };
 }
@@ -55,7 +65,13 @@ export async function updateTicket(
   id: string,
   input: Record<string, unknown>
 ): Promise<ActionResponse> {
-  await requireRole("MEMBER");
+  const user = await requireRole("MEMBER");
+
+  // Check if assignee is changing
+  const oldTicket = await db.ticket.findUnique({
+    where: { id },
+    select: { assigneeId: true, title: true },
+  });
 
   const data: Record<string, unknown> = { ...input };
   if (data.dueDate && typeof data.dueDate === "string") {
@@ -63,6 +79,20 @@ export async function updateTicket(
   }
 
   await db.ticket.update({ where: { id }, data });
+
+  // Notify new assignee if changed
+  if (
+    data.assigneeId &&
+    data.assigneeId !== oldTicket?.assigneeId &&
+    data.assigneeId !== user.id
+  ) {
+    notifyTicketAssigned(
+      id,
+      oldTicket?.title || "Untitled",
+      data.assigneeId as string,
+      user.name
+    ).catch(() => {});
+  }
 
   revalidatePath(`/tickets/${id}`);
   revalidatePath("/tickets");
@@ -115,6 +145,11 @@ export async function updateTicketStatus(
 ): Promise<ActionResponse> {
   const user = await requireAuth();
 
+  const ticket = await db.ticket.findUnique({
+    where: { id },
+    select: { title: true, creatorId: true, assigneeId: true },
+  });
+
   await db.ticket.update({ where: { id }, data: { status } });
 
   await db.activityLog.create({
@@ -126,6 +161,19 @@ export async function updateTicketStatus(
       metadata: { to: status },
     },
   });
+
+  // Notify creator and assignee
+  if (ticket) {
+    const recipientIds = [ticket.creatorId, ticket.assigneeId].filter(Boolean) as string[];
+    notifyTicketStatusChanged(
+      id,
+      ticket.title,
+      status,
+      user.name,
+      recipientIds,
+      user.id
+    ).catch(() => {});
+  }
 
   revalidatePath(`/tickets/${id}`);
   revalidatePath("/tickets");
@@ -141,6 +189,17 @@ export async function addTicketComment(
   await db.comment.create({
     data: { content, authorId: user.id, ticketId },
   });
+
+  // Notify ticket creator and assignee about the comment
+  const ticket = await db.ticket.findUnique({
+    where: { id: ticketId },
+    select: { title: true, creatorId: true, assigneeId: true },
+  });
+
+  if (ticket) {
+    const recipientIds = [ticket.creatorId, ticket.assigneeId].filter(Boolean) as string[];
+    notifyTicketComment(ticketId, ticket.title, user.name, recipientIds, user.id).catch(() => {});
+  }
 
   revalidatePath(`/tickets/${ticketId}`);
   return { success: true };

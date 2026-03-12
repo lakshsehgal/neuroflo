@@ -2,7 +2,8 @@
 
 import { useState, useTransition, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { submitOnboardingForm, getGstCertificateUploadUrl } from "@/actions/onboarding";
+import { submitOnboardingForm } from "@/actions/onboarding";
+import { uploadFile } from "@/lib/upload";
 
 type OnboardingData = {
   contactName: string | null;
@@ -67,28 +68,8 @@ export function OnboardingForm({ token, clientName, existing, hasGoogleAds, isRe
     setError(null);
 
     try {
-      const result = await getGstCertificateUploadUrl(token, file.name, file.type);
-      if (!result.success || !result.data) {
-        setError("Failed to prepare upload. Please try again.");
-        setUploading(false);
-        return;
-      }
-
-      const { uploadUrl, key } = result.data;
-
-      const uploadRes = await fetch(uploadUrl, {
-        method: "PUT",
-        body: file,
-        headers: { "Content-Type": file.type },
-      });
-
-      if (!uploadRes.ok) {
-        setError("Upload failed. Please try again.");
-        setUploading(false);
-        return;
-      }
-
-      setForm((prev) => ({ ...prev, gstCertificateUrl: key }));
+      const uploaded = await uploadFile(file, "onboarding");
+      setForm((prev) => ({ ...prev, gstCertificateUrl: uploaded.url }));
       setGstFileName(file.name);
     } catch {
       setError("Upload failed. Please try again.");

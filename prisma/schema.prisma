@@ -111,6 +111,7 @@ model User {
   passwordHash String
   role         Role     @default(MEMBER)
   avatar       String?
+  position     String?
   isActive     Boolean  @default(true)
   departmentId String?
   department   Department? @relation(fields: [departmentId], references: [id])
@@ -131,6 +132,8 @@ model User {
   activityLogs   ActivityLog[]
   channelMembers ChannelMember[]
   chatMessages   Message[]
+  notifications  Notification[]
+  notificationPrefs NotificationPreference?
 }
 
 model Department {
@@ -512,4 +515,40 @@ model Message {
   fileSize  Int?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// ─── Notifications ─────────────────────────────────────
+
+enum NotificationType {
+  TICKET_ASSIGNED
+  TICKET_COMMENT
+  TICKET_STATUS_CHANGED
+  CHAT_MENTION
+  CHANNEL_INVITE
+}
+
+model Notification {
+  id         String           @id @default(cuid())
+  userId     String
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type       NotificationType
+  title      String
+  body       String
+  link       String?
+  read       Boolean          @default(false)
+  metadata   Json?
+  createdAt  DateTime         @default(now())
+
+  @@index([userId, read])
+}
+
+model NotificationPreference {
+  id                   String  @id @default(cuid())
+  userId               String  @unique
+  user                 User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ticketAssigned       Boolean @default(true)
+  ticketComment        Boolean @default(true)
+  ticketStatusChanged  Boolean @default(true)
+  chatMention          Boolean @default(true)
+  channelInvite        Boolean @default(true)
 }

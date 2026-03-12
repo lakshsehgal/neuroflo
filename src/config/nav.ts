@@ -8,6 +8,7 @@ import {
   Users,
   UserCog,
   Shield,
+  Bell,
   type LucideIcon,
 } from "lucide-react";
 import type { UserRole } from "@/lib/permissions";
@@ -60,6 +61,7 @@ export const navConfig: NavSection[] = [
           { title: "Roles & Permissions", href: "/settings/roles", icon: Shield, minRole: "ADMIN" },
           { title: "General", href: "/settings/general", icon: UserCog, minRole: "ADMIN" },
           { title: "Profile", href: "/settings/profile", icon: Settings },
+          { title: "Notifications", href: "/settings/notifications", icon: Bell },
         ],
       },
     ],

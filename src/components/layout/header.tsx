@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { LogOut, Settings, User } from "lucide-react";
 import Link from "next/link";
+import { NotificationBell } from "@/components/layout/notification-bell";
 
 interface HeaderProps {
   user: {
@@ -34,7 +35,8 @@ export function Header({ user }: HeaderProps) {
     <header className="flex h-14 items-center justify-between border-b bg-card px-6">
       <div />
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2">
+        <NotificationBell />
         <DropdownMenu>
           <DropdownMenuTrigger className="flex items-center gap-2 rounded-full focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
             <Avatar className="h-8 w-8">
