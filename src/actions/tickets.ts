@@ -222,8 +222,61 @@ export async function getClientNames() {
   });
 }
 
+export async function approveTicket(
+  ticketId: string,
+  status: "APPROVED" | "REJECTED",
+  comment?: string
+): Promise<ActionResponse> {
+  const user = await requireRole("MEMBER");
+
+  const ticket = await db.ticket.findUnique({
+    where: { id: ticketId },
+    select: { title: true, creatorId: true, assigneeId: true },
+  });
+  if (!ticket) return { success: false, error: "Ticket not found" };
+
+  await db.approval.create({
+    data: {
+      ticketId,
+      approverId: user.id,
+      status,
+      comment: comment || null,
+    },
+  });
+
+  // If approved, update ticket status
+  if (status === "APPROVED") {
+    await db.ticket.update({ where: { id: ticketId }, data: { status: "APPROVED" } });
+  }
+
+  await db.activityLog.create({
+    data: {
+      userId: user.id,
+      action: status,
+      entityType: "TICKET",
+      entityId: ticketId,
+      metadata: { title: ticket.title, comment },
+    },
+  });
+
+  // Notify creator and assignee
+  const recipientIds = [ticket.creatorId, ticket.assigneeId].filter(Boolean) as string[];
+  notifyTicketStatusChanged(
+    ticketId,
+    ticket.title,
+    status === "APPROVED" ? "APPROVED" : "NEEDS_EDIT",
+    user.name,
+    recipientIds,
+    user.id
+  ).catch(() => {});
+
+  revalidatePath(`/tickets/${ticketId}`);
+  revalidatePath("/tickets");
+  return { success: true };
+}
+
 export async function deleteTicket(id: string): Promise<ActionResponse> {
-  await requireRole("MANAGER");
+  await requireRole("MEMBER");
 
   await db.ticket.delete({ where: { id } });
   revalidatePath("/tickets");

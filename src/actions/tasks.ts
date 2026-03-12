@@ -90,7 +90,7 @@ export async function updateTaskOrder(
 }
 
 export async function deleteTask(id: string): Promise<ActionResponse> {
-  await requireRole("MANAGER");
+  await requireRole("MEMBER");
 
   const task = await db.task.findUnique({ where: { id } });
   if (!task) return { success: false, error: "Task not found" };

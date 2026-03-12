@@ -102,6 +102,21 @@ enum CampaignStatus {
   COMPLETED
 }
 
+enum ExpenseCategory {
+  SALARIES
+  TOOLS
+  OFFICE
+  MARKETING
+  OTHER
+}
+
+enum ExpenseFrequency {
+  MONTHLY
+  QUARTERLY
+  YEARLY
+  ONE_TIME
+}
+
 // ─── Core ───────────────────────────────────────────────
 
 model User {
@@ -553,4 +568,18 @@ model NotificationPreference {
   ticketStatusChanged  Boolean @default(true)
   chatMention          Boolean @default(true)
   channelInvite        Boolean @default(true)
+}
+
+// ─── Founder's Hub ────────────────────────────────────
+
+model Expense {
+  id          String           @id @default(cuid())
+  name        String
+  category    ExpenseCategory
+  amount      Float
+  frequency   ExpenseFrequency @default(MONTHLY)
+  notes       String?
+  isActive    Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
 }

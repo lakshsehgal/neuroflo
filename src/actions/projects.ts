@@ -111,7 +111,7 @@ export async function updateProject(
 }
 
 export async function deleteProject(id: string): Promise<ActionResponse> {
-  await requireRole("MANAGER");
+  await requireRole("MEMBER");
 
   await db.project.delete({ where: { id } });
 

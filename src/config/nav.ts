@@ -9,6 +9,7 @@ import {
   UserCog,
   Shield,
   Bell,
+  Crown,
   type LucideIcon,
 } from "lucide-react";
 import type { UserRole } from "@/lib/permissions";
@@ -48,6 +49,12 @@ export const navConfig: NavSection[] = [
         title: "Clients",
         href: "/admin/clients",
         icon: Building2,
+        minRole: "MANAGER",
+      },
+      {
+        title: "Founder's Hub",
+        href: "/admin/founders",
+        icon: Crown,
         minRole: "ADMIN",
       },
       {

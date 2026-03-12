@@ -27,7 +27,7 @@ const clientSchema = z.object({
 export async function createClient(
   input: z.infer<typeof clientSchema>
 ): Promise<ActionResponse<{ id: string }>> {
-  await requireRole("ADMIN");
+  await requireRole("MANAGER");
 
   const parsed = clientSchema.safeParse(input);
   if (!parsed.success) return { success: false, error: "Invalid input" };
@@ -42,7 +42,7 @@ export async function updateClient(
   id: string,
   input: z.infer<typeof clientSchema>
 ): Promise<ActionResponse> {
-  await requireRole("ADMIN");
+  await requireRole("MANAGER");
 
   const parsed = clientSchema.safeParse(input);
   if (!parsed.success) return { success: false, error: "Invalid input" };
@@ -60,7 +60,7 @@ export async function updateClientField(
   field: string,
   value: string | number | null
 ): Promise<ActionResponse> {
-  await requireRole("ADMIN");
+  await requireRole("MANAGER");
 
   const allowedFields = [
     "status", "sentimentStatus", "avgBillingAmount", "oneTimeProjectAmount",
@@ -80,7 +80,7 @@ export async function updateClientField(
 }
 
 export async function getClients() {
-  await requireRole("ADMIN");
+  await requireRole("MANAGER");
 
   return db.client.findMany({
     include: {
@@ -96,7 +96,7 @@ export async function getClients() {
 }
 
 export async function getClient(id: string) {
-  await requireRole("ADMIN");
+  await requireRole("MANAGER");
 
   return db.client.findUnique({
     where: { id },
@@ -108,7 +108,7 @@ export async function getClient(id: string) {
 }
 
 export async function deleteClient(id: string): Promise<ActionResponse> {
-  await requireRole("ADMIN");
+  await requireRole("MANAGER");
   await db.client.delete({ where: { id } });
   revalidatePath("/admin/clients");
   return { success: true };
@@ -126,7 +126,7 @@ const invoiceSchema = z.object({
 export async function createInvoice(
   input: z.infer<typeof invoiceSchema>
 ): Promise<ActionResponse<{ id: string }>> {
-  await requireRole("ADMIN");
+  await requireRole("MANAGER");
 
   const parsed = invoiceSchema.safeParse(input);
   if (!parsed.success) return { success: false, error: "Invalid input" };
@@ -147,7 +147,7 @@ export async function updateInvoiceStatus(
   status: "PENDING" | "SENT" | "PAID" | "OVERDUE" | "CANCELLED",
   paidDate?: string
 ): Promise<ActionResponse> {
-  await requireRole("ADMIN");
+  await requireRole("MANAGER");
 
   const data: Record<string, unknown> = { status };
   if (status === "PAID") {
@@ -165,7 +165,7 @@ export async function updateInvoiceStatus(
 
 // Revenue forecasting
 export async function getRevenueForecasting() {
-  await requireRole("ADMIN");
+  await requireRole("MANAGER");
 
   const clients = await db.client.findMany({
     where: { sentimentStatus: { not: "CHURNED" } },
@@ -190,7 +190,7 @@ export async function getRevenueForecasting() {
 
 // Dashboard analytics
 export async function getClientDashboardData() {
-  await requireRole("ADMIN");
+  await requireRole("MANAGER");
 
   // All invoices for chart data (last 12 months)
   const twelveMonthsAgo = new Date();
@@ -229,7 +229,7 @@ export async function getClientDashboardData() {
 
 // Get upcoming invoice reminders
 export async function getUpcomingReminders() {
-  await requireRole("ADMIN");
+  await requireRole("MANAGER");
 
   const now = new Date();
   const thirtyDaysFromNow = new Date();
