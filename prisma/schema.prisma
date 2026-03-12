@@ -416,6 +416,8 @@ model ClientOnboarding {
   metaBmId                String?
   metaPageAccess          Boolean  @default(false)
   metaAdAccountAccess     Boolean  @default(false)
+  metaCatalogueAccess     Boolean  @default(false)
+  metaPixelAccess         Boolean  @default(false)
   googleAdsAccess         Boolean  @default(false)
   googleAnalyticsAccess   Boolean  @default(false)
   googleSearchConsole     Boolean  @default(false)

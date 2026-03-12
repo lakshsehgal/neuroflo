@@ -7,6 +7,8 @@ type AccessesData = {
   metaBmId: string | null;
   metaPageAccess: boolean;
   metaAdAccountAccess: boolean;
+  metaCatalogueAccess: boolean;
+  metaPixelAccess: boolean;
   googleAdsAccess: boolean;
   googleAnalyticsAccess: boolean;
   googleSearchConsole: boolean;
@@ -34,6 +36,16 @@ const META_ITEMS = [
     key: "metaPageAccess" as const,
     label: "Facebook & Instagram Page Access",
     description: `Share your Facebook Page and Instagram Page access to our BM ID: ${NEUROID_BM_ID}`,
+  },
+  {
+    key: "metaCatalogueAccess" as const,
+    label: "Catalogue Access",
+    description: `Share your product catalogue access to our BM ID: ${NEUROID_BM_ID}`,
+  },
+  {
+    key: "metaPixelAccess" as const,
+    label: "Pixel Access",
+    description: `Share your Meta Pixel access to our BM ID: ${NEUROID_BM_ID}`,
   },
 ];
 
@@ -84,6 +96,8 @@ export function AccessesChecklist({ token, existing }: Props) {
     metaBmId: existing?.metaBmId || "",
     metaPageAccess: existing?.metaPageAccess || false,
     metaAdAccountAccess: existing?.metaAdAccountAccess || false,
+    metaCatalogueAccess: existing?.metaCatalogueAccess || false,
+    metaPixelAccess: existing?.metaPixelAccess || false,
     googleAdsAccess: existing?.googleAdsAccess || false,
     googleAnalyticsAccess: existing?.googleAnalyticsAccess || false,
     googleSearchConsole: existing?.googleSearchConsole || false,
@@ -104,6 +118,8 @@ export function AccessesChecklist({ token, existing }: Props) {
         metaBmId: accesses.metaBmId.trim() || undefined,
         metaPageAccess: accesses.metaPageAccess,
         metaAdAccountAccess: accesses.metaAdAccountAccess,
+        metaCatalogueAccess: accesses.metaCatalogueAccess,
+        metaPixelAccess: accesses.metaPixelAccess,
         googleAdsAccess: accesses.googleAdsAccess,
         googleAnalyticsAccess: accesses.googleAnalyticsAccess,
         googleSearchConsole: accesses.googleSearchConsole,

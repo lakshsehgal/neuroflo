@@ -154,6 +154,8 @@ export async function submitAccessesChecklist(
     metaBmId?: string;
     metaPageAccess: boolean;
     metaAdAccountAccess: boolean;
+    metaCatalogueAccess: boolean;
+    metaPixelAccess: boolean;
     googleAdsAccess: boolean;
     googleAnalyticsAccess: boolean;
     googleSearchConsole: boolean;
@@ -177,6 +179,8 @@ export async function submitAccessesChecklist(
       metaBmId: data.metaBmId || null,
       metaPageAccess: data.metaPageAccess,
       metaAdAccountAccess: data.metaAdAccountAccess,
+      metaCatalogueAccess: data.metaCatalogueAccess,
+      metaPixelAccess: data.metaPixelAccess,
       googleAdsAccess: data.googleAdsAccess,
       googleAnalyticsAccess: data.googleAnalyticsAccess,
       googleSearchConsole: data.googleSearchConsole,
