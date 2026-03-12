@@ -11,7 +11,11 @@ const ticketSchema = z.object({
   title: z.string().min(1),
   description: z.string().optional(),
   priority: z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]).optional(),
-  projectId: z.string().optional(),
+  format: z.enum(["STATIC", "VIDEO", "UGC", "GIF", "CAROUSEL", "DPA_FRAME"]).optional().nullable(),
+  creativeType: z.enum(["NET_NEW", "ITERATION"]).optional().nullable(),
+  clientName: z.string().optional(),
+  creativeBriefUrl: z.string().optional(),
+  deliveryLink: z.string().optional(),
   assigneeId: z.string().optional(),
   dueDate: z.string().optional(),
 });
@@ -28,6 +32,7 @@ export async function createTicket(
     data: {
       ...parsed.data,
       creatorId: user.id,
+      assignedById: user.id,
       dueDate: parsed.data.dueDate ? new Date(parsed.data.dueDate) : undefined,
     },
   });
@@ -46,6 +51,24 @@ export async function createTicket(
   return { success: true, data: { id: ticket.id } };
 }
 
+export async function updateTicket(
+  id: string,
+  input: Record<string, unknown>
+): Promise<ActionResponse> {
+  await requireRole("MEMBER");
+
+  const data: Record<string, unknown> = { ...input };
+  if (data.dueDate && typeof data.dueDate === "string") {
+    data.dueDate = new Date(data.dueDate as string);
+  }
+
+  await db.ticket.update({ where: { id }, data });
+
+  revalidatePath(`/tickets/${id}`);
+  revalidatePath("/tickets");
+  return { success: true };
+}
+
 export async function getTickets(status?: TicketStatus) {
   await requireAuth();
 
@@ -54,7 +77,7 @@ export async function getTickets(status?: TicketStatus) {
     include: {
       creator: { select: { id: true, name: true, avatar: true } },
       assignee: { select: { id: true, name: true, avatar: true } },
-      project: { select: { id: true, name: true } },
+      assignedBy: { select: { id: true, name: true } },
       _count: { select: { revisions: true, comments: true } },
     },
     orderBy: { updatedAt: "desc" },
@@ -69,7 +92,7 @@ export async function getTicket(id: string) {
     include: {
       creator: { select: { id: true, name: true, email: true, avatar: true } },
       assignee: { select: { id: true, name: true, email: true, avatar: true } },
-      project: { select: { id: true, name: true } },
+      assignedBy: { select: { id: true, name: true } },
       revisions: {
         include: { uploadedBy: { select: { name: true } } },
         orderBy: { version: "desc" },
@@ -92,23 +115,6 @@ export async function updateTicketStatus(
 ): Promise<ActionResponse> {
   const user = await requireAuth();
 
-  // Validate status transitions
-  const ticket = await db.ticket.findUnique({ where: { id } });
-  if (!ticket) return { success: false, error: "Ticket not found" };
-
-  const validTransitions: Record<TicketStatus, TicketStatus[]> = {
-    SUBMITTED: ["IN_PROGRESS"],
-    IN_PROGRESS: ["IN_REVIEW", "SUBMITTED"],
-    IN_REVIEW: ["APPROVED", "REVISION_REQUESTED"],
-    REVISION_REQUESTED: ["IN_PROGRESS"],
-    APPROVED: ["COMPLETED"],
-    COMPLETED: [],
-  };
-
-  if (!validTransitions[ticket.status].includes(status)) {
-    return { success: false, error: `Cannot transition from ${ticket.status} to ${status}` };
-  }
-
   await db.ticket.update({ where: { id }, data: { status } });
 
   await db.activityLog.create({
@@ -117,7 +123,7 @@ export async function updateTicketStatus(
       action: "STATUS_CHANGED",
       entityType: "TICKET",
       entityId: id,
-      metadata: { from: ticket.status, to: status },
+      metadata: { to: status },
     },
   });
 
@@ -126,28 +132,35 @@ export async function updateTicketStatus(
   return { success: true };
 }
 
-export async function approveTicket(
+export async function addTicketComment(
   ticketId: string,
-  approved: boolean,
-  comment?: string
+  content: string
 ): Promise<ActionResponse> {
-  const user = await requireRole("MANAGER");
+  const user = await requireAuth();
 
-  await db.approval.create({
-    data: {
-      ticketId,
-      approverId: user.id,
-      status: approved ? "APPROVED" : "REJECTED",
-      comment,
-    },
+  await db.comment.create({
+    data: { content, authorId: user.id, ticketId },
   });
 
-  const newStatus: TicketStatus = approved ? "APPROVED" : "REVISION_REQUESTED";
-  await db.ticket.update({ where: { id: ticketId }, data: { status: newStatus } });
-
   revalidatePath(`/tickets/${ticketId}`);
-  revalidatePath("/tickets");
   return { success: true };
+}
+
+export async function getTeamUsers() {
+  await requireAuth();
+  return db.user.findMany({
+    where: { isActive: true },
+    select: { id: true, name: true, avatar: true },
+    orderBy: { name: "asc" },
+  });
+}
+
+export async function getClientNames() {
+  await requireAuth();
+  return db.client.findMany({
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  });
 }
 
 export async function deleteTicket(id: string): Promise<ActionResponse> {

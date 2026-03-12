@@ -37,12 +37,44 @@ enum Priority {
 }
 
 enum TicketStatus {
-  SUBMITTED
+  NEW_REQUEST
   IN_PROGRESS
-  IN_REVIEW
-  REVISION_REQUESTED
+  SIZE_CHANGES
+  READY_FOR_APPROVAL
+  SENT_TO_CLIENT
+  NEEDS_EDIT
   APPROVED
-  COMPLETED
+  AWAITING_EDITS
+  ON_HOLD
+}
+
+enum TicketFormat {
+  STATIC
+  VIDEO
+  UGC
+  GIF
+  CAROUSEL
+  DPA_FRAME
+}
+
+enum CreativeType {
+  NET_NEW
+  ITERATION
+}
+
+enum SentimentStatus {
+  HAPPY
+  NEUTRAL
+  AT_RISK
+  CHURNED
+}
+
+enum InvoiceStatus {
+  PENDING
+  SENT
+  PAID
+  OVERDUE
+  CANCELLED
 }
 
 enum ApprovalStatus {
@@ -85,6 +117,7 @@ model User {
   assignedTasks  Task[]          @relation("TaskAssignee")
   createdTickets Ticket[]        @relation("TicketCreator")
   assignedTickets Ticket[]       @relation("TicketAssignee")
+  assignedByTickets Ticket[]     @relation("TicketAssigner")
   approvals      Approval[]
   comments       Comment[]
   uploadedAssets Asset[]
@@ -204,20 +237,27 @@ model TaskLabel {
 // ─── Creative Tickets ───────────────────────────────────
 
 model Ticket {
-  id          String       @id @default(cuid())
-  title       String
-  description String?
-  status      TicketStatus @default(SUBMITTED)
-  priority    Priority     @default(MEDIUM)
-  projectId   String?
-  project     Project?     @relation(fields: [projectId], references: [id])
-  creatorId   String
-  creator     User         @relation("TicketCreator", fields: [creatorId], references: [id])
-  assigneeId  String?
-  assignee    User?        @relation("TicketAssignee", fields: [assigneeId], references: [id])
-  dueDate     DateTime?
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  id              String        @id @default(cuid())
+  title           String
+  description     String?
+  status          TicketStatus  @default(NEW_REQUEST)
+  priority        Priority      @default(MEDIUM)
+  format          TicketFormat?
+  creativeType    CreativeType?
+  clientName      String?
+  creativeBriefUrl String?
+  deliveryLink    String?
+  projectId       String?
+  project         Project?      @relation(fields: [projectId], references: [id])
+  creatorId       String
+  creator         User          @relation("TicketCreator", fields: [creatorId], references: [id])
+  assigneeId      String?
+  assignee        User?         @relation("TicketAssignee", fields: [assigneeId], references: [id])
+  assignedById    String?
+  assignedBy      User?         @relation("TicketAssigner", fields: [assignedById], references: [id])
+  dueDate         DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   revisions Revision[]
   approvals Approval[]
@@ -320,19 +360,41 @@ model AssetTag {
 // ─── MIS / Repository ───────────────────────────────────
 
 model Client {
-  id           String   @id @default(cuid())
-  name         String
-  industry     String?
-  contactName  String?
-  contactEmail String?
-  contactPhone String?
-  website      String?
-  notes        String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                  String          @id @default(cuid())
+  name                String
+  industry            String?
+  contactName         String?
+  contactEmail        String?
+  contactPhone        String?
+  website             String?
+  notes               String?
+  sow                 String?
+  sentimentStatus     SentimentStatus @default(NEUTRAL)
+  avgBillingAmount    Float?
+  decidedCommercials  String?
+  invoicingDueDay     Int?
+  reminderDaysBefore  Int             @default(3)
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
 
   campaigns Campaign[]
   projects  Project[]
+  invoices  Invoice[]
+}
+
+model Invoice {
+  id           String        @id @default(cuid())
+  clientId     String
+  client       Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  amount       Float
+  status       InvoiceStatus @default(PENDING)
+  dueDate      DateTime
+  paidDate     DateTime?
+  invoiceNumber String?
+  notes        String?
+  reminderSent Boolean       @default(false)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 }
 
 model Campaign {

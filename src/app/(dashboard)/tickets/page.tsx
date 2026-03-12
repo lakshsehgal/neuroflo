@@ -11,17 +11,16 @@ export default async function TicketsPage() {
         title: t.title,
         status: t.status,
         priority: t.priority,
+        format: t.format,
+        creativeType: t.creativeType,
+        clientName: t.clientName,
         dueDate: t.dueDate ? t.dueDate.toISOString() : null,
-        creatorName: t.creator.name,
-        revisionCount: t._count.revisions,
+        deliveryLink: t.deliveryLink,
         assigneeName: t.assignee?.name || null,
         assigneeInitials: t.assignee
-          ? t.assignee.name
-              .split(" ")
-              .map((n) => n[0])
-              .join("")
+          ? t.assignee.name.split(" ").map((n) => n[0]).join("")
           : null,
-        projectName: t.project?.name || null,
+        assignedByName: t.assignedBy?.name || null,
       }))}
     />
   );

@@ -7,12 +7,10 @@ export default async function DashboardPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const [projectCount, ticketCount, assetCount, campaignCount, recentActivity, myTasks, myTickets] =
+  const [projectCount, ticketCount, recentActivity, myTasks, myTickets] =
     await Promise.all([
       db.project.count({ where: { status: "ACTIVE" } }),
-      db.ticket.count({ where: { status: { notIn: ["COMPLETED"] } } }),
-      db.asset.count(),
-      db.campaign.count({ where: { status: "ACTIVE" } }),
+      db.ticket.count({ where: { status: { notIn: ["APPROVED"] } } }),
       db.activityLog.findMany({
         include: { user: { select: { name: true } } },
         orderBy: { createdAt: "desc" },
@@ -27,7 +25,7 @@ export default async function DashboardPage() {
       db.ticket.findMany({
         where: {
           OR: [{ creatorId: user.id }, { assigneeId: user.id }],
-          status: { notIn: ["COMPLETED"] },
+          status: { notIn: ["APPROVED"] },
         },
         include: { project: { select: { name: true } } },
         orderBy: { updatedAt: "desc" },
@@ -35,11 +33,13 @@ export default async function DashboardPage() {
       }),
     ]);
 
+  const taskCount = await db.task.count({ where: { status: { not: "DONE" } } });
+
   const stats = [
     { label: "Active Projects", value: projectCount, iconName: "FolderKanban", href: "/projects", color: "text-blue-600" },
     { label: "Open Tickets", value: ticketCount, iconName: "Ticket", href: "/tickets", color: "text-orange-600" },
-    { label: "Total Assets", value: assetCount, iconName: "Image", href: "/assets", color: "text-green-600" },
-    { label: "Active Campaigns", value: campaignCount, iconName: "Megaphone", href: "/repository/campaigns", color: "text-purple-600" },
+    { label: "Active Tasks", value: taskCount, iconName: "CheckSquare", href: "/projects", color: "text-green-600" },
+    { label: "My Tasks", value: myTasks.length, iconName: "User", href: "/projects", color: "text-purple-600" },
   ];
 
   return (

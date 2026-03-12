@@ -20,12 +20,14 @@ import { formatDate, isOverdue, isDueSoon } from "@/lib/utils";
 import {
   DndContext,
   DragOverlay,
-  closestCorners,
+  closestCenter,
+  rectIntersection,
   useSensor,
   useSensors,
   PointerSensor,
   type DragStartEvent,
   type DragEndEvent,
+  type CollisionDetection,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -266,7 +268,27 @@ export function TaskBoard({
   const currentTasks = localTasks || tasksByStatus;
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  );
+
+  // Custom collision detection: prefer droppable columns over sortable items
+  const collisionDetection: CollisionDetection = useCallback(
+    (args) => {
+      // First check if we're over a droppable column
+      const rectCollisions = rectIntersection(args);
+      const columnIds = columns.map((c) => c.key);
+      const overColumn = rectCollisions.find((c) =>
+        columnIds.includes(c.id as string)
+      );
+      if (overColumn) return [overColumn];
+
+      // Fall back to closest center for sortable items
+      const closestCollisions = closestCenter(args);
+      if (closestCollisions.length > 0) return closestCollisions;
+
+      return rectCollisions;
+    },
+    []
   );
 
   async function handleAddTask(status: string) {
@@ -291,6 +313,47 @@ export function TaskBoard({
     [tasksByStatus, localTasks]
   );
 
+  // Find which column a droppable/sortable ID belongs to
+  const findColumn = useCallback(
+    (id: string | number): string | null => {
+      // Direct column match
+      if (columns.find((c) => c.key === id)) return id as string;
+      // Task inside a column
+      const source = localTasks || tasksByStatus;
+      for (const col of columns) {
+        if (source[col.key]?.find((t) => t.id === id)) return col.key;
+      }
+      return null;
+    },
+    [localTasks, tasksByStatus]
+  );
+
+  const handleDragOver = useCallback(
+    (event: { active: { id: string | number }; over: { id: string | number } | null }) => {
+      const { active, over } = event;
+      if (!over) return;
+
+      const activeCol = findColumn(active.id);
+      const overCol = findColumn(over.id);
+      if (!activeCol || !overCol || activeCol === overCol) return;
+
+      // Move task between columns in local state
+      const source = localTasks || tasksByStatus;
+      const newTasks: Record<string, Task[]> = {};
+      for (const col of columns) {
+        newTasks[col.key] = [...(source[col.key] || [])];
+      }
+      const taskIndex = newTasks[activeCol].findIndex(
+        (t) => t.id === active.id
+      );
+      if (taskIndex === -1) return;
+      const [movedTask] = newTasks[activeCol].splice(taskIndex, 1);
+      newTasks[overCol].push({ ...movedTask, status: overCol });
+      setLocalTasks(newTasks);
+    },
+    [findColumn, localTasks, tasksByStatus]
+  );
+
   const handleDragEnd = useCallback(
     async (event: DragEndEvent) => {
       const { active, over } = event;
@@ -301,47 +364,17 @@ export function TaskBoard({
         return;
       }
 
-      const activeTaskData = (active.data.current as { task: Task })?.task;
-      if (!activeTaskData) {
+      const source = localTasks || tasksByStatus;
+      const targetCol = findColumn(over.id);
+      if (!targetCol) {
         setLocalTasks(null);
         return;
       }
 
-      // Determine target column
-      let targetColumn = over.id as string;
-      // If dropped on a task, find which column it belongs to
-      if (!columns.find((c) => c.key === targetColumn)) {
-        for (const col of columns) {
-          if (currentTasks[col.key]?.find((t) => t.id === over.id)) {
-            targetColumn = col.key;
-            break;
-          }
-        }
-      }
-
-      if (!columns.find((c) => c.key === targetColumn)) {
-        setLocalTasks(null);
-        return;
-      }
-
-      // Build new state
-      const newTasks = { ...currentTasks };
-      // Remove from old column
-      for (const col of columns) {
-        newTasks[col.key] = newTasks[col.key].filter(
-          (t) => t.id !== activeTaskData.id
-        );
-      }
-      // Add to new column
-      const updatedTask = { ...activeTaskData, status: targetColumn };
-      newTasks[targetColumn] = [...newTasks[targetColumn], updatedTask];
-
-      setLocalTasks(newTasks);
-
-      // Build order updates for server
+      // Build order updates for server from current local state
       const updates: { id: string; status: string; order: number }[] = [];
       for (const col of columns) {
-        newTasks[col.key].forEach((task, index) => {
+        (source[col.key] || []).forEach((task, index) => {
           updates.push({ id: task.id, status: col.key, order: index });
         });
       }
@@ -353,7 +386,7 @@ export function TaskBoard({
       }
       setLocalTasks(null);
     },
-    [currentTasks]
+    [localTasks, tasksByStatus, findColumn]
   );
 
   const totalTasks = Object.values(currentTasks).reduce(
@@ -364,8 +397,9 @@ export function TaskBoard({
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCorners}
+      collisionDetection={collisionDetection}
       onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
