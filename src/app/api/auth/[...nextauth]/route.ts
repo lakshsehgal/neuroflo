@@ -7,19 +7,17 @@ export const GET = handlers.GET;
 
 export async function POST(req: NextRequest) {
   try {
-    return await originalPost(req);
+    const res = await originalPost(req);
+    if (res.status >= 400) {
+      const cloned = res.clone();
+      const body = await cloned.text();
+      console.error(`[nextauth-route] POST returned ${res.status}:`, body);
+    }
+    return res;
   } catch (error) {
-    console.error("[nextauth-route] POST error:", error);
-    console.error(
-      "[nextauth-route] Error details:",
-      JSON.stringify({
-        name: error instanceof Error ? error.name : "unknown",
-        message: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack?.split("\n").slice(0, 5) : undefined,
-      })
-    );
+    console.error("[nextauth-route] POST threw:", error);
     return Response.json(
-      { error: "Internal auth error", details: error instanceof Error ? error.message : String(error) },
+      { error: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
   }
