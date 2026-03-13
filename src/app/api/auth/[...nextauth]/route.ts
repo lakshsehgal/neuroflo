@@ -1,10 +1,11 @@
 import { handlers } from "@/lib/auth";
+import type { NextRequest } from "next/server";
 
 const originalPost = handlers.POST;
 
 export const GET = handlers.GET;
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
     return await originalPost(req);
   } catch (error) {
