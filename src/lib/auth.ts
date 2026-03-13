@@ -16,16 +16,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
       async authorize(credentials) {
         try {
-          console.log("[auth] authorize called", { email: credentials?.email, hasPassword: !!credentials?.password });
-          if (!credentials?.email || !credentials?.password) {
-            console.log("[auth] missing credentials");
-            return null;
-          }
+          if (!credentials?.email || !credentials?.password) return null;
 
           const user = await db.user.findUnique({
             where: { email: credentials.email as string },
           });
-          console.log("[auth] user lookup", { found: !!user, isActive: user?.isActive });
 
           if (!user || !user.isActive) return null;
 
@@ -33,19 +28,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             credentials.password as string,
             user.passwordHash
           );
-          console.log("[auth] bcrypt compare result:", isValid);
 
           if (!isValid) return null;
 
-          const result = {
+          return {
             id: user.id,
             name: user.name,
             email: user.email,
             role: user.role,
             image: user.avatar,
           };
-          console.log("[auth] authorize returning user:", { id: result.id, role: result.role });
-          return result;
         } catch (error) {
           console.error("[auth] authorize error:", error);
           return null;
@@ -62,7 +54,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        console.log("[auth] jwt callback with user:", { id: user.id, role: (user as { role?: Role }).role });
         token.id = user.id!;
         token.role = (user as { role: Role }).role;
         token.roleRefreshedAt = Date.now();
