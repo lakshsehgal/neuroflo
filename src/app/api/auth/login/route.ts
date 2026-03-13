@@ -1,7 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import * as bcrypt from "bcryptjs";
-import { encode } from "next-auth/jwt";
 
 export async function POST(req: NextRequest) {
   try {
@@ -9,6 +6,34 @@ export async function POST(req: NextRequest) {
 
     if (!email || !password) {
       return NextResponse.json({ error: "Missing credentials" }, { status: 400 });
+    }
+
+    // Dynamic imports to avoid module-level crashes
+    let db, bcrypt, encode;
+    try {
+      const dbModule = await import("@/lib/db");
+      db = dbModule.db;
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("[login] db import failed:", msg);
+      return NextResponse.json({ error: "DB init failed: " + msg }, { status: 500 });
+    }
+
+    try {
+      bcrypt = await import("bcryptjs");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("[login] bcryptjs import failed:", msg);
+      return NextResponse.json({ error: "bcrypt init failed: " + msg }, { status: 500 });
+    }
+
+    try {
+      const jwtModule = await import("next-auth/jwt");
+      encode = jwtModule.encode;
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("[login] next-auth/jwt import failed:", msg);
+      return NextResponse.json({ error: "jwt init failed: " + msg }, { status: 500 });
     }
 
     // Find user
@@ -61,10 +86,11 @@ export async function POST(req: NextRequest) {
     });
 
     return response;
-  } catch (error) {
-    console.error("[login] error:", error);
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.stack || error.message : String(error);
+    console.error("[login] error:", msg);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: "Internal server error: " + msg },
       { status: 500 }
     );
   }
