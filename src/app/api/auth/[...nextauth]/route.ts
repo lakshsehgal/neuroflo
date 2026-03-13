@@ -5,24 +5,26 @@ export const GET = handlers.GET;
 
 export async function POST(req: NextRequest) {
   console.log("[auth-route] POST invoked:", req.nextUrl.pathname);
+
+  // TEST 1: Does a hardcoded response work from this catch-all route?
+  // If this also returns HTML 500, the issue is Next.js catch-all + POST
+  // If this returns JSON, the issue is inside handlers.POST
+  const testMode = req.nextUrl.searchParams.get("test");
+  if (testMode === "ping") {
+    return NextResponse.json({ ping: "pong", path: req.nextUrl.pathname });
+  }
+
   try {
     const response = await handlers.POST(req);
     const status = response.status;
-    console.log("[auth-route] response status:", status);
+    const contentType = response.headers.get("content-type") || "";
+    console.log("[auth-route] status:", status, "ct:", contentType);
 
-    // If error response, capture full body for debugging
     if (status >= 400) {
-      const cloned = response.clone();
-      const body = await cloned.text();
+      const body = await response.clone().text();
       console.error("[auth-route] error body:", body.substring(0, 500));
-      // Return as JSON so we can see it in browser
       return NextResponse.json(
-        {
-          _debug: "response-error",
-          status,
-          headers: Object.fromEntries(response.headers.entries()),
-          body: body.substring(0, 2000),
-        },
+        { _debug: "response-error", status, contentType, body: body.substring(0, 2000) },
         { status }
       );
     }
@@ -34,12 +36,7 @@ export async function POST(req: NextRequest) {
     console.error("[auth-route] THREW:", name, msg);
     console.error("[auth-route] stack:", stack?.substring(0, 500));
     return NextResponse.json(
-      {
-        _debug: "threw",
-        name,
-        message: msg,
-        stack: stack?.split("\n").slice(0, 10),
-      },
+      { _debug: "threw", name, message: msg, stack: stack?.split("\n").slice(0, 10) },
       { status: 500 }
     );
   }
