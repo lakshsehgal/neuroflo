@@ -17,7 +17,6 @@ export async function POST(req: NextRequest) {
       method: req.method,
       headers,
       body: req.body,
-      // @ts-expect-error duplex is needed for request body streaming
       duplex: "half",
     });
 
