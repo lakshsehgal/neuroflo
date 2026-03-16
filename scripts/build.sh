@@ -10,5 +10,8 @@ npx prisma db execute --file scripts/pre-push-migrate.sql --schema prisma/schema
 echo "Syncing database schema..."
 npx prisma db push --accept-data-loss
 
+echo "Running database seed (refreshes password hashes)..."
+npx tsx prisma/seed.ts || echo "Seed skipped"
+
 echo "Running Next.js build..."
 next build

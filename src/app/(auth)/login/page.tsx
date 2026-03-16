@@ -32,6 +32,7 @@ export default function LoginPage() {
       setError(result.error);
       setLoading(false);
     } else {
+      router.refresh();
       router.push("/dashboard");
     }
   }

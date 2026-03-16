@@ -29,7 +29,7 @@ async function main() {
   const adminPassword = await bcrypt.hash("admin123", 12);
   const admin = await prisma.user.upsert({
     where: { email: "admin@neuroid.agency" },
-    update: {},
+    update: { passwordHash: adminPassword },
     create: {
       name: "Admin User",
       email: "admin@neuroid.agency",
@@ -44,7 +44,7 @@ async function main() {
 
   const designer = await prisma.user.upsert({
     where: { email: "sarah@neuroid.agency" },
-    update: {},
+    update: { passwordHash: memberPassword },
     create: {
       name: "Sarah Chen",
       email: "sarah@neuroid.agency",
@@ -56,7 +56,7 @@ async function main() {
 
   const manager = await prisma.user.upsert({
     where: { email: "mike@neuroid.agency" },
-    update: {},
+    update: { passwordHash: memberPassword },
     create: {
       name: "Mike Johnson",
       email: "mike@neuroid.agency",
