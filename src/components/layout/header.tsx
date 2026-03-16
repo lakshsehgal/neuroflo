@@ -14,6 +14,7 @@ import {
 import { LogOut, Settings, User } from "lucide-react";
 import Link from "next/link";
 import { NotificationBell } from "@/components/layout/notification-bell";
+import { PushNotificationManager } from "@/components/layout/push-notification-manager";
 
 interface HeaderProps {
   user: {
@@ -43,6 +44,7 @@ export function Header({ user }: HeaderProps) {
       <div />
 
       <div className="flex items-center gap-4">
+        <PushNotificationManager />
         <NotificationBell />
         <DropdownMenu>
           <DropdownMenuTrigger className="flex items-center gap-2 rounded-full focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">

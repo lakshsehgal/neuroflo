@@ -5,6 +5,7 @@ import { requireAuth } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
 import type { ActionResponse } from "@/types";
 import type { NotificationType } from "@prisma/client";
+import { sendPushNotification } from "@/lib/send-push";
 
 // ─── Create Notification (internal helper) ──────────────
 
@@ -46,6 +47,11 @@ export async function createNotification(
       metadata: metadata ? (metadata as Record<string, string>) : undefined,
     },
   });
+
+  // Send browser push notification
+  await sendPushNotification(userId, title, body, link ?? undefined, type).catch(
+    () => {} // Don't fail the action if push fails
+  );
 }
 
 // ─── Fetch Notifications ────────────────────────────────
