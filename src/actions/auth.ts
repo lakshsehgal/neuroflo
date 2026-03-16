@@ -1,28 +1,43 @@
 "use server";
 
 import * as bcrypt from "bcryptjs";
-import { signIn } from "@/lib/auth";
-import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { db } from "@/lib/db";
 import { z } from "zod";
+import { createSessionToken, setSessionCookie, deleteSessionCookie } from "@/lib/auth";
 import type { ActionResponse } from "@/types";
 
 export async function login(
   email: string,
   password: string
-): Promise<{ error: string } | undefined> {
+): Promise<{ error?: string }> {
   try {
-    await signIn("credentials", {
-      email,
-      password,
-      redirectTo: "/dashboard",
-    });
-  } catch (error) {
-    if (isRedirectError(error)) {
-      throw error;
+    const user = await db.user.findUnique({ where: { email } });
+    if (!user || !user.isActive) {
+      return { error: "Invalid email or password" };
     }
-    return { error: "Invalid email or password" };
+
+    const isValid = await bcrypt.compare(password, user.passwordHash);
+    if (!isValid) {
+      return { error: "Invalid email or password" };
+    }
+
+    const token = await createSessionToken({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      image: user.avatar,
+    });
+
+    await setSessionCookie(token);
+    return {};
+  } catch {
+    return { error: "Something went wrong. Please try again." };
   }
+}
+
+export async function logout(): Promise<void> {
+  await deleteSessionCookie();
 }
 
 const acceptInviteSchema = z.object({

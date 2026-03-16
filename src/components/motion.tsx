@@ -100,7 +100,7 @@ export function AnimatedRow({
 }: {
   children: React.ReactNode;
   className?: string;
-  onClick?: () => void;
+  onClick?: (e: React.MouseEvent) => void;
 }) {
   return (
     <motion.tr

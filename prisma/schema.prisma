@@ -10,23 +10,22 @@ datasource db {
 enum Role {
   ADMIN
   MANAGER
+  OPERATOR
   MEMBER
   VIEWER
 }
 
-enum ProjectStatus {
-  PLANNING
-  ACTIVE
-  ON_HOLD
-  COMPLETED
-  ARCHIVED
-}
-
 enum TaskStatus {
-  TODO
-  IN_PROGRESS
-  IN_REVIEW
-  DONE
+  RESEARCH
+  MOODBOARDING
+  ANGLES
+  SCRIPTING
+  APPROVAL_PENDING
+  CREATOR_FINALISING
+  PRODUCTION
+  POST_PRODUCTION
+  DELIVERED
+  ON_HOLD
 }
 
 enum Priority {
@@ -69,6 +68,11 @@ enum SentimentStatus {
   CHURNED
 }
 
+enum ClientStatus {
+  ACTIVE
+  CHURNED
+}
+
 enum InvoiceStatus {
   PENDING
   SENT
@@ -97,6 +101,21 @@ enum CampaignStatus {
   COMPLETED
 }
 
+enum ExpenseCategory {
+  SALARIES
+  TOOLS
+  OFFICE
+  MARKETING
+  OTHER
+}
+
+enum ExpenseFrequency {
+  MONTHLY
+  QUARTERLY
+  YEARLY
+  ONE_TIME
+}
+
 // ─── Core ───────────────────────────────────────────────
 
 model User {
@@ -106,6 +125,8 @@ model User {
   passwordHash String
   role         Role     @default(MEMBER)
   avatar       String?
+  position     String?
+  bio          String?
   isActive     Boolean  @default(true)
   departmentId String?
   department   Department? @relation(fields: [departmentId], references: [id])
@@ -124,6 +145,10 @@ model User {
   assetVersions  AssetVersion[]
   revisions      Revision[]
   activityLogs   ActivityLog[]
+  channelMembers ChannelMember[]
+  chatMessages   Message[]
+  notifications  Notification[]
+  notificationPrefs NotificationPreference?
 }
 
 model Department {
@@ -164,7 +189,6 @@ model Project {
   id           String        @id @default(cuid())
   name         String
   description  String?
-  status       ProjectStatus @default(PLANNING)
   clientId     String?
   client       Client?       @relation(fields: [clientId], references: [id])
   departmentId String?
@@ -197,7 +221,7 @@ model Task {
   project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
   title       String
   description String?
-  status      TaskStatus @default(TODO)
+  status      TaskStatus @default(RESEARCH)
   priority    Priority   @default(MEDIUM)
   assigneeId  String?
   assignee    User?      @relation("TaskAssignee", fields: [assigneeId], references: [id])
@@ -369,17 +393,55 @@ model Client {
   website             String?
   notes               String?
   sow                 String?
+  status              ClientStatus    @default(ACTIVE)
   sentimentStatus     SentimentStatus @default(NEUTRAL)
-  avgBillingAmount    Float?
-  decidedCommercials  String?
-  invoicingDueDay     Int?
+  avgBillingAmount       Float?
+  oneTimeProjectAmount   Float?
+  decidedCommercials     String?
+  invoicingDueDay        Int?
   reminderDaysBefore  Int             @default(3)
   createdAt           DateTime        @default(now())
   updatedAt           DateTime        @updatedAt
 
-  campaigns Campaign[]
-  projects  Project[]
-  invoices  Invoice[]
+  onboardingToken  String?   @unique
+  onboardingsentAt DateTime?
+
+  campaigns  Campaign[]
+  projects   Project[]
+  invoices   Invoice[]
+  onboarding ClientOnboarding?
+}
+
+model ClientOnboarding {
+  id                      String   @id @default(cuid())
+  clientId                String   @unique
+  client                  Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  contactName             String?
+  contactEmail            String?
+  contactPhone            String?
+  authorisedSignatory     String?
+  gstin                   String?
+  legalCompanyName        String?
+  shopifyCollaboratorCode String?
+  googleAdAccountId       String?
+  gstCertificateUrl       String?
+
+  // Accesses checklist
+  metaBmId                String?
+  metaPageAccess          Boolean  @default(false)
+  metaAdAccountAccess     Boolean  @default(false)
+  metaCatalogueAccess     Boolean  @default(false)
+  metaPixelAccess         Boolean  @default(false)
+  googleAdsAccess         Boolean  @default(false)
+  googleAnalyticsAccess   Boolean  @default(false)
+  googleSearchConsole     Boolean  @default(false)
+  shopifyAccess           Boolean  @default(false)
+  websiteAccess           Boolean  @default(false)
+  otherAccesses           String?
+
+  submittedAt             DateTime @default(now())
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
 }
 
 model Invoice {
@@ -421,4 +483,136 @@ model CampaignMetric {
   value      Float
   date       DateTime
   createdAt  DateTime @default(now())
+}
+
+// ─── Chat / Messaging ──────────────────────────────────
+
+enum ChannelType {
+  PUBLIC
+  PRIVATE
+}
+
+model Channel {
+  id          String      @id @default(cuid())
+  name        String
+  description String?
+  type        ChannelType @default(PUBLIC)
+  isGeneral   Boolean     @default(false)
+  createdById String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  members  ChannelMember[]
+  messages Message[]
+}
+
+model ChannelMember {
+  id        String   @id @default(cuid())
+  channelId String
+  channel   Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  role      String   @default("MEMBER") // OWNER or MEMBER
+  joinedAt  DateTime @default(now())
+
+  @@unique([channelId, userId])
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  content   String
+  channelId String
+  channel   Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  fileName  String?
+  fileUrl   String?
+  fileType  String?
+  fileSize  Int?
+  pollId    String?  @unique
+  poll      Poll?    @relation(fields: [pollId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Poll {
+  id        String       @id @default(cuid())
+  question  String
+  options   PollOption[]
+  message   Message?
+  createdAt DateTime     @default(now())
+}
+
+model PollOption {
+  id     String     @id @default(cuid())
+  text   String
+  pollId String
+  poll   Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  votes  PollVote[]
+}
+
+model PollVote {
+  id       String     @id @default(cuid())
+  optionId String
+  option   PollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  userId   String
+  votedAt  DateTime   @default(now())
+
+  @@unique([optionId, userId])
+}
+
+// ─── Notifications ─────────────────────────────────────
+
+enum NotificationType {
+  TICKET_ASSIGNED
+  TICKET_COMMENT
+  TICKET_STATUS_CHANGED
+  TASK_ASSIGNED
+  TASK_COMMENT
+  PROJECT_MEMBER_ADDED
+  CHAT_MENTION
+  CHANNEL_INVITE
+}
+
+model Notification {
+  id         String           @id @default(cuid())
+  userId     String
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type       NotificationType
+  title      String
+  body       String
+  link       String?
+  read       Boolean          @default(false)
+  metadata   Json?
+  createdAt  DateTime         @default(now())
+
+  @@index([userId, read])
+}
+
+model NotificationPreference {
+  id                   String  @id @default(cuid())
+  userId               String  @unique
+  user                 User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ticketAssigned       Boolean @default(true)
+  ticketComment        Boolean @default(true)
+  ticketStatusChanged  Boolean @default(true)
+  taskAssigned         Boolean @default(true)
+  taskComment          Boolean @default(true)
+  projectMemberAdded   Boolean @default(true)
+  chatMention          Boolean @default(true)
+  channelInvite        Boolean @default(true)
+}
+
+// ─── Founder's Hub ────────────────────────────────────
+
+model Expense {
+  id          String           @id @default(cuid())
+  name        String
+  category    ExpenseCategory
+  amount      Float
+  frequency   ExpenseFrequency @default(MONTHLY)
+  notes       String?
+  isActive    Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
 }

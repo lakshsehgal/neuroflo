@@ -8,7 +8,7 @@ import type { Role } from "@prisma/client";
 
 const inviteSchema = z.object({
   email: z.string().email(),
-  role: z.enum(["ADMIN", "MANAGER", "MEMBER", "VIEWER"]),
+  role: z.enum(["ADMIN", "MANAGER", "OPERATOR", "MEMBER", "VIEWER"]),
   departmentId: z.string().optional(),
 });
 
@@ -49,6 +49,7 @@ export async function getTeamMembers() {
   await requireRole("MANAGER");
 
   return db.user.findMany({
+    where: { isActive: true },
     include: { department: true },
     orderBy: { createdAt: "desc" },
   });
@@ -104,6 +105,17 @@ export async function getDepartments() {
     include: { _count: { select: { users: true } } },
     orderBy: { name: "asc" },
   });
+}
+
+export async function cancelInvite(inviteId: string): Promise<ActionResponse> {
+  await requireRole("ADMIN");
+
+  const invite = await db.invite.findUnique({ where: { id: inviteId } });
+  if (!invite) return { success: false, error: "Invite not found" };
+  if (invite.acceptedAt) return { success: false, error: "Invite already accepted" };
+
+  await db.invite.delete({ where: { id: inviteId } });
+  return { success: true };
 }
 
 export async function deleteDepartment(id: string): Promise<ActionResponse> {

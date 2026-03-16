@@ -1,7 +1,6 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   PageTransition,
@@ -13,19 +12,10 @@ import { Plus } from "lucide-react";
 import Link from "next/link";
 import { formatDate } from "@/lib/utils";
 
-const statusColors: Record<string, string> = {
-  PLANNING: "bg-yellow-100 text-yellow-800",
-  ACTIVE: "bg-green-100 text-green-800",
-  ON_HOLD: "bg-orange-100 text-orange-800",
-  COMPLETED: "bg-blue-100 text-blue-800",
-  ARCHIVED: "bg-gray-100 text-gray-800",
-};
-
 type Project = {
   id: string;
   name: string;
   description: string | null;
-  status: string;
   endDate: string | null;
   clientName: string | null;
   taskCount: number;
@@ -65,17 +55,9 @@ export function ProjectsContent({ projects }: { projects: Project[] }) {
                   <HoverCard>
                     <Card className="h-full transition-shadow">
                       <CardHeader className="pb-3">
-                        <div className="flex items-start justify-between">
-                          <CardTitle className="text-base">
-                            {project.name}
-                          </CardTitle>
-                          <Badge
-                            className={statusColors[project.status] || ""}
-                            variant="secondary"
-                          >
-                            {project.status.replace("_", " ")}
-                          </Badge>
-                        </div>
+                        <CardTitle className="text-base">
+                          {project.name}
+                        </CardTitle>
                         {project.clientName && (
                           <p className="text-xs text-muted-foreground">
                             {project.clientName}

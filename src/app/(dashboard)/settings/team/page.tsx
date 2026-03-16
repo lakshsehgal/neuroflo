@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useTransition } from "react";
-import { getTeamMembers, getPendingInvites, inviteUser, updateUserRole, deactivateUser, getDepartments } from "@/actions/admin";
+import { getTeamMembers, getPendingInvites, inviteUser, updateUserRole, deactivateUser, cancelInvite, getDepartments } from "@/actions/admin";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Mail, Clock, Copy, Check, UserX } from "lucide-react";
+import { Plus, Mail, Clock, Copy, Check, UserX, X } from "lucide-react";
 
 type User = { id: string; name: string; email: string; role: string; isActive: boolean; department: { name: string } | null };
 type Invite = { id: string; email: string; role: string; token: string; expiresAt: Date };
@@ -42,7 +42,7 @@ export default function TeamPage() {
     e.preventDefault();
     setLoading(true);
     setError("");
-    const result = await inviteUser({ email, role: role as "ADMIN" | "MANAGER" | "MEMBER" | "VIEWER", departmentId: deptId || undefined });
+    const result = await inviteUser({ email, role: role as "ADMIN" | "MANAGER" | "OPERATOR" | "MEMBER" | "VIEWER", departmentId: deptId || undefined });
     if (result.success) {
       setEmail(""); setRole("MEMBER"); setDeptId(""); setDialogOpen(false); loadData();
     } else {
@@ -53,14 +53,19 @@ export default function TeamPage() {
 
   function handleRoleChange(userId: string, newRole: string) {
     startTransition(async () => {
-      await updateUserRole(userId, newRole as "ADMIN" | "MANAGER" | "MEMBER" | "VIEWER");
+      await updateUserRole(userId, newRole as "ADMIN" | "MANAGER" | "OPERATOR" | "MEMBER" | "VIEWER");
       loadData();
     });
   }
 
   function handleDeactivate(userId: string) {
-    if (!confirm("Deactivate this user? They will lose access.")) return;
+    if (!confirm("Deactivate this user? They will lose access and be removed from the list.")) return;
     startTransition(async () => { await deactivateUser(userId); loadData(); });
+  }
+
+  function handleCancelInvite(inviteId: string) {
+    if (!confirm("Cancel this invite? The link will no longer work.")) return;
+    startTransition(async () => { await cancelInvite(inviteId); loadData(); });
   }
 
   function copyInviteLink(token: string) {
@@ -72,7 +77,7 @@ export default function TeamPage() {
 
   const roleColors: Record<string, string> = {
     ADMIN: "bg-red-100 text-red-800", MANAGER: "bg-blue-100 text-blue-800",
-    MEMBER: "bg-green-100 text-green-800", VIEWER: "bg-gray-100 text-gray-800",
+    OPERATOR: "bg-purple-100 text-purple-800", MEMBER: "bg-green-100 text-green-800", VIEWER: "bg-gray-100 text-gray-800",
   };
 
   return (
@@ -100,6 +105,7 @@ export default function TeamPage() {
                     <SelectContent>
                       <SelectItem value="VIEWER">Viewer</SelectItem>
                       <SelectItem value="MEMBER">Member</SelectItem>
+                      <SelectItem value="OPERATOR">Operator</SelectItem>
                       <SelectItem value="MANAGER">Manager</SelectItem>
                       <SelectItem value="ADMIN">Admin</SelectItem>
                     </SelectContent>
@@ -144,15 +150,14 @@ export default function TeamPage() {
                     <SelectContent>
                       <SelectItem value="VIEWER">Viewer</SelectItem>
                       <SelectItem value="MEMBER">Member</SelectItem>
+                      <SelectItem value="OPERATOR">Operator</SelectItem>
                       <SelectItem value="MANAGER">Manager</SelectItem>
                       <SelectItem value="ADMIN">Admin</SelectItem>
                     </SelectContent>
                   </Select>
-                  {user.isActive ? (
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => handleDeactivate(user.id)} title="Deactivate">
-                      <UserX className="h-3.5 w-3.5" />
-                    </Button>
-                  ) : <Badge variant="destructive" className="text-[10px]">Inactive</Badge>}
+                  <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => handleDeactivate(user.id)} title="Deactivate">
+                    <UserX className="h-3.5 w-3.5" />
+                  </Button>
                 </div>
               </div>
             ))}
@@ -178,6 +183,9 @@ export default function TeamPage() {
                     <Badge className={roleColors[invite.role] || ""} variant="secondary">{invite.role}</Badge>
                     <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => copyInviteLink(invite.token)}>
                       {copiedToken === invite.token ? <><Check className="h-3 w-3" />Copied</> : <><Copy className="h-3 w-3" />Copy Link</>}
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => handleCancelInvite(invite.id)} title="Cancel invite">
+                      <X className="h-3.5 w-3.5" />
                     </Button>
                   </div>
                 </div>

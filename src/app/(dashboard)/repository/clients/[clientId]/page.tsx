@@ -89,9 +89,8 @@ export default async function ClientDetailPage({ params }: Props) {
             <div className="space-y-2">
               {client.projects.map((p) => (
                 <Link key={p.id} href={`/projects/${p.id}`} className="block">
-                  <div className="flex items-center justify-between rounded-md border p-3 hover:bg-accent transition-colors">
+                  <div className="flex items-center rounded-md border p-3 hover:bg-accent transition-colors">
                     <p className="text-sm font-medium">{p.name}</p>
-                    <Badge variant="outline">{p.status.replace("_", " ")}</Badge>
                   </div>
                 </Link>
               ))}

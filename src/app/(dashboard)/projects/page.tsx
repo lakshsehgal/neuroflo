@@ -10,7 +10,6 @@ export default async function ProjectsPage() {
         id: p.id,
         name: p.name,
         description: p.description,
-        status: p.status,
         endDate: p.endDate ? p.endDate.toISOString() : null,
         clientName: p.client?.name || null,
         taskCount: p._count.tasks,

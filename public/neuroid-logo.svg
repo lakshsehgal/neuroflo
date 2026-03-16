@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 48" fill="none">
+  <rect x="2" y="4" width="40" height="40" rx="8" fill="#F5C518"/>
+  <path d="M12 32V16L18 16L26 28V16H32V32H26L18 20V32H12Z" fill="#1a1a2e"/>
+  <text x="52" y="34" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="28" font-weight="800" fill="#1a1a2e" letter-spacing="-0.5">Neuroid</text>
+</svg>

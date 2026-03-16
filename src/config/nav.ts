@@ -2,14 +2,18 @@ import {
   LayoutDashboard,
   FolderKanban,
   Ticket,
+  MessageSquare,
   Building2,
   Settings,
   Users,
   UserCog,
   Shield,
+  Bell,
+  Crown,
+  User,
   type LucideIcon,
 } from "lucide-react";
-import type { UserRole } from "@/lib/permissions";
+import type { UserRole } from "@/lib/roles";
 
 export interface NavItem {
   title: string;
@@ -36,6 +40,14 @@ export const navConfig: NavSection[] = [
     items: [
       { title: "Projects", href: "/projects", icon: FolderKanban },
       { title: "Creative Tickets", href: "/tickets", icon: Ticket },
+      { title: "Chat", href: "/chat", icon: MessageSquare },
+    ],
+  },
+  {
+    label: "Account",
+    items: [
+      { title: "Profile", href: "/settings/profile", icon: User },
+      { title: "Notifications", href: "/settings/notifications", icon: Bell },
     ],
   },
   {
@@ -45,6 +57,12 @@ export const navConfig: NavSection[] = [
         title: "Clients",
         href: "/admin/clients",
         icon: Building2,
+        minRole: "OPERATOR",
+      },
+      {
+        title: "Founder's Hub",
+        href: "/admin/founders",
+        icon: Crown,
         minRole: "ADMIN",
       },
       {
@@ -57,7 +75,6 @@ export const navConfig: NavSection[] = [
           { title: "Departments", href: "/settings/departments", icon: Building2, minRole: "ADMIN" },
           { title: "Roles & Permissions", href: "/settings/roles", icon: Shield, minRole: "ADMIN" },
           { title: "General", href: "/settings/general", icon: UserCog, minRole: "ADMIN" },
-          { title: "Profile", href: "/settings/profile", icon: Settings },
         ],
       },
     ],

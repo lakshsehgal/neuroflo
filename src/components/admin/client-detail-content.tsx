@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { updateClient, createInvoice, updateInvoiceStatus } from "@/actions/clients";
+import { updateClient, createInvoice, updateInvoiceStatus, updateInvoice, deleteInvoice } from "@/actions/clients";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,11 +24,43 @@ import {
 } from "@/components/ui/dialog";
 import { formatDate } from "@/lib/utils";
 import { AnimatedTableBody, AnimatedRow } from "@/components/motion";
-import { Plus, ArrowLeft } from "lucide-react";
+import { Plus, ArrowLeft, Link2, Copy, CheckCircle2, UserPlus, Pencil, Trash2 } from "lucide-react";
 import Link from "next/link";
+import { generateOnboardingToken } from "@/actions/onboarding";
 import type { getClient } from "@/actions/clients";
 
 type ClientData = NonNullable<Awaited<ReturnType<typeof getClient>>>;
+
+type OnboardingData = {
+  id: string;
+  clientId: string;
+  contactName: string | null;
+  contactEmail: string | null;
+  contactPhone: string | null;
+  authorisedSignatory: string | null;
+  gstin: string | null;
+  legalCompanyName: string | null;
+  shopifyCollaboratorCode: string | null;
+  googleAdAccountId: string | null;
+  gstCertificateUrl: string | null;
+  metaBmId: string | null;
+  metaPageAccess: boolean;
+  metaAdAccountAccess: boolean;
+  googleAdsAccess: boolean;
+  googleAnalyticsAccess: boolean;
+  googleSearchConsole: boolean;
+  shopifyAccess: boolean;
+  websiteAccess: boolean;
+  otherAccesses: string | null;
+  submittedAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
+} | null;
+
+const clientStatusOptions = [
+  { value: "ACTIVE", label: "Active", color: "bg-green-100 text-green-800" },
+  { value: "CHURNED", label: "Churned", color: "bg-red-100 text-red-800" },
+];
 
 const sentimentOptions = [
   { value: "HAPPY", label: "Happy", color: "bg-green-100 text-green-800" },
@@ -45,17 +77,23 @@ const invoiceStatusColors: Record<string, string> = {
   CANCELLED: "bg-gray-100 text-gray-800",
 };
 
-export function ClientDetailContent({ client: initial }: { client: ClientData }) {
+export function ClientDetailContent({ client: initial, onboarding: initialOnboarding }: { client: ClientData; onboarding?: OnboardingData }) {
   const [client, setClient] = useState(initial);
   const [isPending, startTransition] = useTransition();
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [onboardingLink, setOnboardingLink] = useState<string | null>(
+    initial.onboardingToken ? `${typeof window !== "undefined" ? window.location.origin : ""}/onboarding/${initial.onboardingToken}` : null
+  );
+  const [copied, setCopied] = useState(false);
 
   // Edit form
   const [form, setForm] = useState({
     sow: client.sow || "",
+    status: client.status,
     sentimentStatus: client.sentimentStatus,
     avgBillingAmount: client.avgBillingAmount?.toString() || "",
+    oneTimeProjectAmount: client.oneTimeProjectAmount?.toString() || "",
     decidedCommercials: client.decidedCommercials || "",
     invoicingDueDay: client.invoicingDueDay?.toString() || "",
     reminderDaysBefore: client.reminderDaysBefore.toString(),
@@ -72,8 +110,10 @@ export function ClientDetailContent({ client: initial }: { client: ClientData })
       await updateClient(client.id, {
         name: client.name,
         sow: form.sow || undefined,
+        status: form.status as "ACTIVE" | "CHURNED",
         sentimentStatus: form.sentimentStatus as "HAPPY" | "NEUTRAL" | "AT_RISK" | "CHURNED",
         avgBillingAmount: form.avgBillingAmount ? parseFloat(form.avgBillingAmount) : null,
+        oneTimeProjectAmount: form.oneTimeProjectAmount ? parseFloat(form.oneTimeProjectAmount) : null,
         decidedCommercials: form.decidedCommercials || undefined,
         invoicingDueDay: form.invoicingDueDay ? parseInt(form.invoicingDueDay) : null,
         reminderDaysBefore: parseInt(form.reminderDaysBefore) || 3,
@@ -106,8 +146,44 @@ export function ClientDetailContent({ client: initial }: { client: ClientData })
     });
   }
 
+  const [editingInvoice, setEditingInvoice] = useState<string | null>(null);
+  const [editInvoiceForm, setEditInvoiceForm] = useState({ amount: "", dueDate: "", invoiceNumber: "", notes: "" });
+
+  function startEditInvoice(inv: { id: string; amount: number; dueDate: string | Date; invoiceNumber?: string | null; notes?: string | null }) {
+    setEditingInvoice(inv.id);
+    setEditInvoiceForm({
+      amount: inv.amount.toString(),
+      dueDate: new Date(inv.dueDate).toISOString().split("T")[0],
+      invoiceNumber: inv.invoiceNumber || "",
+      notes: inv.notes || "",
+    });
+  }
+
+  function handleEditInvoice(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingInvoice) return;
+    startTransition(async () => {
+      await updateInvoice(editingInvoice, {
+        amount: parseFloat(editInvoiceForm.amount),
+        dueDate: editInvoiceForm.dueDate,
+        invoiceNumber: editInvoiceForm.invoiceNumber || undefined,
+        notes: editInvoiceForm.notes || undefined,
+      });
+      setEditingInvoice(null);
+      window.location.reload();
+    });
+  }
+
+  function handleDeleteInvoice(id: string) {
+    if (!confirm("Delete this invoice? This cannot be undone.")) return;
+    startTransition(async () => {
+      await deleteInvoice(id);
+      window.location.reload();
+    });
+  }
+
   const fmt = (n: number) =>
-    new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
+    new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n);
 
   const totalPaid = client.invoices.filter((i) => i.status === "PAID").reduce((s, i) => s + i.amount, 0);
   const totalPending = client.invoices.filter((i) => ["PENDING", "SENT", "OVERDUE"].includes(i.status)).reduce((s, i) => s + i.amount, 0);
@@ -140,7 +216,18 @@ export function ClientDetailContent({ client: initial }: { client: ClientData })
                     <Label>SOW (Scope of Work)</Label>
                     <Textarea value={form.sow} onChange={(e) => setForm({ ...form, sow: e.target.value })} rows={3} />
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="space-y-2">
+                      <Label>Status</Label>
+                      <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as ClientData["status"] })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {clientStatusOptions.map((s) => (
+                            <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                     <div className="space-y-2">
                       <Label>Sentiment</Label>
                       <Select value={form.sentimentStatus} onValueChange={(v) => setForm({ ...form, sentimentStatus: v as ClientData["sentimentStatus"] })}>
@@ -157,9 +244,15 @@ export function ClientDetailContent({ client: initial }: { client: ClientData })
                       <Input type="number" value={form.avgBillingAmount} onChange={(e) => setForm({ ...form, avgBillingAmount: e.target.value })} />
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Decided Commercials</Label>
-                    <Input value={form.decidedCommercials} onChange={(e) => setForm({ ...form, decidedCommercials: e.target.value })} />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label>One-Time Project Amount</Label>
+                      <Input type="number" value={form.oneTimeProjectAmount} onChange={(e) => setForm({ ...form, oneTimeProjectAmount: e.target.value })} placeholder="For creative one-time projects" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Decided Commercials</Label>
+                      <Input value={form.decidedCommercials} onChange={(e) => setForm({ ...form, decidedCommercials: e.target.value })} />
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2">
@@ -180,6 +273,12 @@ export function ClientDetailContent({ client: initial }: { client: ClientData })
               ) : (
                 <div className="grid grid-cols-2 gap-4">
                   <div>
+                    <p className="text-xs text-muted-foreground">Status</p>
+                    <Badge className={`mt-1 ${clientStatusOptions.find((s) => s.value === client.status)?.color || ""}`} variant="secondary">
+                      {clientStatusOptions.find((s) => s.value === client.status)?.label || client.status}
+                    </Badge>
+                  </div>
+                  <div>
                     <p className="text-xs text-muted-foreground">Sentiment</p>
                     <Badge className={`mt-1 ${sentimentOptions.find((s) => s.value === client.sentimentStatus)?.color || ""}`} variant="secondary">
                       {sentimentOptions.find((s) => s.value === client.sentimentStatus)?.label}
@@ -187,7 +286,11 @@ export function ClientDetailContent({ client: initial }: { client: ClientData })
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Avg Monthly Billing</p>
-                    <p className="mt-1 text-sm font-medium">{client.avgBillingAmount ? fmt(client.avgBillingAmount) : "—"}</p>
+                    <p className="mt-1 text-sm font-medium">{client.avgBillingAmount ? fmt(client.avgBillingAmount) : "\u2014"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">One-Time Project</p>
+                    <p className="mt-1 text-sm font-medium">{client.oneTimeProjectAmount ? fmt(client.oneTimeProjectAmount) : "\u2014"}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Decided Commercials</p>
@@ -273,16 +376,24 @@ export function ClientDetailContent({ client: initial }: { client: ClientData })
                             <Badge className={`${invoiceStatusColors[inv.status]} text-[10px]`} variant="secondary">{inv.status}</Badge>
                           </td>
                           <td className="px-3 py-2">
-                            <Select value={inv.status} onValueChange={(v) => handleInvoiceStatus(inv.id, v as "PENDING" | "SENT" | "PAID" | "OVERDUE" | "CANCELLED")}>
-                              <SelectTrigger className="h-7 text-xs w-28"><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="PENDING">Pending</SelectItem>
-                                <SelectItem value="SENT">Sent</SelectItem>
-                                <SelectItem value="PAID">Paid</SelectItem>
-                                <SelectItem value="OVERDUE">Overdue</SelectItem>
-                                <SelectItem value="CANCELLED">Cancelled</SelectItem>
-                              </SelectContent>
-                            </Select>
+                            <div className="flex items-center gap-1">
+                              <Select value={inv.status} onValueChange={(v) => handleInvoiceStatus(inv.id, v as "PENDING" | "SENT" | "PAID" | "OVERDUE" | "CANCELLED")}>
+                                <SelectTrigger className="h-7 text-xs w-28"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="PENDING">Pending</SelectItem>
+                                  <SelectItem value="SENT">Sent</SelectItem>
+                                  <SelectItem value="PAID">Paid</SelectItem>
+                                  <SelectItem value="OVERDUE">Overdue</SelectItem>
+                                  <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => startEditInvoice(inv)}>
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => handleDeleteInvoice(inv.id)}>
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
                           </td>
                         </AnimatedRow>
                       ))}
@@ -292,6 +403,37 @@ export function ClientDetailContent({ client: initial }: { client: ClientData })
               )}
             </CardContent>
           </Card>
+
+          {/* Edit Invoice Dialog */}
+          <Dialog open={!!editingInvoice} onOpenChange={(open) => { if (!open) setEditingInvoice(null); }}>
+            <DialogContent>
+              <DialogHeader><DialogTitle>Edit Invoice</DialogTitle></DialogHeader>
+              <form onSubmit={handleEditInvoice} className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label>Amount *</Label>
+                    <Input type="number" step="0.01" value={editInvoiceForm.amount} onChange={(e) => setEditInvoiceForm({ ...editInvoiceForm, amount: e.target.value })} required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Due Date *</Label>
+                    <Input type="date" value={editInvoiceForm.dueDate} onChange={(e) => setEditInvoiceForm({ ...editInvoiceForm, dueDate: e.target.value })} required />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Invoice Number</Label>
+                  <Input value={editInvoiceForm.invoiceNumber} onChange={(e) => setEditInvoiceForm({ ...editInvoiceForm, invoiceNumber: e.target.value })} placeholder="INV-001" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Notes</Label>
+                  <Input value={editInvoiceForm.notes} onChange={(e) => setEditInvoiceForm({ ...editInvoiceForm, notes: e.target.value })} />
+                </div>
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" className="flex-1" onClick={() => setEditingInvoice(null)}>Cancel</Button>
+                  <Button type="submit" className="flex-1" disabled={isPending}>{isPending ? "Saving..." : "Save Changes"}</Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
         </div>
 
         {/* Sidebar */}
@@ -333,15 +475,174 @@ export function ClientDetailContent({ client: initial }: { client: ClientData })
               <CardContent>
                 <div className="space-y-2">
                   {client.projects.map((p) => (
-                    <div key={p.id} className="flex items-center justify-between rounded-md border p-2">
+                    <div key={p.id} className="flex items-center rounded-md border p-2">
                       <span className="text-sm">{p.name}</span>
-                      <Badge variant="outline" className="text-[10px]">{p.status}</Badge>
                     </div>
                   ))}
                 </div>
               </CardContent>
             </Card>
           )}
+
+          {/* Onboarding */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm flex items-center gap-2">
+                <UserPlus className="h-4 w-4" />
+                Client Onboarding
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {onboardingLink ? (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">Onboarding link:</p>
+                  <div className="flex items-center gap-1.5">
+                    <Input
+                      value={onboardingLink}
+                      readOnly
+                      className="h-8 text-xs"
+                    />
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8 shrink-0"
+                      onClick={() => {
+                        navigator.clipboard.writeText(onboardingLink);
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                      }}
+                    >
+                      {copied ? <CheckCircle2 className="h-3.5 w-3.5 text-green-600" /> : <Copy className="h-3.5 w-3.5" />}
+                    </Button>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full text-xs"
+                    disabled={isPending}
+                    onClick={() => {
+                      startTransition(async () => {
+                        const result = await generateOnboardingToken(client.id);
+                        if (result.success && result.data) {
+                          const link = `${window.location.origin}/onboarding/${result.data.token}`;
+                          setOnboardingLink(link);
+                        }
+                      });
+                    }}
+                  >
+                    <Link2 className="mr-1.5 h-3 w-3" />
+                    {isPending ? "Regenerating..." : "Regenerate Link"}
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  size="sm"
+                  className="w-full"
+                  disabled={isPending}
+                  onClick={() => {
+                    startTransition(async () => {
+                      const result = await generateOnboardingToken(client.id);
+                      if (result.success && result.data) {
+                        const link = `${window.location.origin}/onboarding/${result.data.token}`;
+                        setOnboardingLink(link);
+                      }
+                    });
+                  }}
+                >
+                  <UserPlus className="mr-1.5 h-3.5 w-3.5" />
+                  {isPending ? "Starting..." : "Start Onboarding"}
+                </Button>
+              )}
+
+              {/* Onboarding responses */}
+              {initialOnboarding && (
+                <div className="space-y-2 border-t pt-3">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+                    <p className="text-xs font-medium text-green-700">Form Submitted</p>
+                    <span className="text-[10px] text-muted-foreground ml-auto">
+                      {formatDate(initialOnboarding.submittedAt)}
+                    </span>
+                  </div>
+                  {initialOnboarding.contactName && (
+                    <div>
+                      <p className="text-[10px] text-muted-foreground">Name</p>
+                      <p className="text-xs">{initialOnboarding.contactName}</p>
+                    </div>
+                  )}
+                  {initialOnboarding.contactEmail && (
+                    <div>
+                      <p className="text-[10px] text-muted-foreground">Email</p>
+                      <p className="text-xs">{initialOnboarding.contactEmail}</p>
+                    </div>
+                  )}
+                  {initialOnboarding.contactPhone && (
+                    <div>
+                      <p className="text-[10px] text-muted-foreground">Phone</p>
+                      <p className="text-xs">{initialOnboarding.contactPhone}</p>
+                    </div>
+                  )}
+                  {initialOnboarding.authorisedSignatory && (
+                    <div>
+                      <p className="text-[10px] text-muted-foreground">Authorised Signatory</p>
+                      <p className="text-xs">{initialOnboarding.authorisedSignatory}</p>
+                    </div>
+                  )}
+                  {initialOnboarding.gstin && (
+                    <div>
+                      <p className="text-[10px] text-muted-foreground">GSTIN</p>
+                      <p className="text-xs font-mono">{initialOnboarding.gstin}</p>
+                    </div>
+                  )}
+                  {initialOnboarding.legalCompanyName && (
+                    <div>
+                      <p className="text-[10px] text-muted-foreground">Legal Company Name</p>
+                      <p className="text-xs">{initialOnboarding.legalCompanyName}</p>
+                    </div>
+                  )}
+                  {initialOnboarding.shopifyCollaboratorCode && (
+                    <div>
+                      <p className="text-[10px] text-muted-foreground">Shopify Collaborator Code</p>
+                      <p className="text-xs font-mono">{initialOnboarding.shopifyCollaboratorCode}</p>
+                    </div>
+                  )}
+                  {initialOnboarding.googleAdAccountId && (
+                    <div>
+                      <p className="text-[10px] text-muted-foreground">Google Ad Account ID</p>
+                      <p className="text-xs font-mono">{initialOnboarding.googleAdAccountId}</p>
+                    </div>
+                  )}
+                  {initialOnboarding.gstCertificateUrl && (
+                    <div>
+                      <p className="text-[10px] text-muted-foreground">GST Certificate</p>
+                      <p className="text-xs text-green-600">Uploaded</p>
+                    </div>
+                  )}
+                  {initialOnboarding.metaBmId && (
+                    <div>
+                      <p className="text-[10px] text-muted-foreground">Meta BM ID</p>
+                      <p className="text-xs font-mono">{initialOnboarding.metaBmId}</p>
+                    </div>
+                  )}
+                  {/* Accesses summary */}
+                  {(initialOnboarding.metaPageAccess || initialOnboarding.metaAdAccountAccess || initialOnboarding.googleAdsAccess || initialOnboarding.googleAnalyticsAccess || initialOnboarding.googleSearchConsole || initialOnboarding.shopifyAccess || initialOnboarding.websiteAccess) && (
+                    <div>
+                      <p className="text-[10px] text-muted-foreground mb-1">Accesses Granted</p>
+                      <div className="flex flex-wrap gap-1">
+                        {initialOnboarding.metaPageAccess && <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] text-blue-700">Meta Page</span>}
+                        {initialOnboarding.metaAdAccountAccess && <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] text-blue-700">Meta Ads</span>}
+                        {initialOnboarding.googleAdsAccess && <span className="rounded bg-green-100 px-1.5 py-0.5 text-[10px] text-green-700">Google Ads</span>}
+                        {initialOnboarding.googleAnalyticsAccess && <span className="rounded bg-green-100 px-1.5 py-0.5 text-[10px] text-green-700">GA4</span>}
+                        {initialOnboarding.googleSearchConsole && <span className="rounded bg-green-100 px-1.5 py-0.5 text-[10px] text-green-700">Search Console</span>}
+                        {initialOnboarding.shopifyAccess && <span className="rounded bg-purple-100 px-1.5 py-0.5 text-[10px] text-purple-700">Shopify</span>}
+                        {initialOnboarding.websiteAccess && <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-700">Website</span>}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

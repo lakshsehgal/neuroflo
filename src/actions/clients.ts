@@ -15,8 +15,10 @@ const clientSchema = z.object({
   website: z.string().optional(),
   notes: z.string().optional(),
   sow: z.string().optional(),
+  status: z.enum(["ACTIVE", "CHURNED"]).optional(),
   sentimentStatus: z.enum(["HAPPY", "NEUTRAL", "AT_RISK", "CHURNED"]).optional(),
   avgBillingAmount: z.number().optional().nullable(),
+  oneTimeProjectAmount: z.number().optional().nullable(),
   decidedCommercials: z.string().optional(),
   invoicingDueDay: z.number().optional().nullable(),
   reminderDaysBefore: z.number().optional(),
@@ -25,7 +27,7 @@ const clientSchema = z.object({
 export async function createClient(
   input: z.infer<typeof clientSchema>
 ): Promise<ActionResponse<{ id: string }>> {
-  await requireRole("ADMIN");
+  await requireRole("OPERATOR");
 
   const parsed = clientSchema.safeParse(input);
   if (!parsed.success) return { success: false, error: "Invalid input" };
@@ -40,7 +42,7 @@ export async function updateClient(
   id: string,
   input: z.infer<typeof clientSchema>
 ): Promise<ActionResponse> {
-  await requireRole("ADMIN");
+  await requireRole("OPERATOR");
 
   const parsed = clientSchema.safeParse(input);
   if (!parsed.success) return { success: false, error: "Invalid input" };
@@ -52,8 +54,33 @@ export async function updateClient(
   return { success: true };
 }
 
+// Partial update for inline editing from the list
+export async function updateClientField(
+  id: string,
+  field: string,
+  value: string | number | null
+): Promise<ActionResponse> {
+  await requireRole("OPERATOR");
+
+  const allowedFields = [
+    "status", "sentimentStatus", "avgBillingAmount", "oneTimeProjectAmount",
+    "decidedCommercials", "invoicingDueDay", "reminderDaysBefore",
+    "sow", "notes", "contactName", "contactEmail", "contactPhone",
+    "website", "industry", "name",
+  ];
+  if (!allowedFields.includes(field)) {
+    return { success: false, error: "Invalid field" };
+  }
+
+  await db.client.update({ where: { id }, data: { [field]: value } });
+
+  revalidatePath("/admin/clients");
+  revalidatePath(`/admin/clients/${id}`);
+  return { success: true };
+}
+
 export async function getClients() {
-  await requireRole("ADMIN");
+  await requireRole("OPERATOR");
 
   return db.client.findMany({
     include: {
@@ -69,19 +96,19 @@ export async function getClients() {
 }
 
 export async function getClient(id: string) {
-  await requireRole("ADMIN");
+  await requireRole("OPERATOR");
 
   return db.client.findUnique({
     where: { id },
     include: {
-      projects: { select: { id: true, name: true, status: true } },
+      projects: { select: { id: true, name: true } },
       invoices: { orderBy: { dueDate: "desc" } },
     },
   });
 }
 
 export async function deleteClient(id: string): Promise<ActionResponse> {
-  await requireRole("ADMIN");
+  await requireRole("OPERATOR");
   await db.client.delete({ where: { id } });
   revalidatePath("/admin/clients");
   return { success: true };
@@ -99,7 +126,7 @@ const invoiceSchema = z.object({
 export async function createInvoice(
   input: z.infer<typeof invoiceSchema>
 ): Promise<ActionResponse<{ id: string }>> {
-  await requireRole("ADMIN");
+  await requireRole("OPERATOR");
 
   const parsed = invoiceSchema.safeParse(input);
   if (!parsed.success) return { success: false, error: "Invalid input" };
@@ -120,7 +147,7 @@ export async function updateInvoiceStatus(
   status: "PENDING" | "SENT" | "PAID" | "OVERDUE" | "CANCELLED",
   paidDate?: string
 ): Promise<ActionResponse> {
-  await requireRole("ADMIN");
+  await requireRole("OPERATOR");
 
   const data: Record<string, unknown> = { status };
   if (status === "PAID") {
@@ -136,9 +163,39 @@ export async function updateInvoiceStatus(
   return { success: true };
 }
 
+export async function updateInvoice(
+  id: string,
+  input: { amount?: number; dueDate?: string; invoiceNumber?: string; notes?: string }
+): Promise<ActionResponse> {
+  await requireRole("OPERATOR");
+
+  const data: Record<string, unknown> = {};
+  if (input.amount !== undefined) data.amount = input.amount;
+  if (input.dueDate) data.dueDate = new Date(input.dueDate);
+  if (input.invoiceNumber !== undefined) data.invoiceNumber = input.invoiceNumber || null;
+  if (input.notes !== undefined) data.notes = input.notes || null;
+
+  const invoice = await db.invoice.update({ where: { id }, data });
+
+  revalidatePath(`/admin/clients/${invoice.clientId}`);
+  return { success: true };
+}
+
+export async function deleteInvoice(id: string): Promise<ActionResponse> {
+  await requireRole("OPERATOR");
+
+  const invoice = await db.invoice.findUnique({ where: { id }, select: { clientId: true } });
+  if (!invoice) return { success: false, error: "Invoice not found" };
+
+  await db.invoice.delete({ where: { id } });
+
+  revalidatePath(`/admin/clients/${invoice.clientId}`);
+  return { success: true };
+}
+
 // Revenue forecasting
 export async function getRevenueForecasting() {
-  await requireRole("ADMIN");
+  await requireRole("OPERATOR");
 
   const clients = await db.client.findMany({
     where: { sentimentStatus: { not: "CHURNED" } },
@@ -146,6 +203,7 @@ export async function getRevenueForecasting() {
       id: true,
       name: true,
       avgBillingAmount: true,
+      oneTimeProjectAmount: true,
       invoicingDueDay: true,
       invoices: {
         where: {
@@ -160,9 +218,48 @@ export async function getRevenueForecasting() {
   return clients;
 }
 
+// Dashboard analytics
+export async function getClientDashboardData() {
+  await requireRole("OPERATOR");
+
+  // All invoices for chart data (last 12 months)
+  const twelveMonthsAgo = new Date();
+  twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 11);
+  twelveMonthsAgo.setDate(1);
+
+  const [allInvoices, clients] = await Promise.all([
+    db.invoice.findMany({
+      where: { dueDate: { gte: twelveMonthsAgo } },
+      select: {
+        id: true,
+        amount: true,
+        status: true,
+        dueDate: true,
+        paidDate: true,
+        clientId: true,
+        client: { select: { name: true } },
+      },
+      orderBy: { dueDate: "asc" },
+    }),
+    db.client.findMany({
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        sentimentStatus: true,
+        avgBillingAmount: true,
+        oneTimeProjectAmount: true,
+        _count: { select: { invoices: true, projects: true } },
+      },
+    }),
+  ]);
+
+  return { allInvoices, clients };
+}
+
 // Get upcoming invoice reminders
 export async function getUpcomingReminders() {
-  await requireRole("ADMIN");
+  await requireRole("OPERATOR");
 
   const now = new Date();
   const thirtyDaysFromNow = new Date();
