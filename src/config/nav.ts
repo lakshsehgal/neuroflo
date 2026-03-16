@@ -10,6 +10,7 @@ import {
   Shield,
   Bell,
   Crown,
+  User,
   type LucideIcon,
 } from "lucide-react";
 import type { UserRole } from "@/lib/roles";
@@ -43,6 +44,13 @@ export const navConfig: NavSection[] = [
     ],
   },
   {
+    label: "Account",
+    items: [
+      { title: "Profile", href: "/settings/profile", icon: User },
+      { title: "Notifications", href: "/settings/notifications", icon: Bell },
+    ],
+  },
+  {
     label: "Admin",
     items: [
       {
@@ -67,8 +75,6 @@ export const navConfig: NavSection[] = [
           { title: "Departments", href: "/settings/departments", icon: Building2, minRole: "ADMIN" },
           { title: "Roles & Permissions", href: "/settings/roles", icon: Shield, minRole: "ADMIN" },
           { title: "General", href: "/settings/general", icon: UserCog, minRole: "ADMIN" },
-          { title: "Profile", href: "/settings/profile", icon: Settings },
-          { title: "Notifications", href: "/settings/notifications", icon: Bell },
         ],
       },
     ],

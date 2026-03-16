@@ -112,7 +112,7 @@ async function main() {
     data: {
       name: "Q1 Brand Refresh",
       description: "Complete brand identity refresh for Acme Corp including logo, colors, and marketing materials",
-      status: "ACTIVE",
+      status: "PRODUCTION",
       clientId: client.id,
       departmentId: design.id,
       startDate: new Date("2026-01-15"),

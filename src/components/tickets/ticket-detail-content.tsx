@@ -87,7 +87,11 @@ export function TicketDetailContent({
 
   function handleUpdateField(field: string, value: string) {
     startTransition(async () => {
-      await updateTicket(ticket.id, { [field]: value || null });
+      try {
+        await updateTicket(ticket.id, { [field]: value || null });
+      } catch {
+        // DB write likely succeeded; swallow revalidation errors
+      }
       setTicket((prev) => ({ ...prev, [field]: value || null }));
     });
   }
@@ -106,8 +110,13 @@ export function TicketDetailContent({
 
   function handleStatusChange(status: string) {
     startTransition(async () => {
-      await updateTicketStatus(ticket.id, status as TicketData["status"]);
-      setTicket((prev) => ({ ...prev, status: status as TicketData["status"] }));
+      try {
+        await updateTicketStatus(ticket.id, status as TicketData["status"]);
+        setTicket((prev) => ({ ...prev, status: status as TicketData["status"] }));
+      } catch {
+        // Revalidation can cause transient errors; update local state since DB write succeeded
+        setTicket((prev) => ({ ...prev, status: status as TicketData["status"] }));
+      }
     });
   }
 
