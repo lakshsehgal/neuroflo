@@ -54,7 +54,7 @@ export async function createTicket(
 
   // Notify assignee
   if (parsed.data.assigneeId && parsed.data.assigneeId !== user.id) {
-    notifyTicketAssigned(ticket.id, ticket.title, parsed.data.assigneeId, user.name).catch(() => {});
+    notifyTicketAssigned(ticket.id, ticket.title, parsed.data.assigneeId, user.name).catch(console.error);
   }
 
   revalidatePath("/tickets");
@@ -91,7 +91,7 @@ export async function updateTicket(
       oldTicket?.title || "Untitled",
       data.assigneeId as string,
       user.name
-    ).catch(() => {});
+    ).catch(console.error);
   }
 
   revalidatePath(`/tickets/${id}`);
@@ -172,7 +172,7 @@ export async function updateTicketStatus(
       user.name,
       recipientIds,
       user.id
-    ).catch(() => {});
+    ).catch(console.error);
   }
 
   revalidatePath(`/tickets/${id}`);
@@ -198,7 +198,7 @@ export async function addTicketComment(
 
   if (ticket) {
     const recipientIds = [ticket.creatorId, ticket.assigneeId].filter(Boolean) as string[];
-    notifyTicketComment(ticketId, ticket.title, user.name, recipientIds, user.id).catch(() => {});
+    notifyTicketComment(ticketId, ticket.title, user.name, recipientIds, user.id).catch(console.error);
   }
 
   revalidatePath(`/tickets/${ticketId}`);
@@ -268,7 +268,7 @@ export async function approveTicket(
     user.name,
     recipientIds,
     user.id
-  ).catch(() => {});
+  ).catch(console.error);
 
   revalidatePath(`/tickets/${ticketId}`);
   revalidatePath("/tickets");

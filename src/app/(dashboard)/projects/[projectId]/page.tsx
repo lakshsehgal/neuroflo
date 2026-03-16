@@ -1,11 +1,11 @@
 import { getProject } from "@/actions/projects";
-import { notFound } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { getCurrentUser } from "@/lib/permissions";
+import { notFound, redirect } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatDate } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ProjectTaskViews } from "@/components/projects/project-task-views";
+import { ProjectSettings } from "@/components/projects/project-settings";
 import { Settings } from "lucide-react";
 
 interface Props {
@@ -14,8 +14,10 @@ interface Props {
 
 export default async function ProjectDetailPage({ params }: Props) {
   const { projectId } = await params;
-  const project = await getProject(projectId);
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
 
+  const project = await getProject(projectId);
   if (!project) notFound();
 
   return (
@@ -67,36 +69,18 @@ export default async function ProjectDetailPage({ params }: Props) {
         </TabsContent>
 
         <TabsContent value="settings" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Project Settings</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-sm font-medium">Members</h3>
-                  <div className="mt-2 space-y-2">
-                    {project.members.map((m) => (
-                      <div key={m.userId} className="flex items-center justify-between rounded-md border p-2">
-                        <div className="flex items-center gap-2">
-                          <Avatar className="h-8 w-8">
-                            <AvatarFallback className="text-xs">
-                              {m.user.name.split(" ").map((n) => n[0]).join("")}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <p className="text-sm font-medium">{m.user.name}</p>
-                            <p className="text-xs text-muted-foreground">{m.user.email}</p>
-                          </div>
-                        </div>
-                        <Badge variant="outline">{m.role}</Badge>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <ProjectSettings
+            projectId={project.id}
+            projectName={project.name}
+            projectDescription={project.description}
+            projectClientId={project.clientId}
+            projectDepartmentId={project.departmentId}
+            projectStartDate={project.startDate?.toISOString() || null}
+            projectEndDate={project.endDate?.toISOString() || null}
+            members={project.members}
+            currentUserId={user.id}
+            currentUserRole={user.role}
+          />
         </TabsContent>
       </Tabs>
     </div>

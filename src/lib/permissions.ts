@@ -35,7 +35,7 @@ export const permissions = {
   // Projects
   createProject: (role: UserRole) => hasMinRole(role, "MEMBER"),
   editProject: (role: UserRole) => hasMinRole(role, "MEMBER"),
-  deleteProject: (role: UserRole) => hasMinRole(role, "MEMBER"),
+  deleteProject: (role: UserRole) => hasMinRole(role, "MANAGER"),
 
   // Tasks
   createTask: (role: UserRole) => hasMinRole(role, "MEMBER"),
@@ -44,7 +44,7 @@ export const permissions = {
 
   // Tickets
   createTicket: (role: UserRole) => hasMinRole(role, "MEMBER"),
-  approveTicket: (role: UserRole) => hasMinRole(role, "MEMBER"),
+  approveTicket: (role: UserRole) => hasMinRole(role, "MANAGER"),
 
   // Assets
   uploadAsset: (role: UserRole) => hasMinRole(role, "MEMBER"),

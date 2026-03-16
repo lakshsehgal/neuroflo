@@ -125,6 +125,7 @@ model User {
   role         Role     @default(MEMBER)
   avatar       String?
   position     String?
+  bio          String?
   isActive     Boolean  @default(true)
   departmentId String?
   department   Department? @relation(fields: [departmentId], references: [id])
@@ -565,6 +566,9 @@ enum NotificationType {
   TICKET_ASSIGNED
   TICKET_COMMENT
   TICKET_STATUS_CHANGED
+  TASK_ASSIGNED
+  TASK_COMMENT
+  PROJECT_MEMBER_ADDED
   CHAT_MENTION
   CHANNEL_INVITE
 }
@@ -591,6 +595,9 @@ model NotificationPreference {
   ticketAssigned       Boolean @default(true)
   ticketComment        Boolean @default(true)
   ticketStatusChanged  Boolean @default(true)
+  taskAssigned         Boolean @default(true)
+  taskComment          Boolean @default(true)
+  projectMemberAdded   Boolean @default(true)
   chatMention          Boolean @default(true)
   channelInvite        Boolean @default(true)
 }

@@ -13,12 +13,17 @@ import {
   UserPlus,
   Loader2,
   Check,
+  ClipboardList,
+  FolderOpen,
 } from "lucide-react";
 
 interface PreferencesData {
   ticketAssigned: boolean;
   ticketComment: boolean;
   ticketStatusChanged: boolean;
+  taskAssigned: boolean;
+  taskComment: boolean;
+  projectMemberAdded: boolean;
   chatMention: boolean;
   channelInvite: boolean;
 }
@@ -51,6 +56,9 @@ export function NotificationPreferencesContent({
     prefs.ticketAssigned !== preferences.ticketAssigned ||
     prefs.ticketComment !== preferences.ticketComment ||
     prefs.ticketStatusChanged !== preferences.ticketStatusChanged ||
+    prefs.taskAssigned !== preferences.taskAssigned ||
+    prefs.taskComment !== preferences.taskComment ||
+    prefs.projectMemberAdded !== preferences.projectMemberAdded ||
     prefs.chatMention !== preferences.chatMention ||
     prefs.channelInvite !== preferences.channelInvite;
 
@@ -99,6 +107,36 @@ export function NotificationPreferencesContent({
             description="When a ticket you created or are assigned to changes status"
             checked={prefs.ticketStatusChanged}
             onChange={() => toggle("ticketStatusChanged")}
+          />
+        </CardContent>
+      </Card>
+
+      {/* Tasks & Projects */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm flex items-center gap-2">
+            <ClipboardList className="h-4 w-4 text-green-500" />
+            Tasks & Projects
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <ToggleRow
+            label="Task Assigned"
+            description="When a task is assigned to you"
+            checked={prefs.taskAssigned}
+            onChange={() => toggle("taskAssigned")}
+          />
+          <ToggleRow
+            label="Task Comment"
+            description="When someone comments on a task you're assigned to"
+            checked={prefs.taskComment}
+            onChange={() => toggle("taskComment")}
+          />
+          <ToggleRow
+            label="Added to Project"
+            description="When you're added as a member to a project"
+            checked={prefs.projectMemberAdded}
+            onChange={() => toggle("projectMemberAdded")}
           />
         </CardContent>
       </Card>

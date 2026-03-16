@@ -10,6 +10,9 @@ export default async function NotificationPreferencesPage() {
         ticketAssigned: prefs.ticketAssigned,
         ticketComment: prefs.ticketComment,
         ticketStatusChanged: prefs.ticketStatusChanged,
+        taskAssigned: prefs.taskAssigned,
+        taskComment: prefs.taskComment,
+        projectMemberAdded: prefs.projectMemberAdded,
         chatMention: prefs.chatMention,
         channelInvite: prefs.channelInvite,
       }}

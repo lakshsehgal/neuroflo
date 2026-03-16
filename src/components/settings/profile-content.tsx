@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { Camera, Loader2, Check, User, Shield, Building2, Calendar } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 
@@ -18,6 +19,7 @@ interface ProfileData {
   email: string;
   avatar: string | null;
   position: string | null;
+  bio: string | null;
   role: string;
   department: string | null;
   createdAt: string;
@@ -30,6 +32,7 @@ interface ProfileContentProps {
 export function ProfileContent({ profile }: ProfileContentProps) {
   const [name, setName] = useState(profile.name);
   const [position, setPosition] = useState(profile.position || "");
+  const [bio, setBio] = useState(profile.bio || "");
   const [avatarUrl, setAvatarUrl] = useState(profile.avatar);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
@@ -85,7 +88,7 @@ export function ProfileContent({ profile }: ProfileContentProps) {
 
     setSavingProfile(true);
     setProfileMessage("");
-    const result = await updateProfile({ name: name.trim(), position: position.trim() || undefined });
+    const result = await updateProfile({ name: name.trim(), position: position.trim() || undefined, bio: bio.trim() || undefined });
     if (result.success) {
       setProfileMessage("Profile updated successfully");
       setTimeout(() => setProfileMessage(""), 3000);
@@ -174,6 +177,9 @@ export function ProfileContent({ profile }: ProfileContentProps) {
                   <p className="text-sm text-muted-foreground">{profile.email}</p>
                 </div>
               </div>
+              {profile.bio && (
+                <p className="text-sm text-muted-foreground">{profile.bio}</p>
+              )}
 
               <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
                 <div className="flex items-center gap-1.5">
@@ -236,11 +242,23 @@ export function ProfileContent({ profile }: ProfileContentProps) {
                 />
               </div>
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="bio">Bio</Label>
+              <Textarea
+                id="bio"
+                value={bio}
+                onChange={(e) => setBio(e.target.value)}
+                placeholder="Tell us a bit about yourself..."
+                rows={3}
+                maxLength={500}
+              />
+              <p className="text-xs text-muted-foreground">{bio.length}/500</p>
+            </div>
             <Button
               type="submit"
               disabled={
                 savingProfile ||
-                (name.trim() === profile.name && position.trim() === (profile.position || ""))
+                (name.trim() === profile.name && position.trim() === (profile.position || "") && bio.trim() === (profile.bio || ""))
               }
             >
               {savingProfile ? (

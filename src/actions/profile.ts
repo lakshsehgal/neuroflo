@@ -18,6 +18,7 @@ export async function getProfile() {
       email: true,
       avatar: true,
       position: true,
+      bio: true,
       role: true,
       department: { select: { name: true } },
       createdAt: true,
@@ -30,6 +31,7 @@ export async function getProfile() {
 const updateProfileSchema = z.object({
   name: z.string().min(2).max(100),
   position: z.string().max(100).optional(),
+  bio: z.string().max(500).optional(),
 });
 
 export async function updateProfile(
@@ -45,6 +47,7 @@ export async function updateProfile(
     data: {
       name: parsed.data.name,
       position: parsed.data.position || null,
+      bio: parsed.data.bio || null,
     },
   });
 

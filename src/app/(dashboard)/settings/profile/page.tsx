@@ -22,6 +22,7 @@ export default async function ProfilePage() {
         email: dbUser.email,
         avatar: dbUser.avatar,
         position: dbUser.position,
+        bio: dbUser.bio,
         role: dbUser.role,
         department: dbUser.department?.name || null,
         createdAt: dbUser.createdAt.toISOString(),

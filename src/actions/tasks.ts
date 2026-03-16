@@ -6,6 +6,10 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import type { ActionResponse } from "@/types";
 import type { TaskStatus } from "@prisma/client";
+import {
+  notifyTaskAssigned,
+  notifyTaskComment,
+} from "@/actions/notifications";
 
 const taskSchema = z.object({
   projectId: z.string(),
@@ -49,6 +53,11 @@ export async function createTask(
     },
   });
 
+  // Notify assignee
+  if (parsed.data.assigneeId && parsed.data.assigneeId !== user.id) {
+    notifyTaskAssigned(task.id, task.title, task.projectId, parsed.data.assigneeId, user.name).catch(console.error);
+  }
+
   revalidatePath(`/projects/${parsed.data.projectId}`);
   return { success: true, data: { id: task.id } };
 }
@@ -57,7 +66,12 @@ export async function updateTask(
   id: string,
   input: Partial<z.infer<typeof taskSchema>>
 ): Promise<ActionResponse> {
-  await requireRole("MEMBER");
+  const user = await requireRole("MEMBER");
+
+  const oldTask = await db.task.findUnique({
+    where: { id },
+    select: { assigneeId: true, title: true, projectId: true },
+  });
 
   await db.task.update({
     where: { id },
@@ -67,8 +81,24 @@ export async function updateTask(
     },
   });
 
-  if (input.projectId) {
-    revalidatePath(`/projects/${input.projectId}`);
+  // Notify new assignee if changed
+  if (
+    input.assigneeId &&
+    input.assigneeId !== oldTask?.assigneeId &&
+    input.assigneeId !== user.id
+  ) {
+    notifyTaskAssigned(
+      id,
+      oldTask?.title || "Untitled",
+      oldTask?.projectId || input.projectId || "",
+      input.assigneeId,
+      user.name
+    ).catch(console.error);
+  }
+
+  const projectId = input.projectId || oldTask?.projectId;
+  if (projectId) {
+    revalidatePath(`/projects/${projectId}`);
   }
   return { success: true };
 }
@@ -224,7 +254,14 @@ export async function addComment(
 
   if (taskId) {
     const task = await db.task.findUnique({ where: { id: taskId } });
-    if (task) revalidatePath(`/projects/${task.projectId}`);
+    if (task) {
+      revalidatePath(`/projects/${task.projectId}`);
+      // Notify task assignee about the comment
+      const recipientIds = [task.assigneeId].filter(Boolean) as string[];
+      if (recipientIds.length > 0) {
+        notifyTaskComment(taskId, task.title, task.projectId, user.name, recipientIds, user.id).catch(console.error);
+      }
+    }
   }
   if (ticketId) {
     revalidatePath(`/tickets/${ticketId}`);

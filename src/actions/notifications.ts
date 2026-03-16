@@ -27,6 +27,9 @@ export async function createNotification(
       TICKET_ASSIGNED: prefs.ticketAssigned,
       TICKET_COMMENT: prefs.ticketComment,
       TICKET_STATUS_CHANGED: prefs.ticketStatusChanged,
+      TASK_ASSIGNED: prefs.taskAssigned,
+      TASK_COMMENT: prefs.taskComment,
+      PROJECT_MEMBER_ADDED: prefs.projectMemberAdded,
       CHAT_MENTION: prefs.chatMention,
       CHANNEL_INVITE: prefs.channelInvite,
     };
@@ -118,6 +121,9 @@ export async function updateNotificationPreferences(
     ticketAssigned: boolean;
     ticketComment: boolean;
     ticketStatusChanged: boolean;
+    taskAssigned: boolean;
+    taskComment: boolean;
+    projectMemberAdded: boolean;
     chatMention: boolean;
     channelInvite: boolean;
   }
@@ -203,5 +209,60 @@ export async function notifyChatMention(
     "You were mentioned",
     `${mentionedByName} mentioned you in #${channelName}`,
     `/chat`
+  );
+}
+
+// ─── Task Notifications ──────────────────────────────────
+
+export async function notifyTaskAssigned(
+  taskId: string,
+  taskTitle: string,
+  projectId: string,
+  assigneeId: string,
+  assignedByName: string
+) {
+  await createNotification(
+    assigneeId,
+    "TASK_ASSIGNED",
+    "Task Assigned",
+    `${assignedByName} assigned you to "${taskTitle}"`,
+    `/projects/${projectId}`
+  );
+}
+
+export async function notifyTaskComment(
+  taskId: string,
+  taskTitle: string,
+  projectId: string,
+  commentAuthorName: string,
+  recipientIds: string[],
+  authorId: string
+) {
+  for (const userId of recipientIds) {
+    if (userId === authorId) continue;
+    await createNotification(
+      userId,
+      "TASK_COMMENT",
+      "New Comment",
+      `${commentAuthorName} commented on "${taskTitle}"`,
+      `/projects/${projectId}`
+    );
+  }
+}
+
+// ─── Project Notifications ───────────────────────────────
+
+export async function notifyProjectMemberAdded(
+  projectId: string,
+  projectName: string,
+  memberId: string,
+  addedByName: string
+) {
+  await createNotification(
+    memberId,
+    "PROJECT_MEMBER_ADDED",
+    "Added to Project",
+    `${addedByName} added you to "${projectName}"`,
+    `/projects/${projectId}`
   );
 }

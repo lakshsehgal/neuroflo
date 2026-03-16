@@ -268,30 +268,24 @@ export async function sendMessage(
   });
 
   // Detect @mentions and send notifications
-  if (content) {
-    const mentionRegex = /@([\w\s]+?)(?=\s@|\s[^@]|$)/g;
-    let match;
-    const mentionedNames: string[] = [];
-    while ((match = mentionRegex.exec(content)) !== null) {
-      mentionedNames.push(match[1].trim());
-    }
-
-    if (mentionedNames.length > 0) {
-      const channel = await db.channel.findUnique({
-        where: { id: channelId },
-        select: { name: true },
-      });
-      const mentionedUsers = await db.user.findMany({
-        where: {
-          name: { in: mentionedNames, mode: "insensitive" },
-          isActive: true,
+  if (content && content.includes("@")) {
+    const channelData = await db.channel.findUnique({
+      where: { id: channelId },
+      select: {
+        name: true,
+        members: {
+          include: { user: { select: { id: true, name: true } } },
         },
-        select: { id: true },
-      });
+      },
+    });
 
-      for (const u of mentionedUsers) {
-        if (u.id !== user.id) {
-          notifyChatMention(channelId, channel?.name || "chat", u.id, user.name).catch(() => {});
+    if (channelData) {
+      const contentLower = content.toLowerCase();
+      for (const member of channelData.members) {
+        if (member.userId === user.id) continue;
+        // Check if @Name appears in the message (case-insensitive)
+        if (contentLower.includes(`@${member.user.name.toLowerCase()}`)) {
+          notifyChatMention(channelId, channelData.name, member.userId, user.name).catch(console.error);
         }
       }
     }
