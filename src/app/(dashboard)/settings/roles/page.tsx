@@ -36,6 +36,22 @@ const roles = [
     },
   },
   {
+    name: "Operator",
+    color: "bg-purple-100 text-purple-800",
+    description: "Can manage projects, approve tickets, and view team members",
+    permissions: {
+      "Manage Team & Invites": false,
+      "Manage Departments": false,
+      "Manage Clients & Billing": true,
+      "Delete Projects": true,
+      "Approve Tickets": true,
+      "Manage Project Members": true,
+      "Create Projects & Tasks": true,
+      "Create Tickets": true,
+      "View Dashboard": true,
+    },
+  },
+  {
     name: "Member",
     color: "bg-green-100 text-green-800",
     description: "Can create and edit projects, tasks, and tickets. Project leads can manage their project members.",

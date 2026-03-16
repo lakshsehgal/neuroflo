@@ -8,7 +8,7 @@ import type { Role } from "@prisma/client";
 
 const inviteSchema = z.object({
   email: z.string().email(),
-  role: z.enum(["ADMIN", "MANAGER", "MEMBER", "VIEWER"]),
+  role: z.enum(["ADMIN", "MANAGER", "OPERATOR", "MEMBER", "VIEWER"]),
   departmentId: z.string().optional(),
 });
 
