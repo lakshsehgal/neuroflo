@@ -1,97 +1,97 @@
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
+  // Step 1: Can we even reach this handler?
+  console.log("[login] handler reached");
+
   try {
-    const { email, password } = await req.json();
+    const body = await req.json();
+    console.log("[login] body parsed, email:", body.email);
 
-    if (!email || !password) {
-      return NextResponse.json({ error: "Missing credentials" }, { status: 400 });
-    }
+    // Step 2: Test dynamic imports one by one
+    const results: Record<string, string> = {};
 
-    // Dynamic imports to avoid module-level crashes
-    let db, bcrypt, encode;
     try {
-      const dbModule = await import("@/lib/db");
-      db = dbModule.db;
+      await import("bcryptjs");
+      results.bcryptjs = "ok";
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      console.error("[login] db import failed:", msg);
-      return NextResponse.json({ error: "DB init failed: " + msg }, { status: 500 });
+      results.bcryptjs = e instanceof Error ? e.message : String(e);
     }
 
     try {
-      bcrypt = await import("bcryptjs");
+      await import("next-auth/jwt");
+      results.nextAuthJwt = "ok";
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      console.error("[login] bcryptjs import failed:", msg);
-      return NextResponse.json({ error: "bcrypt init failed: " + msg }, { status: 500 });
+      results.nextAuthJwt = e instanceof Error ? e.message : String(e);
     }
 
     try {
-      const jwtModule = await import("next-auth/jwt");
-      encode = jwtModule.encode;
+      await import("@/lib/db");
+      results.db = "ok";
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      console.error("[login] next-auth/jwt import failed:", msg);
-      return NextResponse.json({ error: "jwt init failed: " + msg }, { status: 500 });
+      results.db = e instanceof Error ? e.message : String(e);
     }
 
-    // Find user
-    const user = await db.user.findUnique({
-      where: { email: email as string },
-    });
+    console.log("[login] import results:", JSON.stringify(results));
 
-    if (!user || !user.isActive) {
-      return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
+    // If all imports work, try the actual login
+    if (results.bcryptjs === "ok" && results.nextAuthJwt === "ok" && results.db === "ok") {
+      const { db } = await import("@/lib/db");
+      const bcrypt = await import("bcryptjs");
+      const { encode } = await import("next-auth/jwt");
+
+      const user = await db.user.findUnique({
+        where: { email: body.email as string },
+      });
+
+      if (!user || !user.isActive) {
+        return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
+      }
+
+      const isValid = await bcrypt.compare(body.password as string, user.passwordHash);
+      if (!isValid) {
+        return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
+      }
+
+      const secret = process.env.AUTH_SECRET!;
+      const isSecure = req.nextUrl.protocol === "https:";
+
+      const token = await encode({
+        token: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          picture: user.avatar,
+          sub: user.id,
+          roleRefreshedAt: Date.now(),
+        },
+        secret,
+        salt: isSecure ? "__Secure-authjs.session-token" : "authjs.session-token",
+      });
+
+      const cookieName = isSecure ? "__Secure-authjs.session-token" : "authjs.session-token";
+      const response = NextResponse.json({ ok: true, callbackUrl: "/dashboard" });
+      response.cookies.set(cookieName, token, {
+        httpOnly: true,
+        secure: isSecure,
+        sameSite: "lax",
+        path: "/",
+        maxAge: 30 * 24 * 60 * 60,
+      });
+
+      return response;
     }
 
-    // Verify password
-    const isValid = await bcrypt.compare(password as string, user.passwordHash);
-    if (!isValid) {
-      return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
-    }
-
-    // Create JWT token (same format as NextAuth)
-    const secret = process.env.AUTH_SECRET!;
-    const isSecure = req.nextUrl.protocol === "https:";
-
-    const token = await encode({
-      token: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        picture: user.avatar,
-        sub: user.id,
-        roleRefreshedAt: Date.now(),
-      },
-      secret,
-      salt: isSecure
-        ? "__Secure-authjs.session-token"
-        : "authjs.session-token",
-    });
-
-    // Set the session cookie
-    const cookieName = isSecure
-      ? "__Secure-authjs.session-token"
-      : "authjs.session-token";
-
-    const response = NextResponse.json({ ok: true, callbackUrl: "/dashboard" });
-    response.cookies.set(cookieName, token, {
-      httpOnly: true,
-      secure: isSecure,
-      sameSite: "lax",
-      path: "/",
-      maxAge: 30 * 24 * 60 * 60, // 30 days
-    });
-
-    return response;
+    // Return diagnostic info
+    return NextResponse.json({ error: "Import failures", details: results }, { status: 500 });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.stack || error.message : String(error);
     console.error("[login] error:", msg);
-    return NextResponse.json(
-      { error: "Internal server error: " + msg },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
+}
+
+export async function GET() {
+  return NextResponse.json({ status: "login endpoint alive", time: new Date().toISOString() });
 }
