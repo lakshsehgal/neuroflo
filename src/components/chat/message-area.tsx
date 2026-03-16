@@ -9,6 +9,10 @@ import {
   leaveChannel,
   createPoll,
   votePoll,
+  getBookmarks,
+  addBookmark,
+  removeBookmark,
+  renameChannel,
 } from "@/actions/chat";
 import { uploadFile } from "@/lib/upload";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -30,10 +34,24 @@ import {
   Plus,
   Minus,
   Check,
+  MessageSquare,
+  Bookmark,
+  Link2,
+  Trash2,
+  Pencil,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { ThreadPanel } from "./thread-panel";
 import type { AvailableUser } from "./chat-layout";
+
+interface BookmarkData {
+  id: string;
+  title: string;
+  url: string;
+  addedBy: { id: string; name: string };
+  createdAt: Date;
+}
 
 interface PollOptionData {
   id: string;
@@ -56,6 +74,8 @@ interface MessageData {
   fileType?: string | null;
   fileSize?: number | null;
   poll?: PollData | null;
+  _count?: { replies: number };
+  replies?: { author: { id: string; name: string; avatar: string | null } }[];
   author: {
     id: string;
     name: string;
@@ -71,10 +91,12 @@ interface MessageAreaProps {
   isMember: boolean;
   currentUserId: string;
   currentUserName: string;
+  currentUserRole: string;
   availableUsers: AvailableUser[];
   onJoin: () => void;
   onLeave: () => void;
   onToggleMembers: () => void;
+  onChannelRenamed: (channelId: string, newName: string) => void;
 }
 
 export function MessageArea({
@@ -85,10 +107,12 @@ export function MessageArea({
   isMember,
   currentUserId,
   currentUserName,
+  currentUserRole,
   availableUsers,
   onJoin,
   onLeave,
   onToggleMembers,
+  onChannelRenamed,
 }: MessageAreaProps) {
   const [messages, setMessages] = useState<MessageData[]>([]);
   const [input, setInput] = useState("");
@@ -109,6 +133,19 @@ export function MessageArea({
   const [pollQuestion, setPollQuestion] = useState("");
   const [pollOptions, setPollOptions] = useState(["", ""]);
   const [creatingPoll, setCreatingPoll] = useState(false);
+  // Thread state
+  const [threadMessage, setThreadMessage] = useState<MessageData | null>(null);
+  // Bookmark state
+  const [showBookmarks, setShowBookmarks] = useState(false);
+  const [bookmarks, setBookmarks] = useState<BookmarkData[]>([]);
+  const [bookmarkTitle, setBookmarkTitle] = useState("");
+  const [bookmarkUrl, setBookmarkUrl] = useState("");
+  const [addingBookmark, setAddingBookmark] = useState(false);
+  const [showAddBookmark, setShowAddBookmark] = useState(false);
+  // Rename state
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState(channelName);
+  const [renameSaving, setRenameSaving] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -337,6 +374,60 @@ export function MessageArea({
     setMessages(data.messages as MessageData[]);
   }
 
+  // ─── Bookmarks ──────────────────────────────────────────
+  async function loadBookmarks() {
+    const data = await getBookmarks(channelId);
+    setBookmarks(data as BookmarkData[]);
+  }
+
+  async function handleAddBookmark() {
+    if (!bookmarkTitle.trim() || !bookmarkUrl.trim()) return;
+    setAddingBookmark(true);
+    const result = await addBookmark({
+      channelId,
+      title: bookmarkTitle.trim(),
+      url: bookmarkUrl.trim(),
+    });
+    if (result.success) {
+      await loadBookmarks();
+      setBookmarkTitle("");
+      setBookmarkUrl("");
+      setShowAddBookmark(false);
+    }
+    setAddingBookmark(false);
+  }
+
+  async function handleRemoveBookmark(bookmarkId: string) {
+    await removeBookmark(bookmarkId);
+    setBookmarks((prev) => prev.filter((b) => b.id !== bookmarkId));
+  }
+
+  function handleToggleBookmarks() {
+    if (!showBookmarks) {
+      loadBookmarks();
+    }
+    setShowBookmarks(!showBookmarks);
+  }
+
+  // ─── Rename ────────────────────────────────────────────
+  async function handleRename() {
+    const trimmed = renameValue.trim();
+    if (!trimmed || trimmed === channelName) {
+      setIsRenaming(false);
+      setRenameValue(channelName);
+      return;
+    }
+    setRenameSaving(true);
+    const result = await renameChannel(channelId, trimmed);
+    if (result.success) {
+      onChannelRenamed(channelId, trimmed);
+      setIsRenaming(false);
+    } else {
+      alert(result.error || "Failed to rename");
+    }
+    setRenameSaving(false);
+  }
+
   async function handleJoin() {
     const result = await joinChannel(channelId);
     if (result.success) onJoin();
@@ -349,8 +440,11 @@ export function MessageArea({
 
   const ChannelIcon = channelType === "PRIVATE" ? Lock : Hash;
 
+  const canRename = !isGeneral && (currentUserRole === "ADMIN" || isMember);
+
   return (
-    <>
+    <div className="flex flex-1 min-w-0">
+    <div className="flex flex-1 flex-col min-w-0">
       {/* Channel header */}
       <motion.div
         initial={{ opacity: 0, y: -4 }}
@@ -360,9 +454,66 @@ export function MessageArea({
       >
         <div className="flex items-center gap-2">
           <ChannelIcon className="h-4 w-4 text-muted-foreground" />
-          <h3 className="font-semibold">{channelName}</h3>
+          {isRenaming ? (
+            <div className="flex items-center gap-1.5">
+              <input
+                value={renameValue}
+                onChange={(e) => setRenameValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleRename();
+                  if (e.key === "Escape") {
+                    setIsRenaming(false);
+                    setRenameValue(channelName);
+                  }
+                }}
+                className="h-7 w-40 rounded border bg-background px-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-ring/50"
+                autoFocus
+                disabled={renameSaving}
+              />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                onClick={handleRename}
+                disabled={renameSaving}
+              >
+                <Check className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                onClick={() => { setIsRenaming(false); setRenameValue(channelName); }}
+              >
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 group">
+              <h3 className="font-semibold">{channelName}</h3>
+              {canRename && (
+                <button
+                  onClick={() => { setRenameValue(channelName); setIsRenaming(true); }}
+                  className="opacity-0 group-hover:opacity-100 rounded p-0.5 hover:bg-muted transition-all"
+                  title="Rename channel"
+                >
+                  <Pencil className="h-3 w-3 text-muted-foreground" />
+                </button>
+              )}
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            className={cn("h-8 gap-1.5 text-xs", showBookmarks && "text-primary")}
+            onClick={handleToggleBookmarks}
+            title="Bookmarks"
+          >
+            <Bookmark className="h-3.5 w-3.5" />
+            Bookmarks
+          </Button>
           <Button
             variant="ghost"
             size="sm"
@@ -396,6 +547,89 @@ export function MessageArea({
           )}
         </div>
       </motion.div>
+
+      {/* Bookmarks bar */}
+      <AnimatePresence>
+        {showBookmarks && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden border-b"
+          >
+            <div className="px-4 py-2 flex flex-wrap items-center gap-2">
+              {bookmarks.length === 0 && !showAddBookmark && (
+                <p className="text-xs text-muted-foreground">No bookmarks yet.</p>
+              )}
+              {bookmarks.map((bm) => (
+                <div
+                  key={bm.id}
+                  className="group flex items-center gap-1.5 rounded-md border bg-muted/30 px-2.5 py-1 text-xs hover:bg-muted/60 transition-colors"
+                >
+                  <Link2 className="h-3 w-3 text-muted-foreground shrink-0" />
+                  <a
+                    href={bm.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium text-primary hover:underline truncate max-w-[150px]"
+                    title={bm.url}
+                  >
+                    {bm.title}
+                  </a>
+                  <button
+                    onClick={() => handleRemoveBookmark(bm.id)}
+                    className="opacity-0 group-hover:opacity-100 rounded-full p-0.5 hover:bg-destructive/10 hover:text-destructive transition-all"
+                    title="Remove bookmark"
+                  >
+                    <X className="h-2.5 w-2.5" />
+                  </button>
+                </div>
+              ))}
+              {showAddBookmark ? (
+                <div className="flex items-center gap-1.5">
+                  <input
+                    value={bookmarkTitle}
+                    onChange={(e) => setBookmarkTitle(e.target.value)}
+                    placeholder="Title"
+                    className="h-7 w-24 rounded border bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring/50"
+                    autoFocus
+                  />
+                  <input
+                    value={bookmarkUrl}
+                    onChange={(e) => setBookmarkUrl(e.target.value)}
+                    placeholder="https://..."
+                    className="h-7 w-48 rounded border bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring/50"
+                    onKeyDown={(e) => { if (e.key === "Enter") handleAddBookmark(); }}
+                  />
+                  <Button
+                    size="sm"
+                    className="h-7 text-xs px-2"
+                    onClick={handleAddBookmark}
+                    disabled={addingBookmark || !bookmarkTitle.trim() || !bookmarkUrl.trim()}
+                  >
+                    {addingBookmark ? <Loader2 className="h-3 w-3 animate-spin" /> : "Add"}
+                  </Button>
+                  <button
+                    onClick={() => { setShowAddBookmark(false); setBookmarkTitle(""); setBookmarkUrl(""); }}
+                    className="rounded-full p-0.5 hover:bg-muted"
+                  >
+                    <X className="h-3.5 w-3.5 text-muted-foreground" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowAddBookmark(true)}
+                  className="flex items-center gap-1 rounded-md border border-dashed px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
+                >
+                  <Plus className="h-3 w-3" />
+                  Add
+                </button>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Messages */}
       <div
@@ -473,6 +707,7 @@ export function MessageArea({
                     isOwn={isOwn}
                     currentUserId={currentUserId}
                     onVote={handleVote}
+                    onOpenThread={() => setThreadMessage(msg)}
                   />
                 );
               })}
@@ -706,7 +941,22 @@ export function MessageArea({
           You must be a member to send messages in this channel.
         </div>
       )}
-    </>
+    </div>
+
+    {/* Thread panel */}
+    <AnimatePresence>
+      {threadMessage && (
+        <ThreadPanel
+          parentMessage={threadMessage}
+          channelId={channelId}
+          channelName={channelName}
+          currentUserId={currentUserId}
+          currentUserName={currentUserName}
+          onClose={() => setThreadMessage(null)}
+        />
+      )}
+    </AnimatePresence>
+    </div>
   );
 }
 
@@ -941,12 +1191,14 @@ function MessageBubble({
   isOwn,
   currentUserId,
   onVote,
+  onOpenThread,
 }: {
   message: MessageData;
   isConsecutive: boolean;
   isOwn: boolean;
   currentUserId: string;
   onVote: (optionId: string) => void;
+  onOpenThread: () => void;
 }) {
   const time = new Date(message.createdAt);
   const timeStr = time.toLocaleTimeString([], {
@@ -961,6 +1213,17 @@ function MessageBubble({
     .slice(0, 2);
 
   const isOptimistic = message.id.startsWith("temp-");
+
+  const replyCount = message._count?.replies ?? 0;
+  const replyAvatars = message.replies ?? [];
+  // Deduplicate reply authors
+  const uniqueAuthors = replyAvatars.reduce<{ id: string; name: string; avatar: string | null }[]>(
+    (acc, r) => {
+      if (!acc.find((a) => a.id === r.author.id)) acc.push(r.author);
+      return acc;
+    },
+    []
+  );
 
   const messageContent = (
     <>
@@ -979,6 +1242,38 @@ function MessageBubble({
       )}
       {message.poll && (
         <PollWidget poll={message.poll} currentUserId={currentUserId} onVote={onVote} />
+      )}
+      {/* Thread indicator */}
+      {replyCount > 0 && (
+        <button
+          onClick={onOpenThread}
+          className="mt-1.5 flex items-center gap-2 text-xs text-primary hover:underline group/thread"
+        >
+          <div className="flex -space-x-1.5">
+            {uniqueAuthors.slice(0, 3).map((author) => {
+              const init = author.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
+              return (
+                <Avatar key={author.id} className="h-4 w-4 border border-background">
+                  {author.avatar && <AvatarImage src={author.avatar} />}
+                  <AvatarFallback className="text-[6px]">{init}</AvatarFallback>
+                </Avatar>
+              );
+            })}
+          </div>
+          <span className="font-medium">
+            {replyCount} {replyCount === 1 ? "reply" : "replies"}
+          </span>
+        </button>
+      )}
+      {/* Reply action on hover */}
+      {!message.poll && replyCount === 0 && (
+        <button
+          onClick={onOpenThread}
+          className="mt-0.5 hidden group-hover:flex items-center gap-1 text-[10px] text-muted-foreground hover:text-primary transition-colors"
+        >
+          <MessageSquare className="h-3 w-3" />
+          Reply
+        </button>
       )}
     </>
   );

@@ -23,6 +23,7 @@ const sendMessageSchema = z.object({
   fileUrl: z.string().optional(),
   fileType: z.string().optional(),
   fileSize: z.number().optional(),
+  parentId: z.string().optional(),
 });
 
 // ─── Channels ───────────────────────────────────────────
@@ -212,10 +213,18 @@ export async function getMessages(channelId: string, cursor?: string) {
         },
       },
     },
+    _count: { select: { replies: true } },
+    replies: {
+      select: {
+        author: { select: { id: true, name: true, avatar: true } },
+      },
+      orderBy: { createdAt: "desc" as const },
+      take: 3,
+    },
   };
 
   const messages = await db.message.findMany({
-    where: { channelId },
+    where: { channelId, parentId: null },
     include: messageInclude,
     orderBy: { createdAt: "desc" },
     take: take + 1,
@@ -236,7 +245,7 @@ export async function sendMessage(
   const parsed = sendMessageSchema.safeParse(input);
   if (!parsed.success) return { success: false, error: "Invalid input" };
 
-  const { channelId, content, fileName, fileUrl, fileType, fileSize } = parsed.data;
+  const { channelId, content, fileName, fileUrl, fileType, fileSize, parentId } = parsed.data;
 
   if (!content && !fileUrl) return { success: false, error: "Message cannot be empty" };
 
@@ -264,6 +273,7 @@ export async function sendMessage(
       fileUrl,
       fileType,
       fileSize,
+      parentId: parentId || null,
     },
   });
 
@@ -313,6 +323,7 @@ export async function getNewMessages(channelId: string, afterId: string) {
   const messages = await db.message.findMany({
     where: {
       channelId,
+      parentId: null,
       createdAt: { gt: refMessage.createdAt },
     },
     include: {
@@ -325,9 +336,33 @@ export async function getNewMessages(channelId: string, afterId: string) {
           },
         },
       },
+      _count: { select: { replies: true } },
+      replies: {
+        select: {
+          author: { select: { id: true, name: true, avatar: true } },
+        },
+        orderBy: { createdAt: "desc" as const },
+        take: 3,
+      },
     },
     orderBy: { createdAt: "asc" },
     take: 100,
+  });
+
+  return messages;
+}
+
+// ─── Thread Messages ─────────────────────────────────────
+
+export async function getThreadMessages(parentId: string) {
+  await requireAuth();
+
+  const messages = await db.message.findMany({
+    where: { parentId },
+    include: {
+      author: { select: { id: true, name: true, avatar: true } },
+    },
+    orderBy: { createdAt: "asc" },
   });
 
   return messages;
@@ -491,5 +526,106 @@ export async function votePoll(
     });
   }
 
+  return { success: true };
+}
+
+// ─── Channel Bookmarks ──────────────────────────────────
+
+const bookmarkSchema = z.object({
+  channelId: z.string().min(1),
+  title: z.string().min(1).max(100),
+  url: z.string().url().max(2000),
+});
+
+export async function getBookmarks(channelId: string) {
+  await requireAuth();
+
+  return db.channelBookmark.findMany({
+    where: { channelId },
+    include: {
+      addedBy: { select: { id: true, name: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function addBookmark(
+  input: z.infer<typeof bookmarkSchema>
+): Promise<ActionResponse<{ id: string }>> {
+  const user = await requireAuth();
+
+  const parsed = bookmarkSchema.safeParse(input);
+  if (!parsed.success) return { success: false, error: "Invalid input" };
+
+  const bookmark = await db.channelBookmark.create({
+    data: {
+      channelId: parsed.data.channelId,
+      title: parsed.data.title,
+      url: parsed.data.url,
+      addedById: user.id,
+    },
+  });
+
+  return { success: true, data: { id: bookmark.id } };
+}
+
+export async function removeBookmark(bookmarkId: string): Promise<ActionResponse> {
+  const user = await requireAuth();
+
+  const bookmark = await db.channelBookmark.findUnique({
+    where: { id: bookmarkId },
+  });
+  if (!bookmark) return { success: false, error: "Bookmark not found" };
+
+  // Allow bookmark owner or admin to delete
+  if (bookmark.addedById !== user.id && user.role !== "ADMIN") {
+    return { success: false, error: "Not authorized" };
+  }
+
+  await db.channelBookmark.delete({ where: { id: bookmarkId } });
+  return { success: true };
+}
+
+// ─── Rename Channel ─────────────────────────────────────
+
+export async function renameChannel(
+  channelId: string,
+  newName: string
+): Promise<ActionResponse> {
+  const user = await requireAuth();
+
+  const channel = await db.channel.findUnique({
+    where: { id: channelId },
+    include: { members: { where: { userId: user.id } } },
+  });
+  if (!channel) return { success: false, error: "Channel not found" };
+  if (channel.isGeneral) return { success: false, error: "Cannot rename the general channel" };
+
+  // Only admin or channel owner can rename
+  const membership = channel.members[0];
+  if (user.role !== "ADMIN" && membership?.role !== "OWNER") {
+    return { success: false, error: "Only admins or channel owners can rename channels" };
+  }
+
+  const trimmed = newName.trim();
+  if (!trimmed || trimmed.length > 80) {
+    return { success: false, error: "Channel name must be 1-80 characters" };
+  }
+
+  // Check for duplicate name
+  const existing = await db.channel.findFirst({
+    where: {
+      name: { equals: trimmed, mode: "insensitive" },
+      id: { not: channelId },
+    },
+  });
+  if (existing) return { success: false, error: "A channel with this name already exists" };
+
+  await db.channel.update({
+    where: { id: channelId },
+    data: { name: trimmed },
+  });
+
+  revalidatePath("/chat");
   return { success: true };
 }

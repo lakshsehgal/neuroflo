@@ -84,6 +84,12 @@ export function ChatLayout({
     }
   }
 
+  function handleChannelRenamed(channelId: string, newName: string) {
+    setChannelList((prev) =>
+      prev.map((c) => (c.id === channelId ? { ...c, name: newName } : c))
+    );
+  }
+
   return (
     <div className="flex h-[calc(100vh-8rem)] rounded-lg border bg-card overflow-hidden">
       {/* Channel sidebar */}
@@ -97,7 +103,7 @@ export function ChatLayout({
       />
 
       {/* Message area */}
-      <div className="flex flex-1 flex-col min-w-0">
+      <div className="flex flex-1 min-w-0">
         {activeChannel ? (
           <MessageArea
             channelId={activeChannel.id}
@@ -107,10 +113,12 @@ export function ChatLayout({
             isMember={activeChannel.isMember}
             currentUserId={currentUserId}
             currentUserName={currentUserName}
+            currentUserRole={currentUserRole}
             availableUsers={availableUsers}
             onJoin={() => handleChannelJoined(activeChannel.id)}
             onLeave={() => handleChannelLeft(activeChannel.id)}
             onToggleMembers={() => setShowMembers(!showMembers)}
+            onChannelRenamed={handleChannelRenamed}
           />
         ) : (
           <div className="flex flex-1 items-center justify-center text-muted-foreground">
