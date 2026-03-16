@@ -38,7 +38,7 @@ const roles = [
   {
     name: "Operator",
     color: "bg-purple-100 text-purple-800",
-    description: "Can manage projects, approve tickets, and view team members",
+    description: "Senior role with full project and client management capabilities",
     permissions: {
       "Manage Team & Invites": false,
       "Manage Departments": false,

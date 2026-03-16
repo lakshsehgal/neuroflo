@@ -1,9 +1,9 @@
 export type UserRole = "ADMIN" | "MANAGER" | "OPERATOR" | "MEMBER" | "VIEWER";
 
 const ROLE_HIERARCHY: Record<UserRole, number> = {
-  ADMIN: 4,
+  ADMIN: 5,
+  OPERATOR: 4,
   MANAGER: 3,
-  OPERATOR: 3,
   MEMBER: 2,
   VIEWER: 1,
 };
