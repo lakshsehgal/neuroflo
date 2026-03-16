@@ -13,6 +13,8 @@ import {
   addBookmark,
   removeBookmark,
   renameChannel,
+  toggleReaction,
+  getUserProfile,
 } from "@/actions/chat";
 import { uploadFile } from "@/lib/upload";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -39,6 +41,9 @@ import {
   Link2,
   Trash2,
   Pencil,
+  SmilePlus,
+  Mic,
+  Square,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -65,6 +70,13 @@ interface PollData {
   options: PollOptionData[];
 }
 
+interface ReactionData {
+  id: string;
+  emoji: string;
+  userId: string;
+  user: { id: string; name: string };
+}
+
 interface MessageData {
   id: string;
   content: string;
@@ -75,12 +87,25 @@ interface MessageData {
   fileSize?: number | null;
   poll?: PollData | null;
   _count?: { replies: number };
-  replies?: { author: { id: string; name: string; avatar: string | null } }[];
+  replies?: { author: { id: string; name: string; avatar: string | null }; createdAt: Date }[];
+  reactions?: ReactionData[];
   author: {
     id: string;
     name: string;
     avatar: string | null;
+    position?: string | null;
   };
+}
+
+interface UserProfileData {
+  id: string;
+  name: string;
+  email: string;
+  avatar: string | null;
+  position: string | null;
+  bio: string | null;
+  role: string;
+  department: { name: string } | null;
 }
 
 interface MessageAreaProps {
@@ -372,6 +397,30 @@ export function MessageArea({
     // Refresh messages to show updated votes
     const data = await getMessages(channelId);
     setMessages(data.messages as MessageData[]);
+  }
+
+  async function handleReaction(messageId: string, emoji: string) {
+    // Optimistic update
+    setMessages((prev) =>
+      prev.map((m) => {
+        if (m.id !== messageId) return m;
+        const reactions = m.reactions || [];
+        const existing = reactions.find(
+          (r) => r.emoji === emoji && r.userId === currentUserId
+        );
+        if (existing) {
+          return { ...m, reactions: reactions.filter((r) => r.id !== existing.id) };
+        }
+        return {
+          ...m,
+          reactions: [
+            ...reactions,
+            { id: `temp-${Date.now()}`, emoji, userId: currentUserId, user: { id: currentUserId, name: currentUserName } },
+          ],
+        };
+      })
+    );
+    await toggleReaction(messageId, emoji);
   }
 
   // ─── Bookmarks ──────────────────────────────────────────
@@ -691,24 +740,32 @@ export function MessageArea({
             >
               {messages.map((msg, idx) => {
                 const prevMsg = idx > 0 ? messages[idx - 1] : null;
+                const msgDate = new Date(msg.createdAt);
+                const prevDate = prevMsg ? new Date(prevMsg.createdAt) : null;
+                const showDateSeparator = !prevDate ||
+                  msgDate.toDateString() !== prevDate.toDateString();
                 const isConsecutive =
+                  !showDateSeparator &&
                   prevMsg &&
                   prevMsg.author.id === msg.author.id &&
-                  new Date(msg.createdAt).getTime() -
-                    new Date(prevMsg.createdAt).getTime() <
-                    5 * 60 * 1000;
+                  msgDate.getTime() - new Date(prevMsg.createdAt).getTime() < 5 * 60 * 1000;
                 const isOwn = msg.author.id === currentUserId;
 
                 return (
-                  <MessageBubble
-                    key={msg.id}
-                    message={msg}
-                    isConsecutive={!!isConsecutive}
-                    isOwn={isOwn}
-                    currentUserId={currentUserId}
-                    onVote={handleVote}
-                    onOpenThread={() => setThreadMessage(msg)}
-                  />
+                  <div key={msg.id}>
+                    {showDateSeparator && (
+                      <DateSeparator date={msgDate} />
+                    )}
+                    <MessageBubble
+                      message={msg}
+                      isConsecutive={!!isConsecutive}
+                      isOwn={isOwn}
+                      currentUserId={currentUserId}
+                      onVote={handleVote}
+                      onOpenThread={() => setThreadMessage(msg)}
+                      onReaction={handleReaction}
+                    />
+                  </div>
                 );
               })}
               <div ref={messagesEndRef} />
@@ -900,6 +957,16 @@ export function MessageArea({
               >
                 <BarChart3 className="h-4 w-4" />
               </Button>
+              <VoiceNoteButton
+                channelId={channelId}
+                currentUserId={currentUserId}
+                currentUserName={currentUserName}
+                onSent={async () => {
+                  const data = await getMessages(channelId);
+                  setMessages(data.messages as MessageData[]);
+                  setTimeout(scrollToBottom, 100);
+                }}
+              />
               <textarea
                 ref={inputRef}
                 placeholder={`Message #${channelName} — type @ to mention`}
@@ -1185,6 +1252,349 @@ function PollWidget({
   );
 }
 
+// ─── Date separator ──────────────────────────────────────
+
+function DateSeparator({ date }: { date: Date }) {
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  let label: string;
+  if (date.toDateString() === today.toDateString()) {
+    label = "Today";
+  } else if (date.toDateString() === yesterday.toDateString()) {
+    label = "Yesterday";
+  } else {
+    label = date.toLocaleDateString("en-US", {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+      year: date.getFullYear() !== today.getFullYear() ? "numeric" : undefined,
+    });
+  }
+
+  return (
+    <div className="flex items-center gap-3 py-4">
+      <div className="flex-1 h-px bg-border" />
+      <span className="text-xs font-medium text-muted-foreground px-2">{label}</span>
+      <div className="flex-1 h-px bg-border" />
+    </div>
+  );
+}
+
+// ─── Time ago helper ─────────────────────────────────────
+
+function timeAgo(date: Date): string {
+  const now = new Date();
+  const diffMs = now.getTime() - new Date(date).getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return "just now";
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  const diffDay = Math.floor(diffHr / 24);
+  if (diffDay < 30) return `${diffDay}d ago`;
+  const diffMonth = Math.floor(diffDay / 30);
+  if (diffMonth < 12) return `${diffMonth}mo ago`;
+  return `${Math.floor(diffMonth / 12)}y ago`;
+}
+
+// ─── Emoji picker ────────────────────────────────────────
+
+const QUICK_EMOJIS = [
+  "\u{1F44D}", "\u{2764}\u{FE0F}", "\u{1F602}", "\u{1F389}", "\u{1F440}", "\u{1F64F}",
+  "\u{2705}", "\u{1F525}", "\u{1F4AF}", "\u{1F60D}", "\u{1F914}", "\u{1F44F}",
+  "\u{1F680}", "\u{1F4A1}", "\u{26A0}\u{FE0F}", "\u{274C}",
+];
+
+function EmojiPicker({
+  onSelect,
+  onClose,
+}: {
+  onSelect: (emoji: string) => void;
+  onClose: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        onClose();
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [onClose]);
+
+  return (
+    <motion.div
+      ref={ref}
+      initial={{ opacity: 0, scale: 0.9, y: 4 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.9, y: 4 }}
+      transition={{ duration: 0.15 }}
+      className="absolute bottom-full right-0 mb-1 z-20 rounded-lg border bg-popover p-2 shadow-lg"
+    >
+      <div className="grid grid-cols-8 gap-0.5">
+        {QUICK_EMOJIS.map((emoji) => (
+          <button
+            key={emoji}
+            onClick={() => { onSelect(emoji); onClose(); }}
+            className="h-8 w-8 flex items-center justify-center rounded hover:bg-muted transition-colors text-lg"
+          >
+            {emoji}
+          </button>
+        ))}
+      </div>
+    </motion.div>
+  );
+}
+
+// ─── User profile popover ────────────────────────────────
+
+function UserProfilePopover({
+  userId,
+  children,
+}: {
+  userId: string;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  const [profile, setProfile] = useState<UserProfileData | null>(null);
+  const [loading, setLoading] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    if (open) {
+      document.addEventListener("mousedown", handleClick);
+      return () => document.removeEventListener("mousedown", handleClick);
+    }
+  }, [open]);
+
+  async function handleOpen() {
+    setOpen(!open);
+    if (!open && !profile) {
+      setLoading(true);
+      const data = await getUserProfile(userId);
+      setProfile(data as UserProfileData | null);
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="relative inline-block" ref={ref}>
+      <button onClick={handleOpen} className="text-left">
+        {children}
+      </button>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: 4, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 4, scale: 0.95 }}
+            transition={{ duration: 0.15 }}
+            className="absolute left-0 top-full mt-1 z-30 w-64 rounded-lg border bg-popover p-4 shadow-lg"
+          >
+            {loading ? (
+              <div className="flex justify-center py-3">
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              </div>
+            ) : profile ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-12 w-12">
+                    {profile.avatar && <AvatarImage src={profile.avatar} />}
+                    <AvatarFallback className="text-sm">
+                      {profile.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-sm truncate">{profile.name}</p>
+                    {profile.position && (
+                      <p className="text-xs text-muted-foreground truncate">{profile.position}</p>
+                    )}
+                  </div>
+                </div>
+                {profile.bio && (
+                  <p className="text-xs text-muted-foreground leading-relaxed">{profile.bio}</p>
+                )}
+                <div className="space-y-1 text-xs text-muted-foreground">
+                  {profile.department && (
+                    <p>Department: <span className="text-foreground">{profile.department.name}</span></p>
+                  )}
+                  <p>Role: <span className="text-foreground capitalize">{profile.role.toLowerCase()}</span></p>
+                  <p className="truncate">{profile.email}</p>
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">User not found</p>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// ─── Voice note button ───────────────────────────────────
+
+function VoiceNoteButton({
+  channelId,
+  currentUserId,
+  currentUserName,
+  onSent,
+}: {
+  channelId: string;
+  currentUserId: string;
+  currentUserName: string;
+  onSent: () => void;
+}) {
+  const [recording, setRecording] = useState(false);
+  const [duration, setDuration] = useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  async function startRecording() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      chunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+
+      mediaRecorder.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+        const file = new globalThis.File([blob], `voice-note-${Date.now()}.webm`, { type: "audio/webm" });
+
+        try {
+          const { uploadFile } = await import("@/lib/upload");
+          const uploaded = await uploadFile(file, `chat/${channelId}`);
+          await sendMessage({
+            channelId,
+            content: "Voice note",
+            fileName: uploaded.fileName,
+            fileUrl: uploaded.url,
+            fileType: uploaded.fileType,
+            fileSize: uploaded.fileSize,
+          });
+          onSent();
+        } catch {
+          alert("Failed to send voice note");
+        }
+      };
+
+      mediaRecorder.start();
+      setRecording(true);
+      setDuration(0);
+      timerRef.current = setInterval(() => setDuration((d) => d + 1), 1000);
+    } catch {
+      alert("Microphone access denied");
+    }
+  }
+
+  function stopRecording() {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+    }
+    if (timerRef.current) clearInterval(timerRef.current);
+    setRecording(false);
+    setDuration(0);
+  }
+
+  const formatDuration = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
+
+  if (recording) {
+    return (
+      <div className="flex items-center gap-1.5">
+        <span className="text-xs text-red-500 font-medium animate-pulse">{formatDuration(duration)}</span>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9 shrink-0 text-red-500 hover:text-red-600"
+          onClick={stopRecording}
+          title="Stop recording"
+        >
+          <Square className="h-4 w-4 fill-current" />
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
+      className="h-9 w-9 shrink-0"
+      onClick={startRecording}
+      title="Record voice note"
+    >
+      <Mic className="h-4 w-4" />
+    </Button>
+  );
+}
+
+// ─── Reactions display ───────────────────────────────────
+
+function ReactionsDisplay({
+  reactions,
+  currentUserId,
+  messageId,
+  onReaction,
+}: {
+  reactions: ReactionData[];
+  currentUserId: string;
+  messageId: string;
+  onReaction: (messageId: string, emoji: string) => void;
+}) {
+  // Group reactions by emoji
+  const grouped = reactions.reduce<Record<string, ReactionData[]>>((acc, r) => {
+    if (!acc[r.emoji]) acc[r.emoji] = [];
+    acc[r.emoji].push(r);
+    return acc;
+  }, {});
+
+  if (Object.keys(grouped).length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap items-center gap-1 mt-1">
+      {Object.entries(grouped).map(([emoji, reactors]) => {
+        const hasReacted = reactors.some((r) => r.userId === currentUserId);
+        const names = reactors.map((r) => r.user.name).join(", ");
+        return (
+          <button
+            key={emoji}
+            onClick={() => onReaction(messageId, emoji)}
+            title={names}
+            className={cn(
+              "flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition-colors",
+              hasReacted
+                ? "border-primary/30 bg-primary/10 text-primary"
+                : "border-border hover:bg-muted"
+            )}
+          >
+            <span>{emoji}</span>
+            <span className="font-medium">{reactors.length}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Message bubble ──────────────────────────────────────
+
 function MessageBubble({
   message,
   isConsecutive,
@@ -1192,6 +1602,7 @@ function MessageBubble({
   currentUserId,
   onVote,
   onOpenThread,
+  onReaction,
 }: {
   message: MessageData;
   isConsecutive: boolean;
@@ -1199,7 +1610,9 @@ function MessageBubble({
   currentUserId: string;
   onVote: (optionId: string) => void;
   onOpenThread: () => void;
+  onReaction: (messageId: string, emoji: string) => void;
 }) {
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const time = new Date(message.createdAt);
   const timeStr = time.toLocaleTimeString([], {
     hour: "2-digit",
@@ -1216,7 +1629,6 @@ function MessageBubble({
 
   const replyCount = message._count?.replies ?? 0;
   const replyAvatars = message.replies ?? [];
-  // Deduplicate reply authors
   const uniqueAuthors = replyAvatars.reduce<{ id: string; name: string; avatar: string | null }[]>(
     (acc, r) => {
       if (!acc.find((a) => a.id === r.author.id)) acc.push(r.author);
@@ -1224,6 +1636,10 @@ function MessageBubble({
     },
     []
   );
+  const lastReplyTime = replyAvatars.length > 0 ? replyAvatars[0].createdAt : null;
+
+  const reactions = message.reactions || [];
+  const isAudioFile = message.fileType?.startsWith("audio/");
 
   const messageContent = (
     <>
@@ -1232,49 +1648,86 @@ function MessageBubble({
           <RenderContent text={message.content} />
         </p>
       )}
-      {message.fileUrl && message.fileName && (
+      {message.fileUrl && message.fileName && isAudioFile ? (
+        <div className="mt-1.5 max-w-xs">
+          <audio controls className="h-8 w-full" preload="metadata">
+            <source src={message.fileUrl} type={message.fileType || "audio/webm"} />
+          </audio>
+        </div>
+      ) : message.fileUrl && message.fileName ? (
         <FileAttachment
           fileName={message.fileName}
           fileUrl={message.fileUrl}
           fileType={message.fileType}
           fileSize={message.fileSize}
         />
-      )}
+      ) : null}
       {message.poll && (
         <PollWidget poll={message.poll} currentUserId={currentUserId} onVote={onVote} />
       )}
+      {/* Reactions */}
+      <ReactionsDisplay
+        reactions={reactions}
+        currentUserId={currentUserId}
+        messageId={message.id}
+        onReaction={onReaction}
+      />
       {/* Thread indicator */}
       {replyCount > 0 && (
         <button
           onClick={onOpenThread}
-          className="mt-1.5 flex items-center gap-2 text-xs text-primary hover:underline group/thread"
+          className="mt-1.5 flex items-center gap-2 text-xs group/thread hover:bg-muted/50 rounded px-1 py-0.5 -ml-1 transition-colors"
         >
           <div className="flex -space-x-1.5">
             {uniqueAuthors.slice(0, 3).map((author) => {
               const init = author.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
               return (
-                <Avatar key={author.id} className="h-4 w-4 border border-background">
+                <Avatar key={author.id} className="h-5 w-5 border-2 border-background">
                   {author.avatar && <AvatarImage src={author.avatar} />}
-                  <AvatarFallback className="text-[6px]">{init}</AvatarFallback>
+                  <AvatarFallback className="text-[7px]">{init}</AvatarFallback>
                 </Avatar>
               );
             })}
           </div>
-          <span className="font-medium">
+          <span className="font-semibold text-primary">
             {replyCount} {replyCount === 1 ? "reply" : "replies"}
           </span>
+          {lastReplyTime && (
+            <span className="text-muted-foreground">
+              {timeAgo(lastReplyTime)}
+            </span>
+          )}
         </button>
       )}
-      {/* Reply action on hover */}
-      {!message.poll && replyCount === 0 && (
-        <button
-          onClick={onOpenThread}
-          className="mt-0.5 hidden group-hover:flex items-center gap-1 text-[10px] text-muted-foreground hover:text-primary transition-colors"
-        >
-          <MessageSquare className="h-3 w-3" />
-          Reply
-        </button>
-      )}
+      {/* Hover actions */}
+      <div className="hidden group-hover:flex items-center gap-0.5 absolute -top-3 right-2 rounded-md border bg-popover shadow-sm px-0.5 py-0.5">
+        <div className="relative">
+          <button
+            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+            className="rounded p-1 hover:bg-muted transition-colors"
+            title="Add reaction"
+          >
+            <SmilePlus className="h-3.5 w-3.5 text-muted-foreground" />
+          </button>
+          <AnimatePresence>
+            {showEmojiPicker && (
+              <EmojiPicker
+                onSelect={(emoji) => onReaction(message.id, emoji)}
+                onClose={() => setShowEmojiPicker(false)}
+              />
+            )}
+          </AnimatePresence>
+        </div>
+        {replyCount === 0 && !message.poll && (
+          <button
+            onClick={onOpenThread}
+            className="rounded p-1 hover:bg-muted transition-colors"
+            title="Reply in thread"
+          >
+            <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
+          </button>
+        )}
+      </div>
     </>
   );
 
@@ -1284,12 +1737,12 @@ function MessageBubble({
         initial={{ opacity: 0, y: 4 }}
         animate={{ opacity: isOptimistic ? 0.7 : 1, y: 0 }}
         transition={{ duration: 0.2, ease: "easeOut" }}
-        className="group flex items-start gap-3 pl-12 py-0.5 hover:bg-muted/50 rounded transition-colors duration-150"
+        className="group relative flex items-start gap-3 pl-12 py-0.5 hover:bg-muted/50 rounded transition-colors duration-150"
       >
         <span className="invisible group-hover:visible text-[10px] text-muted-foreground min-w-[3rem] text-right pt-0.5 transition-all">
           {timeStr}
         </span>
-        <div className="min-w-0">{messageContent}</div>
+        <div className="min-w-0 flex-1">{messageContent}</div>
       </motion.div>
     );
   }
@@ -1300,23 +1753,30 @@ function MessageBubble({
       animate={{ opacity: isOptimistic ? 0.7 : 1, y: 0 }}
       transition={{ duration: 0.25, ease: "easeOut" }}
       className={cn(
-        "group flex items-start gap-3 py-2 hover:bg-muted/50 rounded px-1 transition-colors duration-150",
+        "group relative flex items-start gap-3 py-2 hover:bg-muted/50 rounded px-1 transition-colors duration-150",
         !isConsecutive && "mt-2"
       )}
     >
-      <Avatar className="h-8 w-8 mt-0.5 shrink-0">
-        {message.author.avatar && (
-          <AvatarImage src={message.author.avatar} alt={message.author.name} />
-        )}
-        <AvatarFallback className="text-xs">{initials}</AvatarFallback>
-      </Avatar>
+      <UserProfilePopover userId={message.author.id}>
+        <Avatar className="h-8 w-8 mt-0.5 shrink-0 cursor-pointer hover:opacity-80 transition-opacity">
+          {message.author.avatar && (
+            <AvatarImage src={message.author.avatar} alt={message.author.name} />
+          )}
+          <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+        </Avatar>
+      </UserProfilePopover>
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-2">
-          <span
-            className={cn("text-sm font-semibold", isOwn && "text-primary")}
-          >
-            {message.author.name}
-          </span>
+          <UserProfilePopover userId={message.author.id}>
+            <span className={cn("text-sm font-semibold cursor-pointer hover:underline", isOwn && "text-primary")}>
+              {message.author.name}
+            </span>
+          </UserProfilePopover>
+          {message.author.position && (
+            <span className="text-[10px] text-muted-foreground bg-muted rounded px-1.5 py-0.5">
+              {message.author.position}
+            </span>
+          )}
           <span className="text-[10px] text-muted-foreground">{timeStr}</span>
         </div>
         {messageContent}

@@ -151,6 +151,7 @@ model User {
   notificationPrefs NotificationPreference?
   pushSubscriptions PushSubscription[]
   channelBookmarks ChannelBookmark[]
+  messageReactions MessageReaction[]
 }
 
 model Department {
@@ -537,10 +538,24 @@ model Message {
   parentId  String?
   parent    Message? @relation("ThreadReplies", fields: [parentId], references: [id], onDelete: Cascade)
   replies   Message[] @relation("ThreadReplies")
+  reactions MessageReaction[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([parentId])
+}
+
+model MessageReaction {
+  id        String   @id @default(cuid())
+  messageId String
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  emoji     String
+  createdAt DateTime @default(now())
+
+  @@unique([messageId, userId, emoji])
+  @@index([messageId])
 }
 
 model ChannelBookmark {

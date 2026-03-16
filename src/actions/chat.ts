@@ -170,7 +170,8 @@ export async function deleteChannel(channelId: string): Promise<ActionResponse> 
     });
     const pollIds = messages.map((m) => m.pollId).filter(Boolean) as string[];
 
-    // Delete in correct FK order: votes → options → messages → polls → members → channel
+    // Delete in correct FK order: reactions → votes → options → messages → polls → members → channel
+    await db.messageReaction.deleteMany({ where: { message: { channelId } } });
     await db.pollVote.deleteMany({ where: { option: { pollId: { in: pollIds } } } });
     await db.pollOption.deleteMany({ where: { pollId: { in: pollIds } } });
     await db.message.deleteMany({ where: { channelId } });
@@ -204,7 +205,7 @@ export async function getMessages(channelId: string, cursor?: string) {
 
   const take = 50;
   const messageInclude = {
-    author: { select: { id: true, name: true, avatar: true } },
+    author: { select: { id: true, name: true, avatar: true, position: true } },
     poll: {
       include: {
         options: {
@@ -217,9 +218,15 @@ export async function getMessages(channelId: string, cursor?: string) {
     replies: {
       select: {
         author: { select: { id: true, name: true, avatar: true } },
+        createdAt: true,
       },
       orderBy: { createdAt: "desc" as const },
       take: 3,
+    },
+    reactions: {
+      include: {
+        user: { select: { id: true, name: true } },
+      },
     },
   };
 
@@ -327,7 +334,7 @@ export async function getNewMessages(channelId: string, afterId: string) {
       createdAt: { gt: refMessage.createdAt },
     },
     include: {
-      author: { select: { id: true, name: true, avatar: true } },
+      author: { select: { id: true, name: true, avatar: true, position: true } },
       poll: {
         include: {
           options: {
@@ -340,9 +347,15 @@ export async function getNewMessages(channelId: string, afterId: string) {
       replies: {
         select: {
           author: { select: { id: true, name: true, avatar: true } },
+          createdAt: true,
         },
         orderBy: { createdAt: "desc" as const },
         take: 3,
+      },
+      reactions: {
+        include: {
+          user: { select: { id: true, name: true } },
+        },
       },
     },
     orderBy: { createdAt: "asc" },
@@ -584,6 +597,64 @@ export async function removeBookmark(bookmarkId: string): Promise<ActionResponse
 
   await db.channelBookmark.delete({ where: { id: bookmarkId } });
   return { success: true };
+}
+
+// ─── Reactions ──────────────────────────────────────────
+
+export async function toggleReaction(
+  messageId: string,
+  emoji: string
+): Promise<ActionResponse> {
+  const user = await requireAuth();
+
+  const existing = await db.messageReaction.findUnique({
+    where: {
+      messageId_userId_emoji: { messageId, userId: user.id, emoji },
+    },
+  });
+
+  if (existing) {
+    await db.messageReaction.delete({ where: { id: existing.id } });
+  } else {
+    await db.messageReaction.create({
+      data: { messageId, userId: user.id, emoji },
+    });
+  }
+
+  return { success: true };
+}
+
+export async function getMessageReactions(messageId: string) {
+  await requireAuth();
+
+  return db.messageReaction.findMany({
+    where: { messageId },
+    include: {
+      user: { select: { id: true, name: true } },
+    },
+  });
+}
+
+// ─── User Profile ───────────────────────────────────────
+
+export async function getUserProfile(userId: string) {
+  await requireAuth();
+
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      avatar: true,
+      position: true,
+      bio: true,
+      role: true,
+      department: { select: { name: true } },
+    },
+  });
+
+  return user;
 }
 
 // ─── Rename Channel ─────────────────────────────────────
