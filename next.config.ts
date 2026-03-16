@@ -13,6 +13,10 @@ const nextConfig: NextConfig = {
   experimental: {
     serverActions: {
       bodySizeLimit: "10mb",
+      allowedOrigins: [
+        "app.neuroidmedia.com",
+        "neuroidmedia.com",
+      ],
     },
   },
 };

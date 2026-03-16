@@ -5,20 +5,20 @@ import type { NextRequest } from "next/server";
 const SESSION_COOKIE = "session-token";
 
 let _secret: Uint8Array | null = null;
-function getSecret(): Uint8Array {
+function getSecret(): Uint8Array | null {
   if (!_secret) {
     const raw = process.env.AUTH_SECRET;
-    if (!raw && process.env.NODE_ENV === "production") {
-      throw new Error("AUTH_SECRET environment variable is required in production");
-    }
-    _secret = new TextEncoder().encode(raw || "dev-only-fallback-secret");
+    if (!raw) return null;
+    _secret = new TextEncoder().encode(raw);
   }
   return _secret;
 }
 
 async function verifyToken(token: string): Promise<boolean> {
   try {
-    await jwtVerify(token, getSecret());
+    const secret = getSecret();
+    if (!secret) return false;
+    await jwtVerify(token, secret);
     return true;
   } catch {
     return false;
