@@ -49,6 +49,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { ThreadPanel } from "./thread-panel";
+import { EmojiPicker } from "./emoji-picker";
 import type { AvailableUser } from "./chat-layout";
 
 interface BookmarkData {
@@ -1302,56 +1303,7 @@ function timeAgo(date: Date): string {
   return `${Math.floor(diffMonth / 12)}y ago`;
 }
 
-// ─── Emoji picker ────────────────────────────────────────
-
-const QUICK_EMOJIS = [
-  "\u{1F44D}", "\u{2764}\u{FE0F}", "\u{1F602}", "\u{1F389}", "\u{1F440}", "\u{1F64F}",
-  "\u{2705}", "\u{1F525}", "\u{1F4AF}", "\u{1F60D}", "\u{1F914}", "\u{1F44F}",
-  "\u{1F680}", "\u{1F4A1}", "\u{26A0}\u{FE0F}", "\u{1F4AA}",
-];
-
-function EmojiPicker({
-  onSelect,
-  onClose,
-}: {
-  onSelect: (emoji: string) => void;
-  onClose: () => void;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        onClose();
-      }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [onClose]);
-
-  return (
-    <motion.div
-      ref={ref}
-      initial={{ opacity: 0, scale: 0.9, y: 4 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.9, y: 4 }}
-      transition={{ duration: 0.15 }}
-      className="absolute top-full right-0 mt-1 z-50 rounded-lg border bg-popover p-2 shadow-lg"
-    >
-      <div className="grid grid-cols-8 gap-0.5">
-        {QUICK_EMOJIS.map((emoji) => (
-          <button
-            key={emoji}
-            onClick={() => { onSelect(emoji); onClose(); }}
-            className="h-8 w-8 flex items-center justify-center rounded hover:bg-muted transition-colors text-lg"
-          >
-            {emoji}
-          </button>
-        ))}
-      </div>
-    </motion.div>
-  );
-}
+// ─── Emoji picker (imported from ./emoji-picker.tsx) ─────
 
 // ─── User profile popover ────────────────────────────────
 
