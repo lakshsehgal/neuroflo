@@ -44,7 +44,7 @@ export const permissions = {
 
   // Tickets
   createTicket: (role: UserRole) => hasMinRole(role, "MEMBER"),
-  approveTicket: (role: UserRole) => hasMinRole(role, "MANAGER"),
+  approveTicket: (role: UserRole) => hasMinRole(role, "MEMBER"),
 
   // Assets
   uploadAsset: (role: UserRole) => hasMinRole(role, "MEMBER"),
