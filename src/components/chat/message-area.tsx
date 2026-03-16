@@ -15,6 +15,7 @@ import {
   renameChannel,
   toggleReaction,
   getUserProfile,
+  markChannelRead,
 } from "@/actions/chat";
 import { uploadFile } from "@/lib/upload";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -192,6 +193,8 @@ export function MessageArea({
       setMessages(data.messages as MessageData[]);
       setLoading(false);
       setTimeout(scrollToBottom, 100);
+      // Mark channel as read
+      markChannelRead(channelId).catch(() => {});
     });
 
     return () => {

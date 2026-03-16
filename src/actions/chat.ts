@@ -657,6 +657,84 @@ export async function getUserProfile(userId: string) {
   return user;
 }
 
+// ─── Unread Messages ────────────────────────────────────
+
+export async function markChannelRead(channelId: string): Promise<ActionResponse> {
+  const user = await requireAuth();
+
+  await db.channelMember.updateMany({
+    where: { channelId, userId: user.id },
+    data: { lastReadAt: new Date() },
+  });
+
+  return { success: true };
+}
+
+export async function getUnreadCounts(): Promise<Record<string, number>> {
+  const user = await requireAuth();
+
+  const memberships = await db.channelMember.findMany({
+    where: { userId: user.id },
+    select: { channelId: true, lastReadAt: true },
+  });
+
+  if (memberships.length === 0) return {};
+
+  const counts: Record<string, number> = {};
+
+  // Batch count unread messages for all channels
+  const results = await Promise.all(
+    memberships.map(async (m) => {
+      const count = await db.message.count({
+        where: {
+          channelId: m.channelId,
+          parentId: null,
+          createdAt: { gt: m.lastReadAt },
+          authorId: { not: user.id },
+        },
+      });
+      return { channelId: m.channelId, count };
+    })
+  );
+
+  for (const r of results) {
+    if (r.count > 0) counts[r.channelId] = r.count;
+  }
+
+  return counts;
+}
+
+export async function getTotalUnreadCount(): Promise<number> {
+  const user = await requireAuth();
+
+  const memberships = await db.channelMember.findMany({
+    where: { userId: user.id },
+    select: { channelId: true, lastReadAt: true },
+  });
+
+  if (memberships.length === 0) return 0;
+
+  let total = 0;
+  const results = await Promise.all(
+    memberships.map(async (m) => {
+      return db.message.count({
+        where: {
+          channelId: m.channelId,
+          parentId: null,
+          createdAt: { gt: m.lastReadAt },
+          authorId: { not: user.id },
+        },
+      });
+    })
+  );
+
+  for (const count of results) {
+    total += count;
+  }
+
+  return total;
+}
+
 // ─── Rename Channel ─────────────────────────────────────
 
 export async function renameChannel(

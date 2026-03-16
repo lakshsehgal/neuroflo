@@ -8,8 +8,9 @@ import { hasMinRole, type UserRole } from "@/lib/roles";
 import { ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { getTotalUnreadCount } from "@/actions/chat";
 
 interface SidebarProps {
   userRole: UserRole;
@@ -18,6 +19,23 @@ interface SidebarProps {
 export function Sidebar({ userRole }: SidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const [chatUnread, setChatUnread] = useState(0);
+
+  // Poll for unread chat count
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchUnread() {
+      try {
+        const count = await getTotalUnreadCount();
+        if (!cancelled) setChatUnread(count);
+      } catch {
+        // ignore
+      }
+    }
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 15000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, []);
 
   function filterItems(items: NavItem[]): NavItem[] {
     return items.filter((item) => {
@@ -124,6 +142,7 @@ export function Sidebar({ userRole }: SidebarProps) {
                       label={item.title}
                       active={isActive}
                       collapsed={collapsed}
+                      badge={item.href === "/chat" ? chatUnread : 0}
                     />
                   );
                 })}
@@ -143,12 +162,14 @@ function NavLink({
   label,
   active,
   collapsed,
+  badge = 0,
 }: {
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   label: string;
   active: boolean;
   collapsed: boolean;
+  badge?: number;
 }) {
   return (
     <Link
@@ -171,7 +192,14 @@ function NavLink({
           style={{ zIndex: -1 }}
         />
       )}
-      <Icon className="h-4 w-4 shrink-0" />
+      <div className="relative shrink-0">
+        <Icon className="h-4 w-4" />
+        {badge > 0 && collapsed && (
+          <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
+            {badge > 99 ? "99+" : badge}
+          </span>
+        )}
+      </div>
       <AnimatePresence>
         {!collapsed && (
           <motion.span
@@ -185,6 +213,11 @@ function NavLink({
           </motion.span>
         )}
       </AnimatePresence>
+      {badge > 0 && !collapsed && (
+        <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-bold text-destructive-foreground">
+          {badge > 99 ? "99+" : badge}
+        </span>
+      )}
     </Link>
   );
 }

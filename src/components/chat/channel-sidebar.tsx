@@ -12,6 +12,7 @@ interface ChannelSidebarProps {
   channels: ChannelSummary[];
   activeChannelId: string;
   isAdmin: boolean;
+  unreadCounts: Record<string, number>;
   onSelectChannel: (id: string) => void;
   onCreateChannel: () => void;
   onDeleteChannel: (id: string) => void;
@@ -21,6 +22,7 @@ export function ChannelSidebar({
   channels,
   activeChannelId,
   isAdmin,
+  unreadCounts,
   onSelectChannel,
   onCreateChannel,
   onDeleteChannel,
@@ -88,6 +90,7 @@ export function ChannelSidebar({
             activeChannelId={activeChannelId}
             isAdmin={isAdmin}
             deletingId={deletingId}
+            unreadCounts={unreadCounts}
             onSelect={onSelectChannel}
             onDelete={handleDelete}
           />
@@ -99,6 +102,7 @@ export function ChannelSidebar({
             activeChannelId={activeChannelId}
             isAdmin={isAdmin}
             deletingId={deletingId}
+            unreadCounts={unreadCounts}
             onSelect={onSelectChannel}
             onDelete={handleDelete}
           />
@@ -119,6 +123,7 @@ function ChannelGroup({
   activeChannelId,
   isAdmin,
   deletingId,
+  unreadCounts,
   onSelect,
   onDelete,
 }: {
@@ -127,6 +132,7 @@ function ChannelGroup({
   activeChannelId: string;
   isAdmin: boolean;
   deletingId: string | null;
+  unreadCounts: Record<string, number>;
   onSelect: (id: string) => void;
   onDelete: (e: React.MouseEvent, id: string) => void;
 }) {
@@ -139,6 +145,7 @@ function ChannelGroup({
         const isActive = channel.id === activeChannelId;
         const Icon = channel.type === "PRIVATE" ? Lock : Hash;
         const isDeleting = deletingId === channel.id;
+        const unread = unreadCounts[channel.id] || 0;
 
         return (
           <button
@@ -149,18 +156,25 @@ function ChannelGroup({
               "hover:bg-accent hover:text-accent-foreground",
               isActive
                 ? "bg-accent text-accent-foreground font-medium"
-                : "text-muted-foreground",
+                : unread > 0
+                  ? "text-foreground font-semibold"
+                  : "text-muted-foreground",
               isDeleting && "opacity-50 pointer-events-none"
             )}
           >
             <Icon className="h-3.5 w-3.5 shrink-0" />
-            <span className="truncate">{channel.name}</span>
-            {!channel.isMember && channel.type === "PUBLIC" && (
+            <span className="truncate flex-1 text-left">{channel.name}</span>
+            {unread > 0 && !isActive && (
+              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-bold text-destructive-foreground shrink-0">
+                {unread > 99 ? "99+" : unread}
+              </span>
+            )}
+            {!channel.isMember && channel.type === "PUBLIC" && unread === 0 && (
               <span className="ml-auto text-[10px] text-muted-foreground/60">
                 join
               </span>
             )}
-            {isAdmin && !channel.isGeneral && (
+            {isAdmin && !channel.isGeneral && unread === 0 && (
               <span
                 role="button"
                 tabIndex={0}
@@ -168,7 +182,7 @@ function ChannelGroup({
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") onDelete(e as unknown as React.MouseEvent, channel.id);
                 }}
-                className="ml-auto hidden group-hover:inline-flex items-center justify-center h-5 w-5 rounded hover:bg-destructive/10 hover:text-destructive transition-colors"
+                className="ml-auto hidden group-hover:inline-flex items-center justify-center h-5 w-5 rounded hover:bg-destructive/10 hover:text-destructive transition-colors shrink-0"
                 title="Delete channel"
               >
                 <Trash2 className="h-3 w-3" />

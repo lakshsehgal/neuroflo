@@ -511,13 +511,14 @@ model Channel {
 }
 
 model ChannelMember {
-  id        String   @id @default(cuid())
-  channelId String
-  channel   Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  role      String   @default("MEMBER") // OWNER or MEMBER
-  joinedAt  DateTime @default(now())
+  id         String   @id @default(cuid())
+  channelId  String
+  channel    Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  role       String   @default("MEMBER") // OWNER or MEMBER
+  joinedAt   DateTime @default(now())
+  lastReadAt DateTime @default(now())
 
   @@unique([channelId, userId])
 }

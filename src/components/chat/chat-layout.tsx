@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { ChannelSidebar } from "./channel-sidebar";
 import { MessageArea } from "./message-area";
 import { CreateChannelDialog } from "./create-channel-dialog";
 import { ChannelMembersPanel } from "./channel-members-panel";
+import { getUnreadCounts, markChannelRead } from "@/actions/chat";
 
 export interface ChannelSummary {
   id: string;
@@ -45,8 +46,42 @@ export function ChatLayout({
   const [channelList, setChannelList] = useState(channels);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
 
   const activeChannel = channelList.find((c) => c.id === activeChannelId);
+
+  // Poll for unread counts
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchUnread() {
+      try {
+        const counts = await getUnreadCounts();
+        if (!cancelled) setUnreadCounts(counts);
+      } catch {
+        // ignore
+      }
+    }
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 10000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, []);
+
+  // Mark initial channel as read
+  useEffect(() => {
+    markChannelRead(generalChannelId).catch(() => {});
+  }, [generalChannelId]);
+
+  // Mark channel as read when switching channels
+  const handleSelectChannel = useCallback(async (channelId: string) => {
+    setActiveChannelId(channelId);
+    // Clear unread for this channel immediately (optimistic)
+    setUnreadCounts((prev) => {
+      const next = { ...prev };
+      delete next[channelId];
+      return next;
+    });
+    await markChannelRead(channelId);
+  }, []);
 
   function handleChannelCreated(channel: ChannelSummary) {
     setChannelList((prev) => [...prev, channel]);
@@ -97,7 +132,8 @@ export function ChatLayout({
         channels={channelList}
         activeChannelId={activeChannelId}
         isAdmin={currentUserRole === "ADMIN"}
-        onSelectChannel={setActiveChannelId}
+        unreadCounts={unreadCounts}
+        onSelectChannel={handleSelectChannel}
         onCreateChannel={() => setShowCreateDialog(true)}
         onDeleteChannel={handleChannelDeleted}
       />
