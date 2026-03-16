@@ -30,14 +30,18 @@ export default async function ProjectDetailPage({ params }: Props) {
         <Badge
           variant="secondary"
           className={
-            project.status === "ACTIVE"
+            project.status === "PRODUCTION"
               ? "bg-green-100 text-green-800"
-              : project.status === "COMPLETED"
-              ? "bg-blue-100 text-blue-800"
+              : project.status === "DELIVERED"
+              ? "bg-emerald-100 text-emerald-800"
+              : project.status === "APPROVAL_PENDING"
+              ? "bg-amber-100 text-amber-800"
+              : project.status === "ON_HOLD"
+              ? "bg-gray-100 text-gray-800"
               : ""
           }
         >
-          {project.status.replace("_", " ")}
+          {project.status.replaceAll("_", " ")}
         </Badge>
       </div>
 

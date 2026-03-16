@@ -15,11 +15,16 @@ enum Role {
 }
 
 enum ProjectStatus {
-  PLANNING
-  ACTIVE
+  RESEARCH
+  MOODBOARDING
+  ANGLES
+  SCRIPTING
+  APPROVAL_PENDING
+  CREATOR_FINALISING
+  PRODUCTION
+  POST_PRODUCTION
+  DELIVERED
   ON_HOLD
-  COMPLETED
-  ARCHIVED
 }
 
 enum TaskStatus {
@@ -189,7 +194,7 @@ model Project {
   id           String        @id @default(cuid())
   name         String
   description  String?
-  status       ProjectStatus @default(PLANNING)
+  status       ProjectStatus @default(RESEARCH)
   clientId     String?
   client       Client?       @relation(fields: [clientId], references: [id])
   departmentId String?

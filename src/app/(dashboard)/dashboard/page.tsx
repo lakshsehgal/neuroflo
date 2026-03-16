@@ -9,7 +9,7 @@ export default async function DashboardPage() {
 
   const [projectCount, ticketCount, recentActivity, myTasks, myTickets] =
     await Promise.all([
-      db.project.count({ where: { status: "ACTIVE" } }),
+      db.project.count({ where: { status: { notIn: ["DELIVERED", "ON_HOLD"] } } }),
       db.ticket.count({ where: { status: { notIn: ["APPROVED"] } } }),
       db.activityLog.findMany({
         include: { user: { select: { name: true } } },

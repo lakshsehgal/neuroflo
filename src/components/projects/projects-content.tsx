@@ -14,11 +14,16 @@ import Link from "next/link";
 import { formatDate } from "@/lib/utils";
 
 const statusColors: Record<string, string> = {
-  PLANNING: "bg-yellow-100 text-yellow-800",
-  ACTIVE: "bg-green-100 text-green-800",
-  ON_HOLD: "bg-orange-100 text-orange-800",
-  COMPLETED: "bg-blue-100 text-blue-800",
-  ARCHIVED: "bg-gray-100 text-gray-800",
+  RESEARCH: "bg-purple-100 text-purple-800",
+  MOODBOARDING: "bg-pink-100 text-pink-800",
+  ANGLES: "bg-indigo-100 text-indigo-800",
+  SCRIPTING: "bg-yellow-100 text-yellow-800",
+  APPROVAL_PENDING: "bg-amber-100 text-amber-800",
+  CREATOR_FINALISING: "bg-cyan-100 text-cyan-800",
+  PRODUCTION: "bg-green-100 text-green-800",
+  POST_PRODUCTION: "bg-blue-100 text-blue-800",
+  DELIVERED: "bg-emerald-100 text-emerald-800",
+  ON_HOLD: "bg-gray-100 text-gray-800",
 };
 
 type Project = {
@@ -73,7 +78,7 @@ export function ProjectsContent({ projects }: { projects: Project[] }) {
                             className={statusColors[project.status] || ""}
                             variant="secondary"
                           >
-                            {project.status.replace("_", " ")}
+                            {project.status.replaceAll("_", " ")}
                           </Badge>
                         </div>
                         {project.clientName && (

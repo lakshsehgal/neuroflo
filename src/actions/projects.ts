@@ -10,7 +10,7 @@ import type { ProjectStatus } from "@prisma/client";
 const projectSchema = z.object({
   name: z.string().min(1),
   description: z.string().optional(),
-  status: z.enum(["PLANNING", "ACTIVE", "ON_HOLD", "COMPLETED", "ARCHIVED"]).optional(),
+  status: z.enum(["RESEARCH", "MOODBOARDING", "ANGLES", "SCRIPTING", "APPROVAL_PENDING", "CREATOR_FINALISING", "PRODUCTION", "POST_PRODUCTION", "DELIVERED", "ON_HOLD"]).optional(),
   clientId: z.string().optional(),
   departmentId: z.string().optional(),
   startDate: z.string().optional(),

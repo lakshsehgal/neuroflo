@@ -7,18 +7,15 @@ export default async function ChatPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  let generalChannelId: string;
-  try {
-    generalChannelId = await ensureGeneralChannel();
-  } catch {
-    // If general channel creation fails, redirect to dashboard
-    redirect("/dashboard");
-  }
-
-  const [channels, users] = await Promise.all([
+  // Run all data fetches in parallel for faster loading
+  const [generalChannelId, channels, users] = await Promise.all([
+    ensureGeneralChannel().catch(() => null),
     getChannels(),
     getAvailableUsers(),
   ]);
+
+  // Use general channel if available, otherwise fall back to first channel
+  const activeChannelId = generalChannelId || channels[0]?.id || "";
 
   return (
     <ChatLayout
@@ -35,7 +32,7 @@ export default async function ChatPage() {
       currentUserId={user.id}
       currentUserName={user.name}
       currentUserRole={user.role}
-      generalChannelId={generalChannelId}
+      generalChannelId={activeChannelId}
       availableUsers={users}
     />
   );
