@@ -1,10 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { AnimatedTableBody, AnimatedRow } from "@/components/motion";
 import { formatDate, isOverdue, isDueSoon } from "@/lib/utils";
 import {
@@ -14,7 +21,7 @@ import {
   ListChecks,
   MessageSquare,
 } from "lucide-react";
-import { createTask } from "@/actions/tasks";
+import { createTask, updateTask } from "@/actions/tasks";
 
 type Task = {
   id: string;
@@ -30,9 +37,15 @@ type Task = {
   checklistItems: { completed: boolean }[];
 };
 
+type Member = {
+  userId: string;
+  user: { id: string; name: string; avatar: string | null };
+};
+
 interface TaskListViewProps {
   projectId: string;
   tasks: Task[];
+  members?: Member[];
   onTaskClick: (taskId: string) => void;
 }
 
@@ -59,11 +72,12 @@ const priorityColors: Record<string, string> = {
 
 type SortKey = "title" | "status" | "priority" | "dueDate";
 
-export function TaskListView({ projectId, tasks, onTaskClick }: TaskListViewProps) {
+export function TaskListView({ projectId, tasks, members, onTaskClick }: TaskListViewProps) {
   const [sortKey, setSortKey] = useState<SortKey>("status");
   const [sortAsc, setSortAsc] = useState(true);
   const [addingTask, setAddingTask] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState("");
+  const [isPending, startTransition] = useTransition();
 
   const priorityOrder = { URGENT: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
   const statusOrder = { TODO: 0, IN_PROGRESS: 1, IN_REVIEW: 2, DONE: 3 };
@@ -107,6 +121,12 @@ export function TaskListView({ projectId, tasks, onTaskClick }: TaskListViewProp
     await createTask({ projectId, title: newTaskTitle });
     setNewTaskTitle("");
     setAddingTask(false);
+  }
+
+  function handleInlineUpdate(taskId: string, field: string, value: string) {
+    startTransition(async () => {
+      await updateTask(taskId, { projectId, [field]: value || undefined });
+    });
   }
 
   function SortButton({ label, field }: { label: string; field: SortKey }) {
@@ -159,11 +179,10 @@ export function TaskListView({ projectId, tasks, onTaskClick }: TaskListViewProp
               <AnimatedRow
                 key={task.id}
                 className="cursor-pointer border-b last:border-0 hover:bg-muted/30"
-                onClick={() => onTaskClick(task.id)}
               >
-                <td className="px-4 py-2.5">
+                <td className="px-4 py-2.5" onClick={() => onTaskClick(task.id)}>
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">{task.title}</span>
+                    <span className="text-sm font-medium hover:text-primary transition-colors">{task.title}</span>
                     {task.labels.slice(0, 2).map((l) => (
                       <span
                         key={l.id}
@@ -175,41 +194,92 @@ export function TaskListView({ projectId, tasks, onTaskClick }: TaskListViewProp
                   </div>
                 </td>
                 <td className="px-3 py-2.5">
-                  <Badge
-                    className={`${statusColors[task.status] || ""} text-xs`}
-                    variant="secondary"
-                  >
-                    {statusLabels[task.status] || task.status}
-                  </Badge>
+                  <Select value={task.status} onValueChange={(v) => handleInlineUpdate(task.id, "status", v)}>
+                    <SelectTrigger className="h-7 w-[120px] text-[10px] border-0 bg-transparent hover:bg-muted/40 px-1.5 focus:ring-0 focus:ring-offset-0">
+                      <Badge
+                        className={`${statusColors[task.status] || ""} text-xs`}
+                        variant="secondary"
+                      >
+                        {statusLabels[task.status] || task.status}
+                      </Badge>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(statusLabels).map(([key, label]) => (
+                        <SelectItem key={key} value={key}>
+                          <Badge className={`${statusColors[key]} text-xs`} variant="secondary">{label}</Badge>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </td>
                 <td className="px-3 py-2.5">
-                  <Badge
-                    className={`${priorityColors[task.priority] || ""} text-xs`}
-                    variant="secondary"
-                  >
-                    {task.priority}
-                  </Badge>
+                  <Select value={task.priority} onValueChange={(v) => handleInlineUpdate(task.id, "priority", v)}>
+                    <SelectTrigger className="h-7 w-[90px] text-[10px] border-0 bg-transparent hover:bg-muted/40 px-1.5 focus:ring-0 focus:ring-offset-0">
+                      <Badge
+                        className={`${priorityColors[task.priority] || ""} text-xs`}
+                        variant="secondary"
+                      >
+                        {task.priority}
+                      </Badge>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {["LOW", "MEDIUM", "HIGH", "URGENT"].map((p) => (
+                        <SelectItem key={p} value={p}>
+                          <Badge className={`${priorityColors[p]} text-xs`} variant="secondary">{p}</Badge>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </td>
                 <td className="px-3 py-2.5">
-                  {task.assignee ? (
-                    <div className="flex items-center gap-1.5">
-                      <Avatar className="h-5 w-5">
-                        <AvatarFallback className="text-[8px]">
-                          {task.assignee.name
-                            .split(" ")
-                            .map((n) => n[0])
-                            .join("")}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="text-xs text-muted-foreground">
-                        {task.assignee.name.split(" ")[0]}
-                      </span>
-                    </div>
+                  {members ? (
+                    <Select
+                      value={task.assignee?.id || "unassigned"}
+                      onValueChange={(v) => handleInlineUpdate(task.id, "assigneeId", v === "unassigned" ? "" : v)}
+                    >
+                      <SelectTrigger className="h-7 w-[120px] text-[10px] border-0 bg-transparent hover:bg-muted/40 px-1.5 focus:ring-0 focus:ring-offset-0">
+                        {task.assignee ? (
+                          <div className="flex items-center gap-1.5">
+                            <Avatar className="h-5 w-5">
+                              <AvatarFallback className="text-[8px]">
+                                {task.assignee.name.split(" ").map((n) => n[0]).join("")}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="text-xs text-muted-foreground truncate">
+                              {task.assignee.name.split(" ")[0]}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Unassigned</span>
+                        )}
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="unassigned">Unassigned</SelectItem>
+                        {members.map((m) => (
+                          <SelectItem key={m.userId} value={m.userId}>{m.user.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   ) : (
-                    <span className="text-xs text-muted-foreground">—</span>
+                    <div onClick={() => onTaskClick(task.id)}>
+                      {task.assignee ? (
+                        <div className="flex items-center gap-1.5">
+                          <Avatar className="h-5 w-5">
+                            <AvatarFallback className="text-[8px]">
+                              {task.assignee.name.split(" ").map((n) => n[0]).join("")}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="text-xs text-muted-foreground">
+                            {task.assignee.name.split(" ")[0]}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </div>
                   )}
                 </td>
-                <td className="px-3 py-2.5">
+                <td className="px-3 py-2.5" onClick={() => onTaskClick(task.id)}>
                   {task.dueDate ? (
                     <span
                       className={`text-xs ${
@@ -226,7 +296,7 @@ export function TaskListView({ projectId, tasks, onTaskClick }: TaskListViewProp
                     <span className="text-xs text-muted-foreground">—</span>
                   )}
                 </td>
-                <td className="px-3 py-2.5">
+                <td className="px-3 py-2.5" onClick={() => onTaskClick(task.id)}>
                   <div className="flex items-center gap-2 text-muted-foreground">
                     {task._count.subtasks > 0 && (
                       <span className="flex items-center gap-0.5 text-xs" title="Subtasks">

@@ -2,11 +2,14 @@ import {
   LayoutDashboard,
   FolderKanban,
   Ticket,
+  MessageSquare,
   Building2,
   Settings,
   Users,
   UserCog,
   Shield,
+  Bell,
+  Crown,
   type LucideIcon,
 } from "lucide-react";
 import type { UserRole } from "@/lib/roles";
@@ -36,6 +39,7 @@ export const navConfig: NavSection[] = [
     items: [
       { title: "Projects", href: "/projects", icon: FolderKanban },
       { title: "Creative Tickets", href: "/tickets", icon: Ticket },
+      { title: "Chat", href: "/chat", icon: MessageSquare },
     ],
   },
   {
@@ -45,6 +49,12 @@ export const navConfig: NavSection[] = [
         title: "Clients",
         href: "/admin/clients",
         icon: Building2,
+        minRole: "MANAGER",
+      },
+      {
+        title: "Founder's Hub",
+        href: "/admin/founders",
+        icon: Crown,
         minRole: "ADMIN",
       },
       {
@@ -58,6 +68,7 @@ export const navConfig: NavSection[] = [
           { title: "Roles & Permissions", href: "/settings/roles", icon: Shield, minRole: "ADMIN" },
           { title: "General", href: "/settings/general", icon: UserCog, minRole: "ADMIN" },
           { title: "Profile", href: "/settings/profile", icon: Settings },
+          { title: "Notifications", href: "/settings/notifications", icon: Bell },
         ],
       },
     ],

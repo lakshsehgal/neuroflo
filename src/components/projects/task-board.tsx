@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { createTask, updateTaskOrder } from "@/actions/tasks";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -379,15 +379,27 @@ export function TaskBoard({
         });
       }
 
+      // Keep optimistic state while server persists — don't null out yet
       try {
         await updateTaskOrder(updates);
       } catch {
         // Revert on error
+        setLocalTasks(null);
+        return;
       }
-      setLocalTasks(null);
+      // Server succeeded — keep local state until React re-renders with new props
     },
     [localTasks, tasksByStatus, findColumn]
   );
+
+  // Clear local optimistic state when server data (props) update after revalidation
+  const prevTasksRef = useRef(tasksByStatus);
+  useEffect(() => {
+    if (prevTasksRef.current !== tasksByStatus) {
+      prevTasksRef.current = tasksByStatus;
+      setLocalTasks(null);
+    }
+  }, [tasksByStatus]);
 
   const totalTasks = Object.values(currentTasks).reduce(
     (sum, arr) => sum + arr.length,
