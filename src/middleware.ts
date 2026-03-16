@@ -22,7 +22,8 @@ export async function middleware(req: NextRequest) {
   const isAuthRoute =
     pathname.startsWith("/login") ||
     pathname.startsWith("/accept-invite") ||
-    pathname.startsWith("/forgot-password");
+    pathname.startsWith("/forgot-password") ||
+    pathname.startsWith("/onboarding");
 
   if (isAuthRoute) {
     if (isLoggedIn) {

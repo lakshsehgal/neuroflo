@@ -4,74 +4,102 @@ import * as bcrypt from "bcryptjs";
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log("Seeding database...");
+  console.log("Resetting and seeding database...");
 
-  // Create departments
-  const design = await prisma.department.upsert({
-    where: { name: "Design" },
-    update: {},
-    create: { name: "Design", description: "Creative and design team" },
+  // ── Nuke all existing data (order matters for FK constraints) ──
+  console.log("Clearing existing data...");
+  await prisma.campaignMetric.deleteMany();
+  await prisma.activityLog.deleteMany();
+  await prisma.notification.deleteMany();
+  await prisma.notificationPreference.deleteMany();
+  await prisma.pollVote.deleteMany();
+  await prisma.pollOption.deleteMany();
+  await prisma.poll.deleteMany();
+  await prisma.message.deleteMany();
+  await prisma.channelMember.deleteMany();
+  await prisma.channel.deleteMany();
+  await prisma.expense.deleteMany();
+  await prisma.assetTag.deleteMany();
+  await prisma.assetVersion.deleteMany();
+  await prisma.asset.deleteMany();
+  await prisma.assetFolder.deleteMany();
+  await prisma.comment.deleteMany();
+  await prisma.approval.deleteMany();
+  await prisma.revision.deleteMany();
+  await prisma.ticket.deleteMany();
+  await prisma.checklistItem.deleteMany();
+  await prisma.taskLabel.deleteMany();
+  await prisma.task.deleteMany();
+  await prisma.projectMember.deleteMany();
+  await prisma.project.deleteMany();
+  await prisma.campaign.deleteMany();
+  await prisma.invoice.deleteMany();
+  await prisma.clientOnboarding.deleteMany();
+  await prisma.client.deleteMany();
+  await prisma.invite.deleteMany();
+  await prisma.user.deleteMany();
+  await prisma.department.deleteMany();
+  console.log("All data cleared.");
+
+  // ── Departments ──
+  const design = await prisma.department.create({
+    data: { name: "Design", description: "Creative and design team" },
   });
 
-  const marketing = await prisma.department.upsert({
-    where: { name: "Marketing" },
-    update: {},
-    create: { name: "Marketing", description: "Marketing and campaigns" },
+  const marketing = await prisma.department.create({
+    data: { name: "Marketing", description: "Marketing and campaigns" },
   });
 
-  const dev = await prisma.department.upsert({
-    where: { name: "Development" },
-    update: {},
-    create: { name: "Development", description: "Web and app development" },
+  await prisma.department.create({
+    data: { name: "Development", description: "Web and app development" },
   });
 
-  // Create admin user
-  const adminPassword = await bcrypt.hash("admin123", 12);
-  const admin = await prisma.user.upsert({
-    where: { email: "admin@neuroid.agency" },
-    update: { passwordHash: adminPassword },
-    create: {
+  // ── Users (fresh hashes) ──
+  const adminHash = await bcrypt.hash("admin123", 12);
+  const memberHash = await bcrypt.hash("member123", 12);
+
+  // Verify hashes work before inserting
+  const adminVerify = await bcrypt.compare("admin123", adminHash);
+  const memberVerify = await bcrypt.compare("member123", memberHash);
+  console.log(`Hash verification — admin: ${adminVerify}, member: ${memberVerify}`);
+
+  if (!adminVerify || !memberVerify) {
+    throw new Error("bcryptjs hash verification FAILED — aborting seed");
+  }
+
+  const admin = await prisma.user.create({
+    data: {
       name: "Admin User",
       email: "admin@neuroid.agency",
-      passwordHash: adminPassword,
+      passwordHash: adminHash,
       role: "ADMIN",
       departmentId: marketing.id,
     },
   });
 
-  // Create sample users
-  const memberPassword = await bcrypt.hash("member123", 12);
-
-  const designer = await prisma.user.upsert({
-    where: { email: "sarah@neuroid.agency" },
-    update: { passwordHash: memberPassword },
-    create: {
+  const designer = await prisma.user.create({
+    data: {
       name: "Sarah Chen",
       email: "sarah@neuroid.agency",
-      passwordHash: memberPassword,
+      passwordHash: memberHash,
       role: "MEMBER",
       departmentId: design.id,
     },
   });
 
-  const manager = await prisma.user.upsert({
-    where: { email: "mike@neuroid.agency" },
-    update: { passwordHash: memberPassword },
-    create: {
+  const manager = await prisma.user.create({
+    data: {
       name: "Mike Johnson",
       email: "mike@neuroid.agency",
-      passwordHash: memberPassword,
+      passwordHash: memberHash,
       role: "MANAGER",
       departmentId: marketing.id,
     },
   });
 
-  // Create a sample client
-  const client = await prisma.client.upsert({
-    where: { id: "sample-client-1" },
-    update: {},
-    create: {
-      id: "sample-client-1",
+  // ── Sample data ──
+  const client = await prisma.client.create({
+    data: {
       name: "Acme Corp",
       industry: "Technology",
       contactName: "Jane Smith",
@@ -80,12 +108,8 @@ async function main() {
     },
   });
 
-  // Create a sample project
-  const project = await prisma.project.upsert({
-    where: { id: "sample-project-1" },
-    update: {},
-    create: {
-      id: "sample-project-1",
+  const project = await prisma.project.create({
+    data: {
       name: "Q1 Brand Refresh",
       description: "Complete brand identity refresh for Acme Corp including logo, colors, and marketing materials",
       status: "ACTIVE",
@@ -103,7 +127,6 @@ async function main() {
     },
   });
 
-  // Create sample tasks
   await prisma.task.createMany({
     data: [
       { projectId: project.id, title: "Research competitor brands", status: "DONE", priority: "HIGH", assigneeId: designer.id, order: 0 },
@@ -114,15 +137,10 @@ async function main() {
       { projectId: project.id, title: "Design business cards", status: "TODO", priority: "LOW", assigneeId: designer.id, order: 1 },
       { projectId: project.id, title: "Update social media templates", status: "TODO", priority: "MEDIUM", order: 2 },
     ],
-    skipDuplicates: true,
   });
 
-  // Create sample ticket
-  await prisma.ticket.upsert({
-    where: { id: "sample-ticket-1" },
-    update: {},
-    create: {
-      id: "sample-ticket-1",
+  await prisma.ticket.create({
+    data: {
       title: "Homepage Hero Banner Design",
       description: "Need a new hero banner for the Acme Corp website homepage. Should incorporate the new brand colors and logo.",
       status: "IN_PROGRESS",
@@ -134,12 +152,8 @@ async function main() {
     },
   });
 
-  // Create sample campaign
-  const campaign = await prisma.campaign.upsert({
-    where: { id: "sample-campaign-1" },
-    update: {},
-    create: {
-      id: "sample-campaign-1",
+  const campaign = await prisma.campaign.create({
+    data: {
       clientId: client.id,
       name: "Q1 Digital Ads",
       status: "ACTIVE",
@@ -150,7 +164,6 @@ async function main() {
     },
   });
 
-  // Add sample metrics
   const metricDates = Array.from({ length: 10 }, (_, i) => {
     const d = new Date("2026-01-01");
     d.setDate(d.getDate() + i * 7);
@@ -158,18 +171,15 @@ async function main() {
   });
 
   for (const date of metricDates) {
-    await prisma.campaignMetric.create({
-      data: { campaignId: campaign.id, name: "Impressions", value: Math.floor(Math.random() * 50000) + 10000, date },
-    });
-    await prisma.campaignMetric.create({
-      data: { campaignId: campaign.id, name: "Clicks", value: Math.floor(Math.random() * 3000) + 500, date },
-    });
-    await prisma.campaignMetric.create({
-      data: { campaignId: campaign.id, name: "Conversions", value: Math.floor(Math.random() * 200) + 20, date },
+    await prisma.campaignMetric.createMany({
+      data: [
+        { campaignId: campaign.id, name: "Impressions", value: Math.floor(Math.random() * 50000) + 10000, date },
+        { campaignId: campaign.id, name: "Clicks", value: Math.floor(Math.random() * 3000) + 500, date },
+        { campaignId: campaign.id, name: "Conversions", value: Math.floor(Math.random() * 200) + 20, date },
+      ],
     });
   }
 
-  // Create activity logs
   await prisma.activityLog.createMany({
     data: [
       { userId: admin.id, action: "CREATED", entityType: "PROJECT", entityId: project.id, metadata: { name: "Q1 Brand Refresh" } },
@@ -178,11 +188,29 @@ async function main() {
     ],
   });
 
-  console.log("Seed complete!");
+  // ── Create a general chat channel ──
+  const generalChannel = await prisma.channel.create({
+    data: {
+      name: "general",
+      description: "General discussion",
+      createdById: admin.id,
+    },
+  });
+
+  await prisma.channelMember.createMany({
+    data: [
+      { channelId: generalChannel.id, userId: admin.id },
+      { channelId: generalChannel.id, userId: designer.id },
+      { channelId: generalChannel.id, userId: manager.id },
+    ],
+  });
+
+  console.log("");
+  console.log("Seed complete! All users reset with fresh password hashes.");
   console.log("");
   console.log("Login credentials:");
-  console.log("  Admin: admin@neuroid.agency / admin123");
-  console.log("  Manager: mike@neuroid.agency / member123");
+  console.log("  Admin:    admin@neuroid.agency / admin123");
+  console.log("  Manager:  mike@neuroid.agency  / member123");
   console.log("  Designer: sarah@neuroid.agency / member123");
 }
 
