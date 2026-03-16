@@ -58,10 +58,16 @@ interface TaskBoardProps {
 }
 
 const columns = [
-  { key: "TODO", label: "To Do", color: "bg-gray-500" },
-  { key: "IN_PROGRESS", label: "In Progress", color: "bg-blue-500" },
-  { key: "IN_REVIEW", label: "In Review", color: "bg-yellow-500" },
-  { key: "DONE", label: "Done", color: "bg-green-500" },
+  { key: "RESEARCH", label: "Research", color: "bg-purple-500" },
+  { key: "MOODBOARDING", label: "Moodboarding", color: "bg-pink-500" },
+  { key: "ANGLES", label: "Angles", color: "bg-indigo-500" },
+  { key: "SCRIPTING", label: "Scripting", color: "bg-yellow-500" },
+  { key: "APPROVAL_PENDING", label: "Approval Pending", color: "bg-amber-500" },
+  { key: "CREATOR_FINALISING", label: "Creator Finalising", color: "bg-cyan-500" },
+  { key: "PRODUCTION", label: "Production", color: "bg-green-500" },
+  { key: "POST_PRODUCTION", label: "Post Production", color: "bg-blue-500" },
+  { key: "DELIVERED", label: "Delivered", color: "bg-emerald-500" },
+  { key: "ON_HOLD", label: "On Hold", color: "bg-gray-500" },
 ];
 
 const priorityBorder: Record<string, string> = {
@@ -146,7 +152,7 @@ function TaskCard({
   isOverlay?: boolean;
 }) {
   const doneSubtasks =
-    task.subtasks?.filter((s) => s.status === "DONE").length ?? 0;
+    task.subtasks?.filter((s) => s.status === "DELIVERED").length ?? 0;
   const totalSubtasks = task._count?.subtasks ?? 0;
   const completedChecklist =
     task.checklistItems?.filter((c) => c.completed).length ?? 0;
@@ -296,7 +302,7 @@ export function TaskBoard({
     await createTask({
       projectId,
       title: newTaskTitle,
-      status: status as "TODO" | "IN_PROGRESS" | "IN_REVIEW" | "DONE",
+      status: status as "RESEARCH" | "MOODBOARDING" | "ANGLES" | "SCRIPTING" | "APPROVAL_PENDING" | "CREATOR_FINALISING" | "PRODUCTION" | "POST_PRODUCTION" | "DELIVERED" | "ON_HOLD",
     });
     setNewTaskTitle("");
     setAddingTo(null);
@@ -414,7 +420,7 @@ export function TaskBoard({
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="flex gap-4 overflow-x-auto pb-4">
         {columns.map((column, colIdx) => {
           const tasks = currentTasks[column.key] || [];
           const taskIds = tasks.map((t) => t.id);
@@ -422,7 +428,7 @@ export function TaskBoard({
           return (
             <motion.div
               key={column.key}
-              className="flex flex-col"
+              className="flex w-64 shrink-0 flex-col"
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: colIdx * 0.08, duration: 0.3 }}

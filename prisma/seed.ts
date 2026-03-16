@@ -112,7 +112,6 @@ async function main() {
     data: {
       name: "Q1 Brand Refresh",
       description: "Complete brand identity refresh for Acme Corp including logo, colors, and marketing materials",
-      status: "PRODUCTION",
       clientId: client.id,
       departmentId: design.id,
       startDate: new Date("2026-01-15"),
@@ -129,13 +128,13 @@ async function main() {
 
   await prisma.task.createMany({
     data: [
-      { projectId: project.id, title: "Research competitor brands", status: "DONE", priority: "HIGH", assigneeId: designer.id, order: 0 },
-      { projectId: project.id, title: "Create mood board", status: "DONE", priority: "MEDIUM", assigneeId: designer.id, order: 1 },
-      { projectId: project.id, title: "Design logo concepts", status: "IN_PROGRESS", priority: "HIGH", assigneeId: designer.id, order: 0 },
-      { projectId: project.id, title: "Define color palette", status: "IN_PROGRESS", priority: "MEDIUM", assigneeId: designer.id, order: 1 },
-      { projectId: project.id, title: "Create brand guidelines doc", status: "TODO", priority: "MEDIUM", assigneeId: designer.id, order: 0 },
-      { projectId: project.id, title: "Design business cards", status: "TODO", priority: "LOW", assigneeId: designer.id, order: 1 },
-      { projectId: project.id, title: "Update social media templates", status: "TODO", priority: "MEDIUM", order: 2 },
+      { projectId: project.id, title: "Research competitor brands", status: "DELIVERED", priority: "HIGH", assigneeId: designer.id, order: 0 },
+      { projectId: project.id, title: "Create mood board", status: "MOODBOARDING", priority: "MEDIUM", assigneeId: designer.id, order: 0 },
+      { projectId: project.id, title: "Design logo concepts", status: "PRODUCTION", priority: "HIGH", assigneeId: designer.id, order: 0 },
+      { projectId: project.id, title: "Define color palette", status: "SCRIPTING", priority: "MEDIUM", assigneeId: designer.id, order: 0 },
+      { projectId: project.id, title: "Create brand guidelines doc", status: "RESEARCH", priority: "MEDIUM", assigneeId: designer.id, order: 0 },
+      { projectId: project.id, title: "Design business cards", status: "RESEARCH", priority: "LOW", assigneeId: designer.id, order: 1 },
+      { projectId: project.id, title: "Update social media templates", status: "ANGLES", priority: "MEDIUM", order: 0 },
     ],
   });
 

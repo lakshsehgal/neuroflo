@@ -5,12 +5,13 @@ import { requireRole, requireAuth } from "@/lib/permissions";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import type { ActionResponse } from "@/types";
+import type { TaskStatus } from "@prisma/client";
 
 const taskSchema = z.object({
   projectId: z.string(),
   title: z.string().min(1),
   description: z.string().optional(),
-  status: z.enum(["TODO", "IN_PROGRESS", "IN_REVIEW", "DONE"]).optional(),
+  status: z.enum(["RESEARCH", "MOODBOARDING", "ANGLES", "SCRIPTING", "APPROVAL_PENDING", "CREATOR_FINALISING", "PRODUCTION", "POST_PRODUCTION", "DELIVERED", "ON_HOLD"]).optional(),
   priority: z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]).optional(),
   assigneeId: z.string().optional(),
   dueDate: z.string().optional(),
@@ -25,7 +26,7 @@ export async function createTask(
   if (!parsed.success) return { success: false, error: "Invalid input" };
 
   const maxOrder = await db.task.findFirst({
-    where: { projectId: parsed.data.projectId, status: parsed.data.status || "TODO" },
+    where: { projectId: parsed.data.projectId, status: parsed.data.status || "RESEARCH" },
     orderBy: { order: "desc" },
     select: { order: true },
   });
@@ -81,7 +82,7 @@ export async function updateTaskOrder(
     tasks.map((t) =>
       db.task.update({
         where: { id: t.id },
-        data: { status: t.status as "TODO" | "IN_PROGRESS" | "IN_REVIEW" | "DONE", order: t.order },
+        data: { status: t.status as TaskStatus, order: t.order },
       })
     )
   );

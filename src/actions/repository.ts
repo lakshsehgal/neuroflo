@@ -62,7 +62,7 @@ export async function getClient(id: string) {
         orderBy: { createdAt: "desc" },
       },
       projects: {
-        select: { id: true, name: true, status: true },
+        select: { id: true, name: true },
         orderBy: { updatedAt: "desc" },
       },
     },

@@ -87,11 +87,17 @@ export function ProjectTaskViews({
     });
   }, [tasks, filters]);
 
-  const tasksByStatus = {
-    TODO: filteredTasks.filter((t) => t.status === "TODO"),
-    IN_PROGRESS: filteredTasks.filter((t) => t.status === "IN_PROGRESS"),
-    IN_REVIEW: filteredTasks.filter((t) => t.status === "IN_REVIEW"),
-    DONE: filteredTasks.filter((t) => t.status === "DONE"),
+  const tasksByStatus: Record<string, Task[]> = {
+    RESEARCH: filteredTasks.filter((t) => t.status === "RESEARCH"),
+    MOODBOARDING: filteredTasks.filter((t) => t.status === "MOODBOARDING"),
+    ANGLES: filteredTasks.filter((t) => t.status === "ANGLES"),
+    SCRIPTING: filteredTasks.filter((t) => t.status === "SCRIPTING"),
+    APPROVAL_PENDING: filteredTasks.filter((t) => t.status === "APPROVAL_PENDING"),
+    CREATOR_FINALISING: filteredTasks.filter((t) => t.status === "CREATOR_FINALISING"),
+    PRODUCTION: filteredTasks.filter((t) => t.status === "PRODUCTION"),
+    POST_PRODUCTION: filteredTasks.filter((t) => t.status === "POST_PRODUCTION"),
+    DELIVERED: filteredTasks.filter((t) => t.status === "DELIVERED"),
+    ON_HOLD: filteredTasks.filter((t) => t.status === "ON_HOLD"),
   };
 
   function handleTaskClick(taskId: string) {

@@ -50,17 +50,29 @@ interface TaskListViewProps {
 }
 
 const statusColors: Record<string, string> = {
-  TODO: "bg-gray-100 text-gray-700",
-  IN_PROGRESS: "bg-blue-100 text-blue-700",
-  IN_REVIEW: "bg-yellow-100 text-yellow-800",
-  DONE: "bg-green-100 text-green-700",
+  RESEARCH: "bg-purple-100 text-purple-800",
+  MOODBOARDING: "bg-pink-100 text-pink-800",
+  ANGLES: "bg-indigo-100 text-indigo-800",
+  SCRIPTING: "bg-yellow-100 text-yellow-800",
+  APPROVAL_PENDING: "bg-amber-100 text-amber-800",
+  CREATOR_FINALISING: "bg-cyan-100 text-cyan-800",
+  PRODUCTION: "bg-green-100 text-green-800",
+  POST_PRODUCTION: "bg-blue-100 text-blue-800",
+  DELIVERED: "bg-emerald-100 text-emerald-800",
+  ON_HOLD: "bg-gray-100 text-gray-800",
 };
 
 const statusLabels: Record<string, string> = {
-  TODO: "To Do",
-  IN_PROGRESS: "In Progress",
-  IN_REVIEW: "In Review",
-  DONE: "Done",
+  RESEARCH: "Research",
+  MOODBOARDING: "Moodboarding",
+  ANGLES: "Angles",
+  SCRIPTING: "Scripting",
+  APPROVAL_PENDING: "Approval Pending",
+  CREATOR_FINALISING: "Creator Finalising",
+  PRODUCTION: "Production",
+  POST_PRODUCTION: "Post Production",
+  DELIVERED: "Delivered",
+  ON_HOLD: "On Hold",
 };
 
 const priorityColors: Record<string, string> = {
@@ -80,7 +92,7 @@ export function TaskListView({ projectId, tasks, members, onTaskClick }: TaskLis
   const [isPending, startTransition] = useTransition();
 
   const priorityOrder = { URGENT: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
-  const statusOrder = { TODO: 0, IN_PROGRESS: 1, IN_REVIEW: 2, DONE: 3 };
+  const statusOrder: Record<string, number> = { RESEARCH: 0, MOODBOARDING: 1, ANGLES: 2, SCRIPTING: 3, APPROVAL_PENDING: 4, CREATOR_FINALISING: 5, PRODUCTION: 6, POST_PRODUCTION: 7, DELIVERED: 8, ON_HOLD: 9 };
 
   const sortedTasks = [...tasks].sort((a, b) => {
     let cmp = 0;
@@ -169,7 +181,7 @@ export function TaskListView({ projectId, tasks, members, onTaskClick }: TaskLis
         <AnimatedTableBody>
           {sortedTasks.map((task) => {
             const doneSubtasks = task.subtasks.filter(
-              (s) => s.status === "DONE"
+              (s) => s.status === "DELIVERED"
             ).length;
             const completedChecklist = task.checklistItems.filter(
               (c) => c.completed

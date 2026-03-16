@@ -20,29 +20,11 @@ export default async function ProjectDetailPage({ params }: Props) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">{project.name}</h1>
-          {project.description && (
-            <p className="mt-1 text-muted-foreground">{project.description}</p>
-          )}
-        </div>
-        <Badge
-          variant="secondary"
-          className={
-            project.status === "PRODUCTION"
-              ? "bg-green-100 text-green-800"
-              : project.status === "DELIVERED"
-              ? "bg-emerald-100 text-emerald-800"
-              : project.status === "APPROVAL_PENDING"
-              ? "bg-amber-100 text-amber-800"
-              : project.status === "ON_HOLD"
-              ? "bg-gray-100 text-gray-800"
-              : ""
-          }
-        >
-          {project.status.replaceAll("_", " ")}
-        </Badge>
+      <div>
+        <h1 className="text-2xl font-bold">{project.name}</h1>
+        {project.description && (
+          <p className="mt-1 text-muted-foreground">{project.description}</p>
+        )}
       </div>
 
       {/* Project info bar */}

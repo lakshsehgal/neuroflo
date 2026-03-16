@@ -20,19 +20,12 @@ interface TaskSubtasksProps {
   subtasks: SubtaskData[];
 }
 
-const statusIcon: Record<string, React.ReactNode> = {
-  TODO: <Circle className="h-3.5 w-3.5 text-gray-400" />,
-  IN_PROGRESS: <Circle className="h-3.5 w-3.5 text-blue-500" />,
-  IN_REVIEW: <Circle className="h-3.5 w-3.5 text-yellow-500" />,
-  DONE: <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />,
-};
-
 export function TaskSubtasks({ taskId, projectId, subtasks }: TaskSubtasksProps) {
   const [newTitle, setNewTitle] = useState("");
   const [adding, setAdding] = useState(false);
   const [isPending, startTransition] = useTransition();
 
-  const doneCount = subtasks.filter((s) => s.status === "DONE").length;
+  const doneCount = subtasks.filter((s) => s.status === "DELIVERED").length;
 
   function handleAdd() {
     if (!newTitle.trim()) return;
@@ -43,7 +36,7 @@ export function TaskSubtasks({ taskId, projectId, subtasks }: TaskSubtasksProps)
   }
 
   function handleToggle(subtask: SubtaskData) {
-    const newStatus = subtask.status === "DONE" ? "TODO" : "DONE";
+    const newStatus = subtask.status === "DELIVERED" ? "RESEARCH" : "DELIVERED";
     startTransition(async () => {
       await updateTask(subtask.id, { projectId, status: newStatus });
     });
@@ -71,11 +64,15 @@ export function TaskSubtasks({ taskId, projectId, subtasks }: TaskSubtasksProps)
               className="shrink-0"
               disabled={isPending}
             >
-              {statusIcon[subtask.status] || statusIcon.TODO}
+              {subtask.status === "DELIVERED" ? (
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+              ) : (
+                <Circle className="h-3.5 w-3.5 text-gray-400" />
+              )}
             </button>
             <span
               className={`flex-1 text-sm ${
-                subtask.status === "DONE" ? "text-muted-foreground line-through" : ""
+                subtask.status === "DELIVERED" ? "text-muted-foreground line-through" : ""
               }`}
             >
               {subtask.title}

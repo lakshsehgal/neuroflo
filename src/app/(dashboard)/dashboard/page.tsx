@@ -9,7 +9,7 @@ export default async function DashboardPage() {
 
   const [projectCount, ticketCount, recentActivity, myTasks, myTickets] =
     await Promise.all([
-      db.project.count({ where: { status: { notIn: ["DELIVERED", "ON_HOLD"] } } }),
+      db.project.count(),
       db.ticket.count({ where: { status: { notIn: ["APPROVED"] } } }),
       db.activityLog.findMany({
         include: { user: { select: { name: true } } },
@@ -17,7 +17,7 @@ export default async function DashboardPage() {
         take: 10,
       }),
       db.task.findMany({
-        where: { assigneeId: user.id, status: { not: "DONE" } },
+        where: { assigneeId: user.id, status: { notIn: ["DELIVERED", "ON_HOLD"] } },
         include: { project: { select: { name: true } } },
         orderBy: { dueDate: "asc" },
         take: 5,
@@ -33,10 +33,10 @@ export default async function DashboardPage() {
       }),
     ]);
 
-  const taskCount = await db.task.count({ where: { status: { not: "DONE" } } });
+  const taskCount = await db.task.count({ where: { status: { notIn: ["DELIVERED", "ON_HOLD"] } } });
 
   const stats = [
-    { label: "Active Projects", value: projectCount, iconName: "FolderKanban", href: "/projects", color: "text-blue-600" },
+    { label: "Projects", value: projectCount, iconName: "FolderKanban", href: "/projects", color: "text-blue-600" },
     { label: "Open Tickets", value: ticketCount, iconName: "Ticket", href: "/tickets", color: "text-orange-600" },
     { label: "Active Tasks", value: taskCount, iconName: "CheckSquare", href: "/projects", color: "text-green-600" },
     { label: "My Tasks", value: myTasks.length, iconName: "User", href: "/projects", color: "text-purple-600" },

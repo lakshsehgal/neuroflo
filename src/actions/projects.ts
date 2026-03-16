@@ -5,12 +5,10 @@ import { requireRole, requireAuth } from "@/lib/permissions";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import type { ActionResponse } from "@/types";
-import type { ProjectStatus } from "@prisma/client";
 
 const projectSchema = z.object({
   name: z.string().min(1),
   description: z.string().optional(),
-  status: z.enum(["RESEARCH", "MOODBOARDING", "ANGLES", "SCRIPTING", "APPROVAL_PENDING", "CREATOR_FINALISING", "PRODUCTION", "POST_PRODUCTION", "DELIVERED", "ON_HOLD"]).optional(),
   clientId: z.string().optional(),
   departmentId: z.string().optional(),
   startDate: z.string().optional(),
@@ -50,11 +48,10 @@ export async function createProject(
   return { success: true, data: { id: project.id } };
 }
 
-export async function getProjects(status?: ProjectStatus) {
+export async function getProjects() {
   await requireAuth();
 
   return db.project.findMany({
-    where: status ? { status } : undefined,
     include: {
       client: { select: { name: true } },
       department: { select: { name: true } },

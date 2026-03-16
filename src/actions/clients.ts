@@ -101,7 +101,7 @@ export async function getClient(id: string) {
   return db.client.findUnique({
     where: { id },
     include: {
-      projects: { select: { id: true, name: true, status: true } },
+      projects: { select: { id: true, name: true } },
       invoices: { orderBy: { dueDate: "desc" } },
     },
   });

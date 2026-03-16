@@ -56,10 +56,16 @@ const priorityColors: Record<string, string> = {
 };
 
 const statusLabels: Record<string, string> = {
-  TODO: "To Do",
-  IN_PROGRESS: "In Progress",
-  IN_REVIEW: "In Review",
-  DONE: "Done",
+  RESEARCH: "Research",
+  MOODBOARDING: "Moodboarding",
+  ANGLES: "Angles",
+  SCRIPTING: "Scripting",
+  APPROVAL_PENDING: "Approval Pending",
+  CREATOR_FINALISING: "Creator Finalising",
+  PRODUCTION: "Production",
+  POST_PRODUCTION: "Post Production",
+  DELIVERED: "Delivered",
+  ON_HOLD: "On Hold",
 };
 
 export function TaskDetailModal({
