@@ -1307,7 +1307,7 @@ function timeAgo(date: Date): string {
 const QUICK_EMOJIS = [
   "\u{1F44D}", "\u{2764}\u{FE0F}", "\u{1F602}", "\u{1F389}", "\u{1F440}", "\u{1F64F}",
   "\u{2705}", "\u{1F525}", "\u{1F4AF}", "\u{1F60D}", "\u{1F914}", "\u{1F44F}",
-  "\u{1F680}", "\u{1F4A1}", "\u{26A0}\u{FE0F}", "\u{274C}",
+  "\u{1F680}", "\u{1F4A1}", "\u{26A0}\u{FE0F}", "\u{1F4AA}",
 ];
 
 function EmojiPicker({
@@ -1336,7 +1336,7 @@ function EmojiPicker({
       animate={{ opacity: 1, scale: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.9, y: 4 }}
       transition={{ duration: 0.15 }}
-      className="absolute bottom-full left-0 mb-1 z-20 rounded-lg border bg-popover p-2 shadow-lg"
+      className="absolute top-full right-0 mt-1 z-50 rounded-lg border bg-popover p-2 shadow-lg"
     >
       <div className="grid grid-cols-8 gap-0.5">
         {QUICK_EMOJIS.map((emoji) => (
@@ -1769,7 +1769,7 @@ function MessageBubble({
         </button>
       )}
       {/* Hover actions */}
-      <div className="hidden group-hover:flex items-center gap-0.5 absolute -top-3 right-2 rounded-md border bg-popover shadow-sm px-0.5 py-0.5">
+      <div className={cn("items-center gap-0.5 absolute -top-3 right-2 rounded-md border bg-popover shadow-sm px-0.5 py-0.5 z-10", showEmojiPicker ? "flex" : "hidden group-hover:flex")}>
         <div className="relative">
           <button
             onClick={() => setShowEmojiPicker(!showEmojiPicker)}

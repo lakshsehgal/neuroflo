@@ -9,7 +9,8 @@ export async function sendPushNotification(
   tag?: string
 ) {
   if (!process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
-    return; // Push not configured
+    console.warn("[Push] VAPID keys not configured, skipping push notification");
+    return;
   }
 
   const subscriptions = await db.pushSubscription.findMany({
@@ -30,16 +31,17 @@ export async function sendPushNotification(
     )
   );
 
-  // Clean up expired subscriptions (410 Gone)
+  // Clean up expired subscriptions and log errors
   for (let i = 0; i < results.length; i++) {
     const result = results[i];
-    if (
-      result.status === "rejected" &&
-      result.reason?.statusCode === 410
-    ) {
-      await db.pushSubscription.delete({
-        where: { id: subscriptions[i].id },
-      }).catch(() => {});
+    if (result.status === "rejected") {
+      if (result.reason?.statusCode === 410) {
+        await db.pushSubscription.delete({
+          where: { id: subscriptions[i].id },
+        }).catch(() => {});
+      } else {
+        console.error("[Push] Failed to send notification:", result.reason?.message || result.reason);
+      }
     }
   }
 }

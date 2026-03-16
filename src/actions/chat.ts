@@ -6,6 +6,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import type { ActionResponse } from "@/types";
 import { notifyChatMention, createNotification } from "@/actions/notifications";
+import { sendPushNotification } from "@/lib/send-push";
 
 // ─── Schemas ────────────────────────────────────────────
 
@@ -284,27 +285,47 @@ export async function sendMessage(
     },
   });
 
-  // Detect @mentions and send notifications
-  if (content && content.includes("@")) {
-    const channelData = await db.channel.findUnique({
-      where: { id: channelId },
-      select: {
-        name: true,
-        members: {
-          include: { user: { select: { id: true, name: true } } },
-        },
+  // Send push notifications to channel members
+  const channelData = await db.channel.findUnique({
+    where: { id: channelId },
+    select: {
+      name: true,
+      members: {
+        include: { user: { select: { id: true, name: true } } },
       },
-    });
+    },
+  });
 
-    if (channelData) {
+  if (channelData) {
+    const mentionedUserIds = new Set<string>();
+
+    // Detect @mentions and send mention notifications
+    if (content && content.includes("@")) {
       const contentLower = content.toLowerCase();
       for (const member of channelData.members) {
         if (member.userId === user.id) continue;
-        // Check if @Name appears in the message (case-insensitive)
         if (contentLower.includes(`@${member.user.name.toLowerCase()}`)) {
+          mentionedUserIds.add(member.userId);
           notifyChatMention(channelId, channelData.name, member.userId, user.name).catch(console.error);
         }
       }
+    }
+
+    // Send push notification for new message to all other members (except sender and already-mentioned users)
+    const messagePreview = content
+      ? content.length > 80 ? content.slice(0, 80) + "..." : content
+      : fileName ? `sent ${fileName}` : "sent a message";
+
+    for (const member of channelData.members) {
+      if (member.userId === user.id) continue;
+      if (mentionedUserIds.has(member.userId)) continue; // Already got a mention notification
+      sendPushNotification(
+        member.userId,
+        `${user.name} in #${channelData.name}`,
+        messagePreview,
+        `/chat`,
+        `chat-${channelId}`
+      ).catch(console.error);
     }
   }
 
