@@ -2,7 +2,6 @@
 
 import * as bcrypt from "bcryptjs";
 import { signIn } from "@/lib/auth";
-import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { db } from "@/lib/db";
 import { z } from "zod";
 import type { ActionResponse } from "@/types";
@@ -10,17 +9,15 @@ import type { ActionResponse } from "@/types";
 export async function login(
   email: string,
   password: string
-): Promise<{ error: string } | undefined> {
+): Promise<{ error?: string }> {
   try {
     await signIn("credentials", {
       email,
       password,
-      redirectTo: "/dashboard",
+      redirect: false,
     });
-  } catch (error) {
-    if (isRedirectError(error)) {
-      throw error;
-    }
+    return {};
+  } catch {
     return { error: "Invalid email or password" };
   }
 }
