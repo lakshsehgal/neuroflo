@@ -21,7 +21,7 @@ const clientSchema = z.object({
 export async function createClient(
   input: z.infer<typeof clientSchema>
 ): Promise<ActionResponse<{ id: string }>> {
-  await requireRole("MANAGER");
+  await requireRole("OPERATOR");
 
   const parsed = clientSchema.safeParse(input);
   if (!parsed.success) return { success: false, error: "Invalid input" };
@@ -73,7 +73,7 @@ export async function updateClient(
   id: string,
   input: Partial<z.infer<typeof clientSchema>>
 ): Promise<ActionResponse> {
-  await requireRole("MANAGER");
+  await requireRole("OPERATOR");
 
   await db.client.update({ where: { id }, data: input });
   revalidatePath(`/repository/clients/${id}`);
@@ -82,7 +82,7 @@ export async function updateClient(
 }
 
 export async function deleteClient(id: string): Promise<ActionResponse> {
-  await requireRole("MANAGER");
+  await requireRole("OPERATOR");
 
   await db.client.delete({ where: { id } });
   revalidatePath("/repository/clients");
@@ -104,7 +104,7 @@ const campaignSchema = z.object({
 export async function createCampaign(
   input: z.infer<typeof campaignSchema>
 ): Promise<ActionResponse<{ id: string }>> {
-  await requireRole("MANAGER");
+  await requireRole("OPERATOR");
 
   const parsed = campaignSchema.safeParse(input);
   if (!parsed.success) return { success: false, error: "Invalid input" };
@@ -150,7 +150,7 @@ export async function addCampaignMetrics(
   campaignId: string,
   metrics: { name: string; value: number; date: string }[]
 ): Promise<ActionResponse> {
-  await requireRole("MANAGER");
+  await requireRole("OPERATOR");
 
   await db.campaignMetric.createMany({
     data: metrics.map((m) => ({

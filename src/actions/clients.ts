@@ -27,7 +27,7 @@ const clientSchema = z.object({
 export async function createClient(
   input: z.infer<typeof clientSchema>
 ): Promise<ActionResponse<{ id: string }>> {
-  await requireRole("MANAGER");
+  await requireRole("OPERATOR");
 
   const parsed = clientSchema.safeParse(input);
   if (!parsed.success) return { success: false, error: "Invalid input" };
@@ -42,7 +42,7 @@ export async function updateClient(
   id: string,
   input: z.infer<typeof clientSchema>
 ): Promise<ActionResponse> {
-  await requireRole("MANAGER");
+  await requireRole("OPERATOR");
 
   const parsed = clientSchema.safeParse(input);
   if (!parsed.success) return { success: false, error: "Invalid input" };
@@ -60,7 +60,7 @@ export async function updateClientField(
   field: string,
   value: string | number | null
 ): Promise<ActionResponse> {
-  await requireRole("MANAGER");
+  await requireRole("OPERATOR");
 
   const allowedFields = [
     "status", "sentimentStatus", "avgBillingAmount", "oneTimeProjectAmount",
@@ -80,7 +80,7 @@ export async function updateClientField(
 }
 
 export async function getClients() {
-  await requireRole("MANAGER");
+  await requireRole("OPERATOR");
 
   return db.client.findMany({
     include: {
@@ -96,7 +96,7 @@ export async function getClients() {
 }
 
 export async function getClient(id: string) {
-  await requireRole("MANAGER");
+  await requireRole("OPERATOR");
 
   return db.client.findUnique({
     where: { id },
@@ -108,7 +108,7 @@ export async function getClient(id: string) {
 }
 
 export async function deleteClient(id: string): Promise<ActionResponse> {
-  await requireRole("MANAGER");
+  await requireRole("OPERATOR");
   await db.client.delete({ where: { id } });
   revalidatePath("/admin/clients");
   return { success: true };
@@ -126,7 +126,7 @@ const invoiceSchema = z.object({
 export async function createInvoice(
   input: z.infer<typeof invoiceSchema>
 ): Promise<ActionResponse<{ id: string }>> {
-  await requireRole("MANAGER");
+  await requireRole("OPERATOR");
 
   const parsed = invoiceSchema.safeParse(input);
   if (!parsed.success) return { success: false, error: "Invalid input" };
@@ -147,7 +147,7 @@ export async function updateInvoiceStatus(
   status: "PENDING" | "SENT" | "PAID" | "OVERDUE" | "CANCELLED",
   paidDate?: string
 ): Promise<ActionResponse> {
-  await requireRole("MANAGER");
+  await requireRole("OPERATOR");
 
   const data: Record<string, unknown> = { status };
   if (status === "PAID") {
@@ -167,7 +167,7 @@ export async function updateInvoice(
   id: string,
   input: { amount?: number; dueDate?: string; invoiceNumber?: string; notes?: string }
 ): Promise<ActionResponse> {
-  await requireRole("MANAGER");
+  await requireRole("OPERATOR");
 
   const data: Record<string, unknown> = {};
   if (input.amount !== undefined) data.amount = input.amount;
@@ -182,7 +182,7 @@ export async function updateInvoice(
 }
 
 export async function deleteInvoice(id: string): Promise<ActionResponse> {
-  await requireRole("MANAGER");
+  await requireRole("OPERATOR");
 
   const invoice = await db.invoice.findUnique({ where: { id }, select: { clientId: true } });
   if (!invoice) return { success: false, error: "Invoice not found" };
@@ -195,7 +195,7 @@ export async function deleteInvoice(id: string): Promise<ActionResponse> {
 
 // Revenue forecasting
 export async function getRevenueForecasting() {
-  await requireRole("MANAGER");
+  await requireRole("OPERATOR");
 
   const clients = await db.client.findMany({
     where: { sentimentStatus: { not: "CHURNED" } },
@@ -220,7 +220,7 @@ export async function getRevenueForecasting() {
 
 // Dashboard analytics
 export async function getClientDashboardData() {
-  await requireRole("MANAGER");
+  await requireRole("OPERATOR");
 
   // All invoices for chart data (last 12 months)
   const twelveMonthsAgo = new Date();
@@ -259,7 +259,7 @@ export async function getClientDashboardData() {
 
 // Get upcoming invoice reminders
 export async function getUpcomingReminders() {
-  await requireRole("MANAGER");
+  await requireRole("OPERATOR");
 
   const now = new Date();
   const thirtyDaysFromNow = new Date();

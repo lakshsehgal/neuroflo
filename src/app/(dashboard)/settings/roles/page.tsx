@@ -26,7 +26,7 @@ const roles = [
     permissions: {
       "Manage Team & Invites": false,
       "Manage Departments": false,
-      "Manage Clients & Billing": true,
+      "Manage Clients & Billing": false,
       "Delete Projects": true,
       "Approve Tickets": true,
       "Manage Project Members": true,

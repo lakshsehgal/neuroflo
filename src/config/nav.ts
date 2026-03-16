@@ -57,7 +57,7 @@ export const navConfig: NavSection[] = [
         title: "Clients",
         href: "/admin/clients",
         icon: Building2,
-        minRole: "MANAGER",
+        minRole: "OPERATOR",
       },
       {
         title: "Founder's Hub",
