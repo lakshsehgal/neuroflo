@@ -3,12 +3,19 @@ import { db } from "@/lib/db";
 import * as bcrypt from "bcryptjs";
 
 // GET /api/reset-seed — wipes all users and recreates with fresh password hashes
-// Protected by a simple secret query param so it can't be hit accidentally
+// DISABLED in production to prevent accidental data loss
 export async function GET(req: Request) {
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json(
+      { error: "This endpoint is disabled in production" },
+      { status: 403 }
+    );
+  }
+
   const url = new URL(req.url);
   const secret = url.searchParams.get("secret");
 
-  if (secret !== (process.env.AUTH_SECRET || "fallback-secret-change-me")) {
+  if (!process.env.AUTH_SECRET || secret !== process.env.AUTH_SECRET) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

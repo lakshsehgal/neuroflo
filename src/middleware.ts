@@ -3,11 +3,22 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 const SESSION_COOKIE = "session-token";
-const SECRET = new TextEncoder().encode(process.env.AUTH_SECRET || "fallback-secret-change-me");
+
+let _secret: Uint8Array | null = null;
+function getSecret(): Uint8Array {
+  if (!_secret) {
+    const raw = process.env.AUTH_SECRET;
+    if (!raw && process.env.NODE_ENV === "production") {
+      throw new Error("AUTH_SECRET environment variable is required in production");
+    }
+    _secret = new TextEncoder().encode(raw || "dev-only-fallback-secret");
+  }
+  return _secret;
+}
 
 async function verifyToken(token: string): Promise<boolean> {
   try {
-    await jwtVerify(token, SECRET);
+    await jwtVerify(token, getSecret());
     return true;
   } catch {
     return false;

@@ -3,7 +3,18 @@ import { cookies } from "next/headers";
 import type { Role } from "@prisma/client";
 
 const SESSION_COOKIE = "session-token";
-const SECRET = new TextEncoder().encode(process.env.AUTH_SECRET || "fallback-secret-change-me");
+
+let _secret: Uint8Array | null = null;
+function getSecret(): Uint8Array {
+  if (!_secret) {
+    const raw = process.env.AUTH_SECRET;
+    if (!raw && process.env.NODE_ENV === "production") {
+      throw new Error("AUTH_SECRET environment variable is required in production");
+    }
+    _secret = new TextEncoder().encode(raw || "dev-only-fallback-secret");
+  }
+  return _secret;
+}
 
 export interface SessionUser {
   id: string;
@@ -24,12 +35,12 @@ export async function createSessionToken(user: SessionUser): Promise<string> {
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("30d")
-    .sign(SECRET);
+    .sign(getSecret());
 }
 
 export async function verifySessionToken(token: string): Promise<SessionUser | null> {
   try {
-    const { payload } = await jwtVerify(token, SECRET);
+    const { payload } = await jwtVerify(token, getSecret());
     return {
       id: payload.id as string,
       name: payload.name as string,
@@ -65,4 +76,4 @@ export async function deleteSessionCookie() {
   cookieStore.delete(SESSION_COOKIE);
 }
 
-export { SESSION_COOKIE, SECRET };
+export { SESSION_COOKIE, getSecret };
