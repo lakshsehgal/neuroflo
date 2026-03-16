@@ -13,5 +13,8 @@ npx prisma db push || {
   npx prisma db push --accept-data-loss
 }
 
+echo "Running database seed (refresh password hashes)..."
+npx prisma db seed || echo "Seed skipped or failed (non-fatal)"
+
 echo "Running Next.js build..."
 next build
