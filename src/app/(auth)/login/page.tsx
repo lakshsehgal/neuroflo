@@ -27,13 +27,18 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
 
-    const result = await login(email, password);
-    if (result.error) {
-      setError(result.error);
+    try {
+      const result = await login(email, password);
+      if (result.error) {
+        setError(result.error);
+        setLoading(false);
+      } else {
+        router.refresh();
+        router.push("/dashboard");
+      }
+    } catch {
+      setError("Something went wrong. Please try again.");
       setLoading(false);
-    } else {
-      router.refresh();
-      router.push("/dashboard");
     }
   }
 
