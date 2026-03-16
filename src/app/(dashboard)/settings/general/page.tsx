@@ -51,7 +51,7 @@ export default function GeneralSettingsPage() {
           <CardContent className="space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs text-muted-foreground">Authentication</span>
-              <Badge className="bg-green-100 text-green-800 text-xs" variant="secondary">NextAuth v5</Badge>
+              <Badge className="bg-green-100 text-green-800 text-xs" variant="secondary">JWT Auth</Badge>
             </div>
             <Separator />
             <div className="flex items-center justify-between">

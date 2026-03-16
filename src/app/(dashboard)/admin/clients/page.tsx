@@ -1,11 +1,12 @@
-import { getClients, getRevenueForecasting, getUpcomingReminders } from "@/actions/clients";
+import { getClients, getRevenueForecasting, getUpcomingReminders, getClientDashboardData } from "@/actions/clients";
 import { ClientsManagement } from "@/components/admin/clients-management";
 
 export default async function AdminClientsPage() {
-  const [clients, revenueData, reminders] = await Promise.all([
+  const [clients, revenueData, reminders, dashboardData] = await Promise.all([
     getClients(),
     getRevenueForecasting(),
     getUpcomingReminders(),
+    getClientDashboardData(),
   ]);
 
   // Calculate this month's estimated revenue
@@ -18,6 +19,7 @@ export default async function AdminClientsPage() {
 
   for (const client of revenueData) {
     const monthlyAmount = client.avgBillingAmount || 0;
+    const oneTimeAmount = client.oneTimeProjectAmount || 0;
     const hasInvoiceThisMonth = client.invoices.some((inv) => {
       const d = new Date(inv.dueDate);
       return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
@@ -31,8 +33,8 @@ export default async function AdminClientsPage() {
         })
         .reduce((sum, inv) => sum + inv.amount, 0);
       thisMonthRevenue += invoiceAmount;
-    } else if (monthlyAmount > 0) {
-      thisMonthRevenue += monthlyAmount;
+    } else if (monthlyAmount > 0 || oneTimeAmount > 0) {
+      thisMonthRevenue += monthlyAmount + oneTimeAmount;
     }
 
     // Next month
@@ -52,6 +54,7 @@ export default async function AdminClientsPage() {
         .reduce((sum, inv) => sum + inv.amount, 0);
       nextMonthRevenue += invoiceAmount;
     } else if (monthlyAmount > 0) {
+      // One-time amounts only count once (this month), not recurring
       nextMonthRevenue += monthlyAmount;
     }
   }
@@ -62,6 +65,7 @@ export default async function AdminClientsPage() {
       reminders={reminders}
       thisMonthRevenue={thisMonthRevenue}
       nextMonthRevenue={nextMonthRevenue}
+      dashboardData={dashboardData}
     />
   );
 }

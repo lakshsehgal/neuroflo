@@ -132,6 +132,7 @@ export function ProjectTaskViews({
           <TaskListView
             projectId={projectId}
             tasks={filteredTasks}
+            members={members}
             onTaskClick={handleTaskClick}
           />
         </TabsContent>
