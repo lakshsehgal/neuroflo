@@ -150,6 +150,35 @@ export async function ensureGeneralChannel(): Promise<string> {
   return general.id;
 }
 
+export async function deleteChannel(channelId: string): Promise<ActionResponse> {
+  const user = await requireAuth();
+
+  if (user.role !== "ADMIN") {
+    return { success: false, error: "Only admins can delete channels" };
+  }
+
+  const channel = await db.channel.findUnique({ where: { id: channelId } });
+  if (!channel) return { success: false, error: "Channel not found" };
+  if (channel.isGeneral) return { success: false, error: "Cannot delete the general channel" };
+
+  // Delete all related data then the channel
+  const messages = await db.message.findMany({
+    where: { channelId },
+    select: { pollId: true },
+  });
+  const pollIds = messages.map((m) => m.pollId).filter(Boolean) as string[];
+
+  await db.pollVote.deleteMany({ where: { option: { pollId: { in: pollIds } } } });
+  await db.pollOption.deleteMany({ where: { pollId: { in: pollIds } } });
+  await db.poll.deleteMany({ where: { id: { in: pollIds } } });
+  await db.message.deleteMany({ where: { channelId } });
+  await db.channelMember.deleteMany({ where: { channelId } });
+  await db.channel.delete({ where: { id: channelId } });
+
+  revalidatePath("/chat");
+  return { success: true };
+}
+
 // ─── Messages ───────────────────────────────────────────
 
 export async function getMessages(channelId: string, cursor?: string) {

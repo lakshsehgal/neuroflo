@@ -26,6 +26,7 @@ export default async function ChatPage() {
       }))}
       currentUserId={user.id}
       currentUserName={user.name}
+      currentUserRole={user.role}
       generalChannelId={generalChannelId}
       availableUsers={users}
     />

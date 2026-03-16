@@ -28,6 +28,7 @@ interface ChatLayoutProps {
   channels: ChannelSummary[];
   currentUserId: string;
   currentUserName: string;
+  currentUserRole: string;
   generalChannelId: string;
   availableUsers: AvailableUser[];
 }
@@ -36,6 +37,7 @@ export function ChatLayout({
   channels,
   currentUserId,
   currentUserName,
+  currentUserRole,
   generalChannelId,
   availableUsers,
 }: ChatLayoutProps) {
@@ -75,14 +77,23 @@ export function ChatLayout({
     }
   }
 
+  function handleChannelDeleted(channelId: string) {
+    setChannelList((prev) => prev.filter((c) => c.id !== channelId));
+    if (activeChannelId === channelId) {
+      setActiveChannelId(generalChannelId);
+    }
+  }
+
   return (
     <div className="flex h-[calc(100vh-8rem)] rounded-lg border bg-card overflow-hidden">
       {/* Channel sidebar */}
       <ChannelSidebar
         channels={channelList}
         activeChannelId={activeChannelId}
+        isAdmin={currentUserRole === "ADMIN"}
         onSelectChannel={setActiveChannelId}
         onCreateChannel={() => setShowCreateDialog(true)}
+        onDeleteChannel={handleChannelDeleted}
       />
 
       {/* Message area */}
