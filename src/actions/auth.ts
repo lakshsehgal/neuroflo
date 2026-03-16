@@ -1,10 +1,9 @@
 "use server";
 
 import * as bcrypt from "bcryptjs";
-import { signIn } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { z } from "zod";
-import { isRedirectError } from "next/dist/client/components/redirect-error";
+import { createSessionToken, setSessionCookie, deleteSessionCookie } from "@/lib/auth";
 import type { ActionResponse } from "@/types";
 
 export async function login(
@@ -12,20 +11,33 @@ export async function login(
   password: string
 ): Promise<{ error?: string }> {
   try {
-    await signIn("credentials", {
-      email,
-      password,
-      redirectTo: "/dashboard",
-    });
-    return {};
-  } catch (error) {
-    // NextAuth v5 throws a NEXT_REDIRECT on successful sign-in.
-    // Re-throw it so Next.js can handle the redirect properly.
-    if (isRedirectError(error)) {
-      throw error;
+    const user = await db.user.findUnique({ where: { email } });
+    if (!user || !user.isActive) {
+      return { error: "Invalid email or password" };
     }
-    return { error: "Invalid email or password" };
+
+    const isValid = await bcrypt.compare(password, user.passwordHash);
+    if (!isValid) {
+      return { error: "Invalid email or password" };
+    }
+
+    const token = await createSessionToken({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      image: user.avatar,
+    });
+
+    await setSessionCookie(token);
+    return {};
+  } catch {
+    return { error: "Something went wrong. Please try again." };
   }
+}
+
+export async function logout(): Promise<void> {
+  await deleteSessionCookie();
 }
 
 const acceptInviteSchema = z.object({

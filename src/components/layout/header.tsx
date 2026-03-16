@@ -1,6 +1,7 @@
 "use client";
 
-import { signOut } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { logout } from "@/actions/auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -23,12 +24,18 @@ interface HeaderProps {
 }
 
 export function Header({ user }: HeaderProps) {
+  const router = useRouter();
   const initials = user.name
     .split(" ")
     .map((n) => n[0])
     .join("")
     .toUpperCase()
     .slice(0, 2);
+
+  async function handleSignOut() {
+    await logout();
+    router.push("/login");
+  }
 
   return (
     <header className="flex h-14 items-center justify-between border-b bg-card px-6">
@@ -63,7 +70,7 @@ export function Header({ user }: HeaderProps) {
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => signOut({ callbackUrl: "/login" })} className="text-destructive">
+            <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
               <LogOut className="mr-2 h-4 w-4" />
               Sign out
             </DropdownMenuItem>

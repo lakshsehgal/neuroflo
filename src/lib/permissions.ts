@@ -1,27 +1,18 @@
-import { auth } from "@/lib/auth";
+import { getSession } from "@/lib/auth";
+import { hasMinRole, type UserRole } from "@/lib/roles";
 
-export type UserRole = "ADMIN" | "MANAGER" | "MEMBER" | "VIEWER";
-
-const ROLE_HIERARCHY: Record<UserRole, number> = {
-  ADMIN: 4,
-  MANAGER: 3,
-  MEMBER: 2,
-  VIEWER: 1,
-};
-
-export function hasMinRole(userRole: UserRole, requiredRole: UserRole): boolean {
-  return ROLE_HIERARCHY[userRole] >= ROLE_HIERARCHY[requiredRole];
-}
+// Re-export for convenience
+export { hasMinRole, type UserRole } from "@/lib/roles";
 
 export async function getCurrentUser() {
-  const session = await auth();
-  if (!session?.user) return null;
+  const session = await getSession();
+  if (!session) return null;
   return {
-    id: session.user.id as string,
-    name: session.user.name as string,
-    email: session.user.email as string,
-    role: (session.user as { role: string }).role as UserRole,
-    image: session.user.image,
+    id: session.id,
+    name: session.name,
+    email: session.email,
+    role: session.role as UserRole,
+    image: session.image,
   };
 }
 

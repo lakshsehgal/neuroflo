@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { navConfig, type NavItem } from "@/config/nav";
-import { hasMinRole, type UserRole } from "@/lib/permissions";
+import { hasMinRole, type UserRole } from "@/lib/roles";
 import { ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";

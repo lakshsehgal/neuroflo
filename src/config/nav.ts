@@ -9,7 +9,7 @@ import {
   Shield,
   type LucideIcon,
 } from "lucide-react";
-import type { UserRole } from "@/lib/permissions";
+import type { UserRole } from "@/lib/roles";
 
 export interface NavItem {
   title: string;
