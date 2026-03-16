@@ -44,7 +44,7 @@ const roles = [
       "Manage Departments": false,
       "Manage Clients & Billing": false,
       "Delete Projects": false,
-      "Approve Tickets": false,
+      "Approve Tickets": true,
       "Manage Project Members": false,
       "Create Projects & Tasks": true,
       "Create Tickets": true,
