@@ -4,6 +4,7 @@ import * as bcrypt from "bcryptjs";
 import { signIn } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { z } from "zod";
+import { isRedirectError } from "next/dist/client/components/redirect-error";
 import type { ActionResponse } from "@/types";
 
 export async function login(
@@ -14,10 +15,15 @@ export async function login(
     await signIn("credentials", {
       email,
       password,
-      redirect: false,
+      redirectTo: "/dashboard",
     });
     return {};
-  } catch {
+  } catch (error) {
+    // NextAuth v5 throws a NEXT_REDIRECT on successful sign-in.
+    // Re-throw it so Next.js can handle the redirect properly.
+    if (isRedirectError(error)) {
+      throw error;
+    }
     return { error: "Invalid email or password" };
   }
 }
