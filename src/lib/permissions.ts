@@ -51,8 +51,8 @@ export const permissions = {
   deleteAsset: (role: UserRole) => hasMinRole(role, "MANAGER"),
 
   // Repository
-  manageClients: (role: UserRole) => hasMinRole(role, "MANAGER"),
-  manageCampaigns: (role: UserRole) => hasMinRole(role, "MANAGER"),
+  manageClients: (role: UserRole) => hasMinRole(role, "OPERATOR"),
+  manageCampaigns: (role: UserRole) => hasMinRole(role, "OPERATOR"),
 
   // Admin
   inviteUser: (role: UserRole) => hasMinRole(role, "ADMIN"),
