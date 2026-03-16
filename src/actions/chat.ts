@@ -5,7 +5,7 @@ import { requireAuth } from "@/lib/permissions";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import type { ActionResponse } from "@/types";
-import { notifyChatMention } from "@/actions/notifications";
+import { notifyChatMention, createNotification } from "@/actions/notifications";
 
 // ─── Schemas ────────────────────────────────────────────
 
@@ -389,6 +389,17 @@ export async function addMembersToChannel(
       create: { channelId, userId: uid },
       update: {},
     });
+
+    // Notify invited member
+    if (uid !== user.id) {
+      createNotification(
+        uid,
+        "CHANNEL_INVITE",
+        "Channel Invite",
+        `${user.name} added you to #${channel.name}`,
+        `/chat`
+      ).catch(console.error);
+    }
   }
 
   revalidatePath("/chat");
