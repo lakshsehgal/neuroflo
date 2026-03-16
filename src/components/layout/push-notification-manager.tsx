@@ -111,6 +111,26 @@ async function registerServiceWorker() {
           btoa(String.fromCharCode(...new Uint8Array(auth)))
         );
       }
+    } else if (Notification.permission === "granted" && VAPID_PUBLIC_KEY) {
+      // Permission was granted (e.g. via browser prompt) but no push subscription exists yet.
+      // Auto-subscribe so push notifications actually work.
+      try {
+        const subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+        });
+        const key = subscription.getKey("p256dh");
+        const auth = subscription.getKey("auth");
+        if (key && auth) {
+          await subscribePush(
+            subscription.endpoint,
+            btoa(String.fromCharCode(...new Uint8Array(key))),
+            btoa(String.fromCharCode(...new Uint8Array(auth)))
+          );
+        }
+      } catch {
+        // Subscription failed silently
+      }
     }
   } catch {
     // Service worker registration failed silently

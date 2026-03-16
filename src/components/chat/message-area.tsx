@@ -1333,7 +1333,7 @@ function EmojiPicker({
       animate={{ opacity: 1, scale: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.9, y: 4 }}
       transition={{ duration: 0.15 }}
-      className="absolute bottom-full right-0 mb-1 z-20 rounded-lg border bg-popover p-2 shadow-lg"
+      className="absolute bottom-full left-0 mb-1 z-20 rounded-lg border bg-popover p-2 shadow-lg"
     >
       <div className="grid grid-cols-8 gap-0.5">
         {QUICK_EMOJIS.map((emoji) => (
@@ -1456,6 +1456,8 @@ function VoiceNoteButton({
 }) {
   const [recording, setRecording] = useState(false);
   const [duration, setDuration] = useState(0);
+  const [preview, setPreview] = useState<{ blob: Blob; url: string } | null>(null);
+  const [sendingVoice, setSendingVoice] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -1471,26 +1473,11 @@ function VoiceNoteButton({
         if (e.data.size > 0) chunksRef.current.push(e.data);
       };
 
-      mediaRecorder.onstop = async () => {
+      mediaRecorder.onstop = () => {
         stream.getTracks().forEach((t) => t.stop());
         const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-        const file = new globalThis.File([blob], `voice-note-${Date.now()}.webm`, { type: "audio/webm" });
-
-        try {
-          const { uploadFile } = await import("@/lib/upload");
-          const uploaded = await uploadFile(file, `chat/${channelId}`);
-          await sendMessage({
-            channelId,
-            content: "Voice note",
-            fileName: uploaded.fileName,
-            fileUrl: uploaded.url,
-            fileType: uploaded.fileType,
-            fileSize: uploaded.fileSize,
-          });
-          onSent();
-        } catch {
-          alert("Failed to send voice note");
-        }
+        const url = URL.createObjectURL(blob);
+        setPreview({ blob, url });
       };
 
       mediaRecorder.start();
@@ -1511,12 +1498,72 @@ function VoiceNoteButton({
     setDuration(0);
   }
 
+  function discardRecording() {
+    if (preview) {
+      URL.revokeObjectURL(preview.url);
+      setPreview(null);
+    }
+  }
+
+  async function handleSendVoice() {
+    if (!preview) return;
+    setSendingVoice(true);
+    const file = new globalThis.File([preview.blob], `voice-note-${Date.now()}.webm`, { type: "audio/webm" });
+    try {
+      const { uploadFile } = await import("@/lib/upload");
+      const uploaded = await uploadFile(file, `chat/${channelId}`);
+      await sendMessage({
+        channelId,
+        content: "Voice note",
+        fileName: uploaded.fileName,
+        fileUrl: uploaded.url,
+        fileType: uploaded.fileType,
+        fileSize: uploaded.fileSize,
+      });
+      URL.revokeObjectURL(preview.url);
+      setPreview(null);
+      onSent();
+    } catch {
+      alert("Failed to send voice note");
+    }
+    setSendingVoice(false);
+  }
+
   const formatDuration = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
+
+  if (preview) {
+    return (
+      <div className="flex items-center gap-2 flex-1">
+        <audio src={preview.url} controls className="h-8 flex-1 max-w-xs" preload="auto" />
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 shrink-0 text-destructive hover:text-destructive"
+          onClick={discardRecording}
+          title="Discard"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          type="button"
+          size="icon"
+          className="h-8 w-8 shrink-0"
+          onClick={handleSendVoice}
+          disabled={sendingVoice}
+          title="Send voice note"
+        >
+          {sendingVoice ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+        </Button>
+      </div>
+    );
+  }
 
   if (recording) {
     return (
       <div className="flex items-center gap-1.5">
-        <span className="text-xs text-red-500 font-medium animate-pulse">{formatDuration(duration)}</span>
+        <div className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+        <span className="text-xs text-red-500 font-medium">{formatDuration(duration)}</span>
         <Button
           type="button"
           variant="ghost"
@@ -1558,6 +1605,8 @@ function ReactionsDisplay({
   messageId: string;
   onReaction: (messageId: string, emoji: string) => void;
 }) {
+  const [showPicker, setShowPicker] = useState(false);
+
   // Group reactions by emoji
   const grouped = reactions.reduce<Record<string, ReactionData[]>>((acc, r) => {
     if (!acc[r.emoji]) acc[r.emoji] = [];
@@ -1568,7 +1617,7 @@ function ReactionsDisplay({
   if (Object.keys(grouped).length === 0) return null;
 
   return (
-    <div className="flex flex-wrap items-center gap-1 mt-1">
+    <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
       {Object.entries(grouped).map(([emoji, reactors]) => {
         const hasReacted = reactors.some((r) => r.userId === currentUserId);
         const names = reactors.map((r) => r.user.name).join(", ");
@@ -1578,17 +1627,34 @@ function ReactionsDisplay({
             onClick={() => onReaction(messageId, emoji)}
             title={names}
             className={cn(
-              "flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition-colors",
+              "inline-flex items-center gap-1 rounded-full border h-7 px-2 text-sm transition-colors",
               hasReacted
-                ? "border-primary/30 bg-primary/10 text-primary"
-                : "border-border hover:bg-muted"
+                ? "border-blue-300 bg-blue-50 dark:border-blue-700 dark:bg-blue-950/40"
+                : "border-border bg-muted/40 hover:bg-muted"
             )}
           >
-            <span>{emoji}</span>
-            <span className="font-medium">{reactors.length}</span>
+            <span className="text-base leading-none">{emoji}</span>
+            <span className="text-xs font-medium tabular-nums">{reactors.length}</span>
           </button>
         );
       })}
+      <div className="relative">
+        <button
+          onClick={() => setShowPicker(!showPicker)}
+          className="inline-flex items-center justify-center h-7 w-7 rounded-full border border-dashed border-border hover:bg-muted transition-colors"
+          title="Add reaction"
+        >
+          <SmilePlus className="h-3.5 w-3.5 text-muted-foreground" />
+        </button>
+        <AnimatePresence>
+          {showPicker && (
+            <EmojiPicker
+              onSelect={(emoji) => onReaction(messageId, emoji)}
+              onClose={() => setShowPicker(false)}
+            />
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }
