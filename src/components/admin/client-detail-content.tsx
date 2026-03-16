@@ -475,9 +475,8 @@ export function ClientDetailContent({ client: initial, onboarding: initialOnboar
               <CardContent>
                 <div className="space-y-2">
                   {client.projects.map((p) => (
-                    <div key={p.id} className="flex items-center justify-between rounded-md border p-2">
+                    <div key={p.id} className="flex items-center rounded-md border p-2">
                       <span className="text-sm">{p.name}</span>
-                      <Badge variant="outline" className="text-[10px]">{p.status}</Badge>
                     </div>
                   ))}
                 </div>
