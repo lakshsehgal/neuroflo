@@ -7,10 +7,18 @@ export default async function ChatPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  // Ensure general channel exists and user is in it
-  const generalChannelId = await ensureGeneralChannel();
-  const channels = await getChannels();
-  const users = await getAvailableUsers();
+  let generalChannelId: string;
+  try {
+    generalChannelId = await ensureGeneralChannel();
+  } catch {
+    // If general channel creation fails, redirect to dashboard
+    redirect("/dashboard");
+  }
+
+  const [channels, users] = await Promise.all([
+    getChannels(),
+    getAvailableUsers(),
+  ]);
 
   return (
     <ChatLayout

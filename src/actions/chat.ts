@@ -161,22 +161,30 @@ export async function deleteChannel(channelId: string): Promise<ActionResponse> 
   if (!channel) return { success: false, error: "Channel not found" };
   if (channel.isGeneral) return { success: false, error: "Cannot delete the general channel" };
 
-  // Delete all related data then the channel
-  const messages = await db.message.findMany({
-    where: { channelId },
-    select: { pollId: true },
-  });
-  const pollIds = messages.map((m) => m.pollId).filter(Boolean) as string[];
+  try {
+    // Collect poll IDs linked to messages in this channel
+    const messages = await db.message.findMany({
+      where: { channelId },
+      select: { pollId: true },
+    });
+    const pollIds = messages.map((m) => m.pollId).filter(Boolean) as string[];
 
-  await db.pollVote.deleteMany({ where: { option: { pollId: { in: pollIds } } } });
-  await db.pollOption.deleteMany({ where: { pollId: { in: pollIds } } });
-  await db.poll.deleteMany({ where: { id: { in: pollIds } } });
-  await db.message.deleteMany({ where: { channelId } });
-  await db.channelMember.deleteMany({ where: { channelId } });
-  await db.channel.delete({ where: { id: channelId } });
+    // Delete in correct FK order: votes → options → messages → polls → members → channel
+    await db.pollVote.deleteMany({ where: { option: { pollId: { in: pollIds } } } });
+    await db.pollOption.deleteMany({ where: { pollId: { in: pollIds } } });
+    await db.message.deleteMany({ where: { channelId } });
+    if (pollIds.length > 0) {
+      await db.poll.deleteMany({ where: { id: { in: pollIds } } });
+    }
+    await db.channelMember.deleteMany({ where: { channelId } });
+    await db.channel.delete({ where: { id: channelId } });
 
-  revalidatePath("/chat");
-  return { success: true };
+    revalidatePath("/chat");
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to delete channel:", error);
+    return { success: false, error: "Failed to delete channel" };
+  }
 }
 
 // ─── Messages ───────────────────────────────────────────
