@@ -5,6 +5,7 @@ import { requireRole } from "@/lib/permissions";
 import { z } from "zod";
 import type { ActionResponse } from "@/types";
 import type { Role } from "@prisma/client";
+import { sendInviteEmail } from "@/lib/email";
 
 const inviteSchema = z.object({
   email: z.string().email(),
@@ -39,8 +40,11 @@ export async function inviteUser(input: z.infer<typeof inviteSchema>): Promise<A
     },
   });
 
-  // TODO: Send invite email with link: /accept-invite?token={invite.token}
-  console.log(`Invite link: /accept-invite?token=${invite.token}`);
+  try {
+    await sendInviteEmail({ to: email, inviteToken: invite.token, role });
+  } catch {
+    return { success: true, error: "Invite created but email failed to send. Share the link manually." };
+  }
 
   return { success: true };
 }
