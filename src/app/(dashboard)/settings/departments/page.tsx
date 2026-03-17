@@ -228,8 +228,9 @@ export default function DepartmentsPage() {
             value={newDeptName}
             onChange={(e) => setNewDeptName(e.target.value)}
             className="w-52"
+            required
           />
-          <Button type="submit" variant="outline" disabled={loading} size="sm">
+          <Button type="submit" variant="outline" disabled={loading || !newDeptName.trim()} size="sm">
             <Plus className="mr-1.5 h-3.5 w-3.5" />
             Add Department
           </Button>
