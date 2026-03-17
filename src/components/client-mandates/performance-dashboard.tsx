@@ -31,7 +31,7 @@ type DashboardClient = {
   name: string;
   mandates: string[];
   industry: string | null;
-  sentimentStatus: string;
+  performanceSentiment: string;
   avgBillingAmount: number | null;
   oneTimeProjectAmount: number | null;
   createdAt: string | Date;
@@ -170,7 +170,7 @@ export function PerformanceDashboard({ data }: Props) {
     for (const client of clients) {
       const clientInfo = {
         name: client.name,
-        sentiment: client.sentimentStatus,
+        sentiment: client.performanceSentiment,
         mandates: client.mandates,
       };
 
@@ -178,8 +178,8 @@ export function PerformanceDashboard({ data }: Props) {
         const user = getOrCreate(client.primaryPerformanceOwner);
         user.primaryClients.push(clientInfo);
         user.totalClients++;
-        if (client.sentimentStatus === "AT_RISK") user.atRiskCount++;
-        if (client.sentimentStatus === "HAPPY") user.happyCount++;
+        if (client.performanceSentiment === "AT_RISK") user.atRiskCount++;
+        if (client.performanceSentiment === "HAPPY") user.happyCount++;
         for (const m of client.mandates) {
           user.mandateCounts[m] = (user.mandateCounts[m] || 0) + 1;
         }
@@ -188,8 +188,8 @@ export function PerformanceDashboard({ data }: Props) {
         const user = getOrCreate(client.secondaryPerformanceOwner);
         user.secondaryClients.push(clientInfo);
         user.totalClients++;
-        if (client.sentimentStatus === "AT_RISK") user.atRiskCount++;
-        if (client.sentimentStatus === "HAPPY") user.happyCount++;
+        if (client.performanceSentiment === "AT_RISK") user.atRiskCount++;
+        if (client.performanceSentiment === "HAPPY") user.happyCount++;
         for (const m of client.mandates) {
           user.mandateCounts[m] = (user.mandateCounts[m] || 0) + 1;
         }
@@ -249,7 +249,7 @@ export function PerformanceDashboard({ data }: Props) {
   const sentimentBreakdown = useMemo(() => {
     const map: Record<string, number> = { HAPPY: 0, NEUTRAL: 0, AT_RISK: 0 };
     for (const client of clients) {
-      if (client.sentimentStatus in map) map[client.sentimentStatus]++;
+      if (client.performanceSentiment in map) map[client.performanceSentiment]++;
     }
     return map;
   }, [clients]);
@@ -300,7 +300,7 @@ export function PerformanceDashboard({ data }: Props) {
   const unassignedClients = clients.filter(
     (c) => !c.primaryPerformanceOwner && !c.secondaryPerformanceOwner
   );
-  const atRiskClients = clients.filter((c) => c.sentimentStatus === "AT_RISK");
+  const atRiskClients = clients.filter((c) => c.performanceSentiment === "AT_RISK");
   const maxLoad = Math.max(...userBandwidth.map((u) => u.totalClients), 1);
   const avgLoad = userBandwidth.length > 0
     ? (userBandwidth.reduce((sum, u) => sum + u.totalClients, 0) / userBandwidth.length).toFixed(1)

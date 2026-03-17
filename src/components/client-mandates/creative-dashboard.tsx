@@ -32,7 +32,7 @@ type DashboardClient = {
   name: string;
   mandates: string[];
   industry: string | null;
-  sentimentStatus: string;
+  creativeSentiment: string;
   avgBillingAmount: number | null;
   oneTimeProjectAmount: number | null;
   createdAt: string | Date;
@@ -143,11 +143,11 @@ export function CreativeDashboard({ data }: Props) {
       const user = map.get(owner.id)!;
       user.clients.push({
         name: client.name,
-        sentiment: client.sentimentStatus,
+        sentiment: client.creativeSentiment,
         mandates: client.mandates,
       });
-      if (client.sentimentStatus === "AT_RISK") user.atRiskCount++;
-      if (client.sentimentStatus === "HAPPY") user.happyCount++;
+      if (client.creativeSentiment === "AT_RISK") user.atRiskCount++;
+      if (client.creativeSentiment === "HAPPY") user.happyCount++;
 
       for (const mandate of client.mandates) {
         user.mandateBreakdown[mandate] = (user.mandateBreakdown[mandate] || 0) + 1;
@@ -178,7 +178,7 @@ export function CreativeDashboard({ data }: Props) {
   const sentimentBreakdown = useMemo(() => {
     const map: Record<string, number> = { HAPPY: 0, NEUTRAL: 0, AT_RISK: 0 };
     for (const client of clients) {
-      if (client.sentimentStatus in map) map[client.sentimentStatus]++;
+      if (client.creativeSentiment in map) map[client.creativeSentiment]++;
     }
     return map;
   }, [clients]);
@@ -211,7 +211,7 @@ export function CreativeDashboard({ data }: Props) {
   const totalActiveClients = clients.length;
   const clientsWithCreativeOwner = clients.filter((c) => c.creativeStrategyOwner).length;
   const unassignedClients = clients.filter((c) => !c.creativeStrategyOwner);
-  const atRiskClients = clients.filter((c) => c.sentimentStatus === "AT_RISK" && c.creativeStrategyOwner);
+  const atRiskClients = clients.filter((c) => c.creativeSentiment === "AT_RISK" && c.creativeStrategyOwner);
   const maxLoad = Math.max(...userBandwidth.map((u) => u.clients.length), 1);
   const avgLoad = userBandwidth.length > 0
     ? (userBandwidth.reduce((sum, u) => sum + u.clients.length, 0) / userBandwidth.length).toFixed(1)

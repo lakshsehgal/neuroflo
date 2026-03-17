@@ -200,6 +200,8 @@ export function TicketsContent({ tickets: initialTickets, users, clients, worklo
   const [filterAssignee, setFilterAssignee] = useState<string>("all");
   const [filterClient, setFilterClient] = useState<string>("all");
   const [filterDueDate, setFilterDueDate] = useState<string>("all");
+  const [filterDueDateFrom, setFilterDueDateFrom] = useState("");
+  const [filterDueDateTo, setFilterDueDateTo] = useState("");
   const [showFilters, setShowFilters] = useState(false);
 
   // Column visibility
@@ -248,10 +250,14 @@ export function TicketsContent({ tickets: initialTickets, users, clients, worklo
         if (filterDueDate === "this_week" && (!due || due < now || due > weekEnd)) return false;
         if (filterDueDate === "this_month" && (!due || due < now || due > monthEnd)) return false;
         if (filterDueDate === "no_date" && due) return false;
+        if (filterDueDate === "custom") {
+          if (filterDueDateFrom && (!due || due < new Date(filterDueDateFrom))) return false;
+          if (filterDueDateTo && (!due || due > new Date(filterDueDateTo + "T23:59:59"))) return false;
+        }
       }
       return true;
     });
-  }, [tickets, search, filterStatus, filterPriority, filterAssignee, filterClient, filterDueDate]);
+  }, [tickets, search, filterStatus, filterPriority, filterAssignee, filterClient, filterDueDate, filterDueDateFrom, filterDueDateTo]);
 
   const activeFilterCount = [filterStatus, filterPriority, filterAssignee, filterClient, filterDueDate].filter((f) => f !== "all").length;
 
@@ -261,6 +267,8 @@ export function TicketsContent({ tickets: initialTickets, users, clients, worklo
     setFilterAssignee("all");
     setFilterClient("all");
     setFilterDueDate("all");
+    setFilterDueDateFrom("");
+    setFilterDueDateTo("");
     setSearch("");
   };
 
@@ -490,8 +498,16 @@ export function TicketsContent({ tickets: initialTickets, users, clients, worklo
                     <SelectItem value="this_week">Due This Week</SelectItem>
                     <SelectItem value="this_month">Due This Month</SelectItem>
                     <SelectItem value="no_date">No Due Date</SelectItem>
+                    <SelectItem value="custom">Custom Range</SelectItem>
                   </SelectContent>
                 </Select>
+                {filterDueDate === "custom" && (
+                  <div className="flex items-center gap-1.5">
+                    <Input type="date" value={filterDueDateFrom} onChange={(e) => setFilterDueDateFrom(e.target.value)} className="h-8 w-36 text-xs" placeholder="From" />
+                    <span className="text-xs text-muted-foreground">to</span>
+                    <Input type="date" value={filterDueDateTo} onChange={(e) => setFilterDueDateTo(e.target.value)} className="h-8 w-36 text-xs" placeholder="To" />
+                  </div>
+                )}
               </div>
             </motion.div>
           )}

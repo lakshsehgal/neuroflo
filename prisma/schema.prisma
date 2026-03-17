@@ -480,7 +480,9 @@ model Client {
   sow                 String?
   mandates            String[]        @default([])
   status              ClientStatus    @default(ACTIVE)
-  sentimentStatus     SentimentStatus @default(NEUTRAL)
+  sentimentStatus          SentimentStatus @default(NEUTRAL)
+  performanceSentiment     SentimentStatus @default(NEUTRAL)
+  creativeSentiment        SentimentStatus @default(NEUTRAL)
   avgBillingAmount       Float?
   oneTimeProjectAmount   Float?
   decidedCommercials     String?

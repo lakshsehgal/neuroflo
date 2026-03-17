@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { updateClient, createInvoice, updateInvoiceStatus, updateInvoice, deleteInvoice } from "@/actions/clients";
+import { updateClient, updateClientField, updateClientMandates, createInvoice, updateInvoiceStatus, updateInvoice, deleteInvoice } from "@/actions/clients";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -77,7 +77,27 @@ const invoiceStatusColors: Record<string, string> = {
   CANCELLED: "bg-gray-100 text-gray-800",
 };
 
-export function ClientDetailContent({ client: initial, onboarding: initialOnboarding }: { client: ClientData; onboarding?: OnboardingData }) {
+const MANDATE_OPTIONS = [
+  "Meta Ads",
+  "Google Ads",
+  "Post-Production",
+  "UGCs",
+  "Whatsapp Marketing",
+  "CRO",
+  "Statics Only",
+];
+
+const MANDATE_COLORS: Record<string, string> = {
+  "Meta Ads": "bg-blue-100 text-blue-800",
+  "Google Ads": "bg-green-100 text-green-800",
+  "Post-Production": "bg-purple-100 text-purple-800",
+  "UGCs": "bg-amber-100 text-amber-800",
+  "Whatsapp Marketing": "bg-emerald-100 text-emerald-800",
+  "CRO": "bg-red-100 text-red-800",
+  "Statics Only": "bg-slate-100 text-slate-800",
+};
+
+export function ClientDetailContent({ client: initial, onboarding: initialOnboarding, ownerCandidates = [] }: { client: ClientData; onboarding?: OnboardingData; ownerCandidates?: { id: string; name: string }[] }) {
   const [client, setClient] = useState(initial);
   const [isPending, startTransition] = useTransition();
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
@@ -91,7 +111,8 @@ export function ClientDetailContent({ client: initial, onboarding: initialOnboar
   const [form, setForm] = useState({
     sow: client.sow || "",
     status: client.status,
-    sentimentStatus: client.sentimentStatus,
+    performanceSentiment: client.performanceSentiment,
+    creativeSentiment: client.creativeSentiment,
     avgBillingAmount: client.avgBillingAmount?.toString() || "",
     oneTimeProjectAmount: client.oneTimeProjectAmount?.toString() || "",
     decidedCommercials: client.decidedCommercials || "",
@@ -111,7 +132,8 @@ export function ClientDetailContent({ client: initial, onboarding: initialOnboar
         name: client.name,
         sow: form.sow || undefined,
         status: form.status as "ACTIVE" | "CHURNED",
-        sentimentStatus: form.sentimentStatus as "HAPPY" | "NEUTRAL" | "AT_RISK" | "CHURNED",
+        performanceSentiment: form.performanceSentiment as "HAPPY" | "NEUTRAL" | "AT_RISK" | "CHURNED",
+        creativeSentiment: form.creativeSentiment as "HAPPY" | "NEUTRAL" | "AT_RISK" | "CHURNED",
         avgBillingAmount: form.avgBillingAmount ? parseFloat(form.avgBillingAmount) : null,
         oneTimeProjectAmount: form.oneTimeProjectAmount ? parseFloat(form.oneTimeProjectAmount) : null,
         decidedCommercials: form.decidedCommercials || undefined,
@@ -216,7 +238,7 @@ export function ClientDetailContent({ client: initial, onboarding: initialOnboar
                     <Label>SOW (Scope of Work)</Label>
                     <Textarea value={form.sow} onChange={(e) => setForm({ ...form, sow: e.target.value })} rows={3} />
                   </div>
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2">
                       <Label>Status</Label>
                       <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as ClientData["status"] })}>
@@ -229,8 +251,14 @@ export function ClientDetailContent({ client: initial, onboarding: initialOnboar
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label>Sentiment</Label>
-                      <Select value={form.sentimentStatus} onValueChange={(v) => setForm({ ...form, sentimentStatus: v as ClientData["sentimentStatus"] })}>
+                      <Label>Avg Monthly Billing</Label>
+                      <Input type="number" value={form.avgBillingAmount} onChange={(e) => setForm({ ...form, avgBillingAmount: e.target.value })} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label>Performance Sentiment</Label>
+                      <Select value={form.performanceSentiment} onValueChange={(v) => setForm({ ...form, performanceSentiment: v as ClientData["performanceSentiment"] })}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
                           {sentimentOptions.map((s) => (
@@ -240,8 +268,15 @@ export function ClientDetailContent({ client: initial, onboarding: initialOnboar
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label>Avg Monthly Billing</Label>
-                      <Input type="number" value={form.avgBillingAmount} onChange={(e) => setForm({ ...form, avgBillingAmount: e.target.value })} />
+                      <Label>Creative Sentiment</Label>
+                      <Select value={form.creativeSentiment} onValueChange={(v) => setForm({ ...form, creativeSentiment: v as ClientData["creativeSentiment"] })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {sentimentOptions.map((s) => (
+                            <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
@@ -279,9 +314,15 @@ export function ClientDetailContent({ client: initial, onboarding: initialOnboar
                     </Badge>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">Sentiment</p>
-                    <Badge className={`mt-1 ${sentimentOptions.find((s) => s.value === client.sentimentStatus)?.color || ""}`} variant="secondary">
-                      {sentimentOptions.find((s) => s.value === client.sentimentStatus)?.label}
+                    <p className="text-xs text-muted-foreground">Performance Sentiment</p>
+                    <Badge className={`mt-1 ${sentimentOptions.find((s) => s.value === client.performanceSentiment)?.color || ""}`} variant="secondary">
+                      {sentimentOptions.find((s) => s.value === client.performanceSentiment)?.label || "—"}
+                    </Badge>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Creative Sentiment</p>
+                    <Badge className={`mt-1 ${sentimentOptions.find((s) => s.value === client.creativeSentiment)?.color || ""}`} variant="secondary">
+                      {sentimentOptions.find((s) => s.value === client.creativeSentiment)?.label || "—"}
                     </Badge>
                   </div>
                   <div>
@@ -314,6 +355,112 @@ export function ClientDetailContent({ client: initial, onboarding: initialOnboar
                   )}
                 </div>
               )}
+            </CardContent>
+          </Card>
+
+          {/* Owners & Mandates */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">Owners & Mandates</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Owner Assignment */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Primary Performance Owner</Label>
+                  <Select
+                    value={client.primaryPerformanceOwner?.id || "none"}
+                    onValueChange={(v) => {
+                      startTransition(async () => {
+                        await updateClientField(client.id, "primaryPerformanceOwnerId", v === "none" ? null : v);
+                        window.location.reload();
+                      });
+                    }}
+                  >
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Unassigned" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Unassigned</SelectItem>
+                      {ownerCandidates.map((u) => (
+                        <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Secondary Performance Owner</Label>
+                  <Select
+                    value={client.secondaryPerformanceOwner?.id || "none"}
+                    onValueChange={(v) => {
+                      startTransition(async () => {
+                        await updateClientField(client.id, "secondaryPerformanceOwnerId", v === "none" ? null : v);
+                        window.location.reload();
+                      });
+                    }}
+                  >
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Unassigned" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Unassigned</SelectItem>
+                      {ownerCandidates.map((u) => (
+                        <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Creative Strategy Owner</Label>
+                  <Select
+                    value={client.creativeStrategyOwner?.id || "none"}
+                    onValueChange={(v) => {
+                      startTransition(async () => {
+                        await updateClientField(client.id, "creativeStrategyOwnerId", v === "none" ? null : v);
+                        window.location.reload();
+                      });
+                    }}
+                  >
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Unassigned" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Unassigned</SelectItem>
+                      {ownerCandidates.map((u) => (
+                        <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Mandates */}
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Mandates</Label>
+                <div className="flex flex-wrap gap-1.5">
+                  {MANDATE_OPTIONS.map((mandate) => {
+                    const isActive = (client.mandates || []).includes(mandate);
+                    return (
+                      <button
+                        key={mandate}
+                        type="button"
+                        className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
+                          isActive
+                            ? MANDATE_COLORS[mandate] || "bg-primary/10 text-primary"
+                            : "bg-muted text-muted-foreground hover:bg-muted/80"
+                        }`}
+                        onClick={() => {
+                          const currentMandates = client.mandates || [];
+                          const newMandates = isActive
+                            ? currentMandates.filter((m) => m !== mandate)
+                            : [...currentMandates, mandate];
+                          startTransition(async () => {
+                            await updateClientMandates(client.id, newMandates);
+                            window.location.reload();
+                          });
+                        }}
+                        disabled={isPending}
+                      >
+                        {mandate}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </CardContent>
           </Card>
 

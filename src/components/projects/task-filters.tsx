@@ -24,6 +24,8 @@ export type FilterState = {
   priorities: string[];
   labels: string[];
   dueDate: string;
+  dueDateFrom: string;
+  dueDateTo: string;
 };
 
 interface TaskFiltersProps {
@@ -67,7 +69,7 @@ export function TaskFilters({
   }
 
   function clearAll() {
-    onFiltersChange({ search: "", assignees: [], priorities: [], labels: [], dueDate: "all" });
+    onFiltersChange({ search: "", assignees: [], priorities: [], labels: [], dueDate: "all", dueDateFrom: "", dueDateTo: "" });
   }
 
   return (
@@ -170,8 +172,17 @@ export function TaskFilters({
             <SelectItem value="this_week">Due This Week</SelectItem>
             <SelectItem value="this_month">Due This Month</SelectItem>
             <SelectItem value="no_date">No Due Date</SelectItem>
+            <SelectItem value="custom">Custom Range</SelectItem>
           </SelectContent>
         </Select>
+
+        {filters.dueDate === "custom" && (
+          <div className="flex items-center gap-1.5">
+            <Input type="date" value={filters.dueDateFrom} onChange={(e) => onFiltersChange({ ...filters, dueDateFrom: e.target.value })} className="h-8 w-36 text-xs" placeholder="From" />
+            <span className="text-xs text-muted-foreground">to</span>
+            <Input type="date" value={filters.dueDateTo} onChange={(e) => onFiltersChange({ ...filters, dueDateTo: e.target.value })} className="h-8 w-36 text-xs" placeholder="To" />
+          </div>
+        )}
 
         {/* Clear */}
         {hasFilters && (

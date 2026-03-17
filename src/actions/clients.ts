@@ -22,6 +22,9 @@ const clientSchema = z.object({
   decidedCommercials: z.string().optional(),
   invoicingDueDay: z.number().optional().nullable(),
   reminderDaysBefore: z.number().optional(),
+  mandates: z.array(z.string()).optional(),
+  performanceSentiment: z.enum(["HAPPY", "NEUTRAL", "AT_RISK", "CHURNED"]).optional(),
+  creativeSentiment: z.enum(["HAPPY", "NEUTRAL", "AT_RISK", "CHURNED"]).optional(),
 });
 
 export async function createClient(
@@ -68,6 +71,7 @@ export async function updateClientField(
     "sow", "notes", "contactName", "contactEmail", "contactPhone",
     "website", "industry", "name", "mandates",
     "primaryPerformanceOwnerId", "secondaryPerformanceOwnerId", "creativeStrategyOwnerId",
+    "performanceSentiment", "creativeSentiment",
   ];
   if (!allowedFields.includes(field)) {
     return { success: false, error: "Invalid field" };
@@ -142,6 +146,9 @@ export async function getClient(id: string) {
     include: {
       projects: { select: { id: true, name: true } },
       invoices: { orderBy: { dueDate: "desc" } },
+      primaryPerformanceOwner: { select: { id: true, name: true } },
+      secondaryPerformanceOwner: { select: { id: true, name: true } },
+      creativeStrategyOwner: { select: { id: true, name: true } },
     },
   });
 }
@@ -246,6 +253,8 @@ export async function getClientMandatesDashboardData() {
         mandates: true,
         industry: true,
         sentimentStatus: true,
+        performanceSentiment: true,
+        creativeSentiment: true,
         avgBillingAmount: true,
         oneTimeProjectAmount: true,
         createdAt: true,
@@ -376,6 +385,8 @@ export async function getClientDashboardData() {
         name: true,
         status: true,
         sentimentStatus: true,
+        performanceSentiment: true,
+        creativeSentiment: true,
         avgBillingAmount: true,
         oneTimeProjectAmount: true,
         primaryPerformanceOwnerId: true,

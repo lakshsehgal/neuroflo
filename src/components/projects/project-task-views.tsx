@@ -55,6 +55,8 @@ export function ProjectTaskViews({
     priorities: [],
     labels: [],
     dueDate: "all",
+    dueDateFrom: "",
+    dueDateTo: "",
   });
 
   // Apply filters
@@ -96,6 +98,10 @@ export function ProjectTaskViews({
         if (filters.dueDate === "this_week" && (!due || due < now || due > weekEnd)) return false;
         if (filters.dueDate === "this_month" && (!due || due < now || due > monthEnd)) return false;
         if (filters.dueDate === "no_date" && due) return false;
+        if (filters.dueDate === "custom") {
+          if (filters.dueDateFrom && (!due || due < new Date(filters.dueDateFrom))) return false;
+          if (filters.dueDateTo && (!due || due > new Date(filters.dueDateTo + "T23:59:59"))) return false;
+        }
       }
       return true;
     });

@@ -1,4 +1,4 @@
-import { getClient } from "@/actions/clients";
+import { getClient, getClientOwnerCandidates } from "@/actions/clients";
 import { getClientOnboarding } from "@/actions/onboarding";
 import { notFound } from "next/navigation";
 import { ClientDetailContent } from "@/components/admin/client-detail-content";
@@ -9,11 +9,12 @@ interface Props {
 
 export default async function ClientDetailPage({ params }: Props) {
   const { clientId } = await params;
-  const [client, onboarding] = await Promise.all([
+  const [client, onboarding, ownerCandidates] = await Promise.all([
     getClient(clientId),
     getClientOnboarding(clientId),
+    getClientOwnerCandidates(),
   ]);
   if (!client) notFound();
 
-  return <ClientDetailContent client={client} onboarding={onboarding} />;
+  return <ClientDetailContent client={client} onboarding={onboarding} ownerCandidates={ownerCandidates} />;
 }

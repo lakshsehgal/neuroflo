@@ -98,7 +98,8 @@ const CHART_COLORS = [
 const ALL_COLUMNS = [
   { key: "client", label: "Client", required: true },
   { key: "status", label: "Status", required: false },
-  { key: "sentiment", label: "Sentiment", required: false },
+  { key: "perfSentiment", label: "Perf. Sentiment", required: false },
+  { key: "creativeSentiment", label: "Creative Sentiment", required: false },
   { key: "mandates", label: "Mandates", required: false },
   { key: "primaryPerf", label: "Primary Perf. Owner", required: false },
   { key: "secondaryPerf", label: "Secondary Perf. Owner", required: false },
@@ -112,7 +113,7 @@ const ALL_COLUMNS = [
   { key: "actions", label: "", required: true },
 ];
 
-const DEFAULT_VISIBLE = ["client", "status", "sentiment", "mandates", "primaryPerf", "secondaryPerf", "creativeStrategy", "avgBilling", "oneTimeProject", "commercials", "invoiceDue", "nextInvoice", "actions"];
+const DEFAULT_VISIBLE = ["client", "status", "perfSentiment", "creativeSentiment", "mandates", "primaryPerf", "secondaryPerf", "creativeStrategy", "avgBilling", "oneTimeProject", "commercials", "invoiceDue", "nextInvoice", "actions"];
 
 const MANDATE_OPTIONS = [
   "Meta Ads",
@@ -145,6 +146,8 @@ type ClientData = {
   sow: string | null;
   status: string;
   sentimentStatus: string;
+  performanceSentiment: string;
+  creativeSentiment: string;
   avgBillingAmount: number | null;
   oneTimeProjectAmount: number | null;
   decidedCommercials: string | null;
@@ -237,9 +240,11 @@ export function ClientsManagement({ clients: initialClients, reminders, thisMont
   // Form state
   const [form, setForm] = useState({
     name: "", industry: "", contactName: "", contactEmail: "", contactPhone: "",
-    website: "", notes: "", sow: "", status: "ACTIVE", sentimentStatus: "NEUTRAL",
+    website: "", notes: "", sow: "", status: "ACTIVE",
+    performanceSentiment: "NEUTRAL", creativeSentiment: "NEUTRAL",
     avgBillingAmount: "", oneTimeProjectAmount: "", decidedCommercials: "",
     invoicingDueDay: "", reminderDaysBefore: "3",
+    mandates: [] as string[],
   });
 
   function handleSubmit(e: React.FormEvent) {
@@ -255,20 +260,24 @@ export function ClientsManagement({ clients: initialClients, reminders, thisMont
         notes: form.notes || undefined,
         sow: form.sow || undefined,
         status: form.status as "ACTIVE" | "CHURNED",
-        sentimentStatus: form.sentimentStatus as "HAPPY" | "NEUTRAL" | "AT_RISK" | "CHURNED",
+        performanceSentiment: form.performanceSentiment as "HAPPY" | "NEUTRAL" | "AT_RISK" | "CHURNED",
+        creativeSentiment: form.creativeSentiment as "HAPPY" | "NEUTRAL" | "AT_RISK" | "CHURNED",
         avgBillingAmount: form.avgBillingAmount ? parseFloat(form.avgBillingAmount) : null,
         oneTimeProjectAmount: form.oneTimeProjectAmount ? parseFloat(form.oneTimeProjectAmount) : null,
         decidedCommercials: form.decidedCommercials || undefined,
         invoicingDueDay: form.invoicingDueDay ? parseInt(form.invoicingDueDay) : null,
         reminderDaysBefore: parseInt(form.reminderDaysBefore) || 3,
+        mandates: form.mandates.length > 0 ? form.mandates : undefined,
       });
       if (result.success) {
         setDialogOpen(false);
         setForm({
           name: "", industry: "", contactName: "", contactEmail: "", contactPhone: "",
-          website: "", notes: "", sow: "", status: "ACTIVE", sentimentStatus: "NEUTRAL",
+          website: "", notes: "", sow: "", status: "ACTIVE",
+          performanceSentiment: "NEUTRAL", creativeSentiment: "NEUTRAL",
           avgBillingAmount: "", oneTimeProjectAmount: "", decidedCommercials: "",
           invoicingDueDay: "", reminderDaysBefore: "3",
+          mandates: [],
         });
       }
     });
@@ -362,8 +371,8 @@ export function ClientsManagement({ clients: initialClients, reminders, thisMont
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label>Sentiment</Label>
-                      <Select value={form.sentimentStatus} onValueChange={(v) => setForm({ ...form, sentimentStatus: v })}>
+                      <Label>Perf. Sentiment</Label>
+                      <Select value={form.performanceSentiment} onValueChange={(v) => setForm({ ...form, performanceSentiment: v })}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="HAPPY">Happy</SelectItem>
@@ -372,6 +381,43 @@ export function ClientsManagement({ clients: initialClients, reminders, thisMont
                           <SelectItem value="CHURNED">Churned</SelectItem>
                         </SelectContent>
                       </Select>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Creative Sentiment</Label>
+                    <Select value={form.creativeSentiment} onValueChange={(v) => setForm({ ...form, creativeSentiment: v })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="HAPPY">Happy</SelectItem>
+                        <SelectItem value="NEUTRAL">Neutral</SelectItem>
+                        <SelectItem value="AT_RISK">At Risk</SelectItem>
+                        <SelectItem value="CHURNED">Churned</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Mandates</Label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {MANDATE_OPTIONS.map((m) => (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => setForm((prev) => ({
+                            ...prev,
+                            mandates: prev.mandates.includes(m)
+                              ? prev.mandates.filter((x) => x !== m)
+                              : [...prev.mandates, m],
+                          }))}
+                          className={`px-2 py-1 rounded-full text-xs font-medium border transition-colors ${
+                            form.mandates.includes(m)
+                              ? `${MANDATE_COLORS[m] || "bg-gray-100 text-gray-800"} border-transparent`
+                              : "bg-background text-muted-foreground border-border hover:bg-muted"
+                          }`}
+                        >
+                          {form.mandates.includes(m) && <Check className="inline h-3 w-3 mr-0.5" />}
+                          {m}
+                        </button>
+                      ))}
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
@@ -624,7 +670,8 @@ function ClientsTab({
               <tr className="border-b bg-muted/50">
                 <th className="px-4 py-3 text-left text-xs font-medium">Client</th>
                 {isColVisible("status") && <th className="px-3 py-3 text-left text-xs font-medium">Status</th>}
-                {isColVisible("sentiment") && <th className="px-3 py-3 text-left text-xs font-medium">Sentiment</th>}
+                {isColVisible("perfSentiment") && <th className="px-3 py-3 text-left text-xs font-medium">Perf. Sentiment</th>}
+                {isColVisible("creativeSentiment") && <th className="px-3 py-3 text-left text-xs font-medium">Creative Sentiment</th>}
                 {isColVisible("mandates") && <th className="px-3 py-3 text-left text-xs font-medium">Mandates</th>}
                 {isColVisible("primaryPerf") && <th className="px-3 py-3 text-left text-xs font-medium">Primary Perf.</th>}
                 {isColVisible("secondaryPerf") && <th className="px-3 py-3 text-left text-xs font-medium">Secondary Perf.</th>}
@@ -640,7 +687,8 @@ function ClientsTab({
             </thead>
             <AnimatedTableBody>
               {clients.map((client) => {
-                const sentiment = sentimentConfig[client.sentimentStatus] || sentimentConfig.NEUTRAL;
+                const perfSentiment = sentimentConfig[client.performanceSentiment] || sentimentConfig.NEUTRAL;
+                const creativeSentiment = sentimentConfig[client.creativeSentiment] || sentimentConfig.NEUTRAL;
                 const nextInvoice = client.invoices[0];
                 return (
                   <AnimatedRow key={client.id} className="border-b hover:bg-muted/30">
@@ -663,12 +711,30 @@ function ClientsTab({
                         </Select>
                       </td>
                     )}
-                    {isColVisible("sentiment") && (
+                    {isColVisible("perfSentiment") && (
                       <td className="px-3 py-2.5">
-                        <Select value={client.sentimentStatus} onValueChange={(v) => handleInlineUpdate(client.id, "sentimentStatus", v)}>
+                        <Select value={client.performanceSentiment} onValueChange={(v) => handleInlineUpdate(client.id, "performanceSentiment", v)}>
                           <SelectTrigger className="h-7 w-[110px] text-[10px] border-0 bg-transparent hover:bg-muted/40 px-1 focus:ring-0 focus:ring-offset-0">
-                            <Badge className={`${sentiment.color} text-[10px] gap-1`} variant="secondary">
-                              {sentiment.icon}{sentiment.label}
+                            <Badge className={`${perfSentiment.color} text-[10px] gap-1`} variant="secondary">
+                              {perfSentiment.icon}{perfSentiment.label}
+                            </Badge>
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.entries(sentimentConfig).map(([key, val]) => (
+                              <SelectItem key={key} value={key}>
+                                <span className="flex items-center gap-1.5">{val.icon}{val.label}</span>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </td>
+                    )}
+                    {isColVisible("creativeSentiment") && (
+                      <td className="px-3 py-2.5">
+                        <Select value={client.creativeSentiment} onValueChange={(v) => handleInlineUpdate(client.id, "creativeSentiment", v)}>
+                          <SelectTrigger className="h-7 w-[110px] text-[10px] border-0 bg-transparent hover:bg-muted/40 px-1 focus:ring-0 focus:ring-offset-0">
+                            <Badge className={`${creativeSentiment.color} text-[10px] gap-1`} variant="secondary">
+                              {creativeSentiment.icon}{creativeSentiment.label}
                             </Badge>
                           </SelectTrigger>
                           <SelectContent>
@@ -897,7 +963,8 @@ function ChurnedTab({
             <thead>
               <tr className="border-b bg-muted/50">
                 <th className="px-4 py-3 text-left text-xs font-medium">Client</th>
-                <th className="px-3 py-3 text-left text-xs font-medium">Sentiment</th>
+                <th className="px-3 py-3 text-left text-xs font-medium">Perf. Sentiment</th>
+                <th className="px-3 py-3 text-left text-xs font-medium">Creative Sentiment</th>
                 <th className="px-3 py-3 text-left text-xs font-medium">Last Billing</th>
                 <th className="px-3 py-3 text-left text-xs font-medium">SOW</th>
                 <th className="px-3 py-3 text-left text-xs font-medium">Status</th>
@@ -906,7 +973,8 @@ function ChurnedTab({
             </thead>
             <AnimatedTableBody>
               {clients.map((client) => {
-                const sentiment = sentimentConfig[client.sentimentStatus] || sentimentConfig.NEUTRAL;
+                const perfSent = sentimentConfig[client.performanceSentiment] || sentimentConfig.NEUTRAL;
+                const creativeSent = sentimentConfig[client.creativeSentiment] || sentimentConfig.NEUTRAL;
                 return (
                   <AnimatedRow key={client.id} className="border-b hover:bg-muted/30">
                     <td className="px-4 py-2.5 cursor-pointer" onClick={() => router.push(`/admin/clients/${client.id}`)}>
@@ -914,8 +982,13 @@ function ChurnedTab({
                       {client.contactName && <p className="text-xs text-muted-foreground">{client.contactName}</p>}
                     </td>
                     <td className="px-3 py-2.5">
-                      <Badge className={`${sentiment.color} text-[10px] gap-1`} variant="secondary">
-                        {sentiment.icon}{sentiment.label}
+                      <Badge className={`${perfSent.color} text-[10px] gap-1`} variant="secondary">
+                        {perfSent.icon}{perfSent.label}
+                      </Badge>
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <Badge className={`${creativeSent.color} text-[10px] gap-1`} variant="secondary">
+                        {creativeSent.icon}{creativeSent.label}
                       </Badge>
                     </td>
                     <td className="px-3 py-2.5 text-sm text-muted-foreground">
