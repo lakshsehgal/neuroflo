@@ -41,24 +41,39 @@ export async function login(
       console.error("[login] bcrypt.compare failed:", bcryptErr, "hash prefix:", user.passwordHash.substring(0, 7));
       return { error: "Something went wrong. Please reset your password." };
     }
+    console.log("[login] bcrypt result:", isValid);
 
     if (!isValid) {
       return { error: "Invalid email or password" };
     }
 
-    const token = await createSessionToken({
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      image: user.avatar,
-    });
+    let token;
+    try {
+      token = await createSessionToken({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        image: user.avatar,
+      });
+      console.log("[login] Token created, length:", token.length);
+    } catch (tokenErr) {
+      console.error("[login] createSessionToken failed:", tokenErr);
+      return { error: "Something went wrong. Please try again." };
+    }
 
-    await setSessionCookie(token);
+    try {
+      await setSessionCookie(token);
+      console.log("[login] Cookie set successfully");
+    } catch (cookieErr) {
+      console.error("[login] setSessionCookie failed:", cookieErr);
+      return { error: "Something went wrong. Please try again." };
+    }
+
     console.log("[login] Success for user:", user.id);
     return {};
   } catch (err) {
-    console.error("[login] Unexpected error:", err);
+    console.error("[login] Unexpected outer error:", String(err), err instanceof Error ? err.stack : "");
     return { error: "Something went wrong. Please try again." };
   }
 }
