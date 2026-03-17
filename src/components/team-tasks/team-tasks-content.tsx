@@ -200,6 +200,7 @@ export function TeamTasksContent({
   const [filterPriority, setFilterPriority] = useState<string>("all");
   const [filterAssignee, setFilterAssignee] = useState<string>("all");
   const [filterTeam, setFilterTeam] = useState<string>("all");
+  const [selectedTeamTab, setSelectedTeamTab] = useState<string>("all");
   const [showFilters, setShowFilters] = useState(false);
 
   // Column visibility
@@ -229,6 +230,22 @@ export function TeamTasksContent({
 
   const tasks = localTasks;
 
+  // Compute per-team task counts for tabs
+  const teamTabStats = useMemo(() => {
+    const stats = new Map<string, { total: number; urgent: number; overdue: number }>();
+    tasks.forEach((t) => {
+      const existing = stats.get(t.teamId) || { total: 0, urgent: 0, overdue: 0 };
+      existing.total++;
+      if (t.priority === "URGENT" || t.priority === "HIGH") existing.urgent++;
+      if (t.dueDate && isOverdue(t.dueDate)) existing.overdue++;
+      stats.set(t.teamId, existing);
+    });
+    return stats;
+  }, [tasks]);
+
+  // When a team tab is selected, it acts as the primary team filter
+  const effectiveTeamFilter = selectedTeamTab !== "all" ? selectedTeamTab : filterTeam;
+
   const filtered = useMemo(() => {
     return tasks.filter((t) => {
       if (
@@ -242,16 +259,17 @@ export function TeamTasksContent({
         return false;
       if (filterAssignee !== "all" && t.assigneeId !== filterAssignee)
         return false;
-      if (filterTeam !== "all" && t.teamId !== filterTeam) return false;
+      if (effectiveTeamFilter !== "all" && t.teamId !== effectiveTeamFilter) return false;
       return true;
     });
-  }, [tasks, search, filterStatus, filterPriority, filterAssignee, filterTeam]);
+  }, [tasks, search, filterStatus, filterPriority, filterAssignee, effectiveTeamFilter]);
 
   const activeFilterCount = [
     filterStatus,
     filterPriority,
     filterAssignee,
-    filterTeam,
+    // Only count dropdown team filter when no team tab is selected
+    selectedTeamTab === "all" ? filterTeam : "all",
   ].filter((f) => f !== "all").length;
 
   const clearFilters = () => {
@@ -303,15 +321,16 @@ export function TeamTasksContent({
     [users]
   );
 
-  // Quick stats
-  const totalCount = tasks.length;
-  const urgentCount = tasks.filter(
+  // Quick stats (scoped to selected team tab)
+  const scopedTasks = selectedTeamTab !== "all" ? tasks.filter((t) => t.teamId === selectedTeamTab) : tasks;
+  const totalCount = scopedTasks.length;
+  const urgentCount = scopedTasks.filter(
     (t) => t.priority === "URGENT" || t.priority === "HIGH"
   ).length;
-  const overdueCount = tasks.filter(
+  const overdueCount = scopedTasks.filter(
     (t) => t.dueDate && isOverdue(t.dueDate)
   ).length;
-  const blockedCount = tasks.filter((t) => t.status === "BLOCKED").length;
+  const blockedCount = scopedTasks.filter((t) => t.status === "BLOCKED").length;
 
   // Group tasks by team for display
   const teamGroups = useMemo(() => {
@@ -339,7 +358,9 @@ export function TeamTasksContent({
           <div className="flex items-center gap-4">
             <div>
               <h1 className="text-2xl font-bold tracking-tight">
-                Team Tasks
+                {selectedTeamTab !== "all"
+                  ? `${teams.find((t) => t.id === selectedTeamTab)?.name || "Team"} Tasks`
+                  : "Team Tasks"}
               </h1>
               <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
                 <span>{totalCount} total</span>
@@ -382,6 +403,62 @@ export function TeamTasksContent({
             </Link>
           </Button>
         </div>
+
+        {/* Team Tabs */}
+        {teams.length > 1 && (
+          <div className="flex items-center gap-1 overflow-x-auto rounded-lg border bg-card/50 p-1.5">
+            <button
+              onClick={() => { setSelectedTeamTab("all"); setFilterTeam("all"); }}
+              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all whitespace-nowrap ${
+                selectedTeamTab === "all"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+              }`}
+            >
+              <Users className="h-3.5 w-3.5" />
+              All Teams
+              <span className={`ml-0.5 rounded-full px-1.5 py-0 text-[10px] font-semibold ${
+                selectedTeamTab === "all"
+                  ? "bg-primary-foreground/20 text-primary-foreground"
+                  : "bg-muted text-muted-foreground"
+              }`}>
+                {tasks.length}
+              </span>
+            </button>
+            {teams.map((team) => {
+              const stats = teamTabStats.get(team.id);
+              const count = stats?.total || 0;
+              const hasUrgent = (stats?.urgent || 0) > 0;
+              const hasOverdue = (stats?.overdue || 0) > 0;
+              return (
+                <button
+                  key={team.id}
+                  onClick={() => { setSelectedTeamTab(team.id); setFilterTeam("all"); }}
+                  className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all whitespace-nowrap ${
+                    selectedTeamTab === team.id
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  }`}
+                >
+                  {team.name}
+                  <span className={`ml-0.5 rounded-full px-1.5 py-0 text-[10px] font-semibold ${
+                    selectedTeamTab === team.id
+                      ? "bg-primary-foreground/20 text-primary-foreground"
+                      : "bg-muted text-muted-foreground"
+                  }`}>
+                    {count}
+                  </span>
+                  {hasOverdue && selectedTeamTab !== team.id && (
+                    <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+                  )}
+                  {hasUrgent && !hasOverdue && selectedTeamTab !== team.id && (
+                    <span className="h-1.5 w-1.5 rounded-full bg-orange-500" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {/* Toolbar */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-lg border bg-card/50 p-2">
@@ -518,19 +595,21 @@ export function TeamTasksContent({
               className="overflow-hidden"
             >
               <div className="flex flex-wrap gap-2 rounded-lg border bg-muted/20 p-3">
-                <Select value={filterTeam} onValueChange={setFilterTeam}>
-                  <SelectTrigger className="h-8 w-44 text-xs">
-                    <SelectValue placeholder="Team" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Teams</SelectItem>
-                    {teams.map((t) => (
-                      <SelectItem key={t.id} value={t.id}>
-                        {t.name} ({t.department.name})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {selectedTeamTab === "all" && (
+                  <Select value={filterTeam} onValueChange={setFilterTeam}>
+                    <SelectTrigger className="h-8 w-44 text-xs">
+                      <SelectValue placeholder="Team" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Teams</SelectItem>
+                      {teams.map((t) => (
+                        <SelectItem key={t.id} value={t.id}>
+                          {t.name} ({t.department.name})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
                 <Select
                   value={filterStatus}
                   onValueChange={setFilterStatus}
@@ -596,7 +675,11 @@ export function TeamTasksContent({
         {view === "kanban" && (
           <KanbanView tasks={filtered} onStatusChange={handleInlineUpdate} />
         )}
-        {view === "workload" && <WorkloadView tasks={workloadTasks} />}
+        {view === "workload" && (
+          <WorkloadView
+            tasks={selectedTeamTab !== "all" ? workloadTasks.filter((t) => t.teamId === selectedTeamTab) : workloadTasks}
+          />
+        )}
       </div>
     </PageTransition>
   );
