@@ -692,192 +692,263 @@ function TableView({
     );
   }
 
+  // Rotating accent colors for assignee groups (monday.com style)
+  const groupColors = [
+    "border-l-blue-500",
+    "border-l-emerald-500",
+    "border-l-violet-500",
+    "border-l-orange-500",
+    "border-l-pink-500",
+    "border-l-cyan-500",
+  ];
+  const groupHeaderColors = [
+    "text-blue-600",
+    "text-emerald-600",
+    "text-violet-600",
+    "text-orange-600",
+    "text-pink-600",
+    "text-cyan-600",
+  ];
+
+  let colorIdx = 0;
+
   return (
-    <div className="space-y-5">
-      {teamGroups.map(([teamId, group]) => (
-        <Card key={teamId}>
-          <div className="flex items-center gap-2 px-4 py-3 border-b bg-muted/20">
-            <h3 className="font-semibold text-sm">{group.teamName}</h3>
-            <span className="text-xs text-muted-foreground">
-              {group.deptName}
-            </span>
-            <span className="ml-auto text-xs text-muted-foreground">
-              {group.tasks.length} task{group.tasks.length !== 1 ? "s" : ""}
-            </span>
-          </div>
-
-          {group.assigneeGroups.map((ag, agIdx) => (
-            <div key={ag.assigneeId || "__unassigned__"}>
-              <div className={`flex items-center gap-2 px-4 py-2.5 border-b bg-muted/30 ${agIdx > 0 ? "border-t-2 border-t-muted" : ""}`}>
-                {ag.assigneeId ? (
-                  <>
-                    <Avatar className="h-5 w-5">
-                      <AvatarFallback className="text-[9px]">
-                        {ag.assigneeInitials}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="text-xs font-medium">{ag.assigneeName}</span>
-                  </>
-                ) : (
-                  <span className="text-xs font-medium text-muted-foreground">Unassigned</span>
-                )}
-                <span className="text-[10px] text-muted-foreground">
-                  {ag.tasks.length}
-                </span>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <AnimatedTableBody>
-                    {ag.tasks.map((task) => (
-                      <AnimatedRow
-                        key={task.id}
-                        className="border-b last:border-0 hover:bg-muted/20 transition-colors"
-                      >
-                        <td className="px-4 py-2.5">
-                          <EditableTitle
-                            value={task.title}
-                            onSave={(v) => onUpdate(task.id, "title", v)}
-                          />
-                        </td>
-                        {isCol("status") && (
-                          <td className="px-3 py-2.5">
-                            <Select
-                              value={task.status}
-                              onValueChange={(v) =>
-                                onUpdate(task.id, "status", v)
-                              }
-                            >
-                              <SelectTrigger className="h-7 w-28 text-xs border-0 bg-transparent px-0">
-                                <Badge
-                                  variant="outline"
-                                  className={`text-[10px] px-2 py-0.5 ${statusColors[task.status] || ""}`}
-                                >
-                                  {statusLabels[task.status] || task.status}
-                                </Badge>
-                              </SelectTrigger>
-                              <SelectContent>
-                                {statusColumnOrder.map((s) => (
-                                  <SelectItem key={s} value={s}>
-                                    {statusLabels[s]}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </td>
-                        )}
-                        {isCol("priority") && (
-                          <td className="px-3 py-2.5">
-                            <Select
-                              value={task.priority}
-                              onValueChange={(v) =>
-                                onUpdate(task.id, "priority", v)
-                              }
-                            >
-                              <SelectTrigger className="h-7 w-24 text-xs border-0 bg-transparent px-0">
-                                <Badge
-                                  className={`text-[10px] px-2 py-0.5 ${priorityColors[task.priority] || ""}`}
-                                >
-                                  {task.priority}
-                                </Badge>
-                              </SelectTrigger>
-                              <SelectContent>
-                                {["LOW", "MEDIUM", "HIGH", "URGENT"].map((p) => (
-                                  <SelectItem key={p} value={p}>
-                                    {p}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </td>
-                        )}
-                        {isCol("assignee") && (
-                          <td className="px-3 py-2.5">
-                            <Select
-                              value={task.assigneeId || "unassigned"}
-                              onValueChange={(v) =>
-                                onUpdate(
-                                  task.id,
-                                  "assigneeId",
-                                  v === "unassigned" ? "" : v
-                                )
-                              }
-                            >
-                              <SelectTrigger className="h-7 w-32 text-xs border-0 bg-transparent px-0">
-                                {task.assigneeName ? (
-                                  <div className="flex items-center gap-1.5">
-                                    <Avatar className="h-5 w-5">
-                                      <AvatarFallback className="text-[9px]">
-                                        {task.assigneeInitials}
-                                      </AvatarFallback>
-                                    </Avatar>
-                                    <span className="truncate text-xs">
-                                      {task.assigneeName}
-                                    </span>
-                                  </div>
-                                ) : (
-                                  <span className="text-muted-foreground text-xs">
-                                    --
-                                  </span>
-                                )}
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="unassigned">
-                                  Unassigned
-                                </SelectItem>
-                                {users.map((u) => (
-                                  <SelectItem key={u.id} value={u.id}>
-                                    {u.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </td>
-                        )}
-                        {isCol("due") && (
-                          <td className="px-3 py-2.5">
-                            {task.dueDate ? (
-                              <span
-                                className={`text-xs ${
-                                  isOverdue(task.dueDate)
-                                    ? "text-red-600 font-medium"
-                                    : "text-muted-foreground"
-                                }`}
-                              >
-                                {formatDate(task.dueDate)}
-                              </span>
-                            ) : (
-                              <span className="text-xs text-muted-foreground">
-                                --
-                              </span>
-                            )}
-                          </td>
-                        )}
-                        {isCol("info") && (
-                          <td className="px-3 py-2.5">
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                              {task.commentCount > 0 && (
-                                <span className="flex items-center gap-0.5 text-xs">
-                                  <MessageSquare className="h-3 w-3" />
-                                  {task.commentCount}
-                                </span>
-                              )}
-                              {task.dueDate && isOverdue(task.dueDate) && (
-                                <AlertTriangle className="h-3 w-3 text-red-500" />
-                              )}
-                            </div>
-                          </td>
-                        )}
-                      </AnimatedRow>
-                    ))}
-                  </AnimatedTableBody>
-                </table>
-              </div>
+    <div className="space-y-6">
+      {teamGroups.map(([teamId, group]) => {
+        return (
+          <div key={teamId}>
+            {/* Team header */}
+            <div className="flex items-center gap-2 mb-4">
+              <h3 className="font-bold text-base">{group.teamName}</h3>
+              <span className="text-xs text-muted-foreground">
+                {group.deptName}
+              </span>
+              <span className="ml-auto text-xs text-muted-foreground">
+                {group.tasks.length} task{group.tasks.length !== 1 ? "s" : ""}
+              </span>
             </div>
-          ))}
 
-          <InlineAddRow teamId={teamId} onCreated={onTaskAdded} />
-        </Card>
-      ))}
+            {/* Assignee groups with spacing */}
+            <div className="space-y-8">
+              {group.assigneeGroups.map((ag) => {
+                const accent = groupColors[colorIdx % groupColors.length];
+                const headerColor = groupHeaderColors[colorIdx % groupHeaderColors.length];
+                colorIdx++;
+
+                return (
+                  <div key={ag.assigneeId || "__unassigned__"}>
+                    {/* Assignee group header — bold, colored, like monday.com */}
+                    <div className="flex items-center gap-2 mb-2">
+                      {ag.assigneeId ? (
+                        <>
+                          <Avatar className="h-6 w-6">
+                            <AvatarFallback className="text-[10px]">
+                              {ag.assigneeInitials}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className={`text-sm font-semibold ${headerColor}`}>
+                            {ag.assigneeName}
+                          </span>
+                        </>
+                      ) : (
+                        <span className={`text-sm font-semibold ${headerColor}`}>
+                          Unassigned
+                        </span>
+                      )}
+                      <span className="text-xs text-muted-foreground">
+                        {ag.tasks.length} task{ag.tasks.length !== 1 ? "s" : ""}
+                      </span>
+                    </div>
+
+                    {/* Table header row */}
+                    <div className="overflow-x-auto rounded-lg border bg-card">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b bg-muted/30">
+                            <th className="pl-6 pr-3 py-2 text-left font-medium text-muted-foreground text-xs">
+                              Title
+                            </th>
+                            {isCol("status") && (
+                              <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs">
+                                Status
+                              </th>
+                            )}
+                            {isCol("priority") && (
+                              <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs">
+                                Priority
+                              </th>
+                            )}
+                            {isCol("assignee") && (
+                              <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs">
+                                Assignee
+                              </th>
+                            )}
+                            {isCol("due") && (
+                              <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs">
+                                Due
+                              </th>
+                            )}
+                            {isCol("info") && (
+                              <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs w-16" />
+                            )}
+                          </tr>
+                        </thead>
+                        <AnimatedTableBody>
+                          {ag.tasks.map((task) => (
+                            <AnimatedRow
+                              key={task.id}
+                              className={`border-b last:border-0 border-l-[3px] ${accent} hover:bg-muted/20 transition-colors`}
+                            >
+                              <td className="pl-5 pr-3 py-2.5">
+                                <EditableTitle
+                                  value={task.title}
+                                  onSave={(v) => onUpdate(task.id, "title", v)}
+                                />
+                              </td>
+                              {isCol("status") && (
+                                <td className="px-3 py-2.5">
+                                  <Select
+                                    value={task.status}
+                                    onValueChange={(v) =>
+                                      onUpdate(task.id, "status", v)
+                                    }
+                                  >
+                                    <SelectTrigger className="h-7 w-28 text-xs border-0 bg-transparent px-0">
+                                      <Badge
+                                        variant="outline"
+                                        className={`text-[10px] px-2 py-0.5 ${statusColors[task.status] || ""}`}
+                                      >
+                                        {statusLabels[task.status] || task.status}
+                                      </Badge>
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {statusColumnOrder.map((s) => (
+                                        <SelectItem key={s} value={s}>
+                                          {statusLabels[s]}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </td>
+                              )}
+                              {isCol("priority") && (
+                                <td className="px-3 py-2.5">
+                                  <Select
+                                    value={task.priority}
+                                    onValueChange={(v) =>
+                                      onUpdate(task.id, "priority", v)
+                                    }
+                                  >
+                                    <SelectTrigger className="h-7 w-24 text-xs border-0 bg-transparent px-0">
+                                      <Badge
+                                        className={`text-[10px] px-2 py-0.5 ${priorityColors[task.priority] || ""}`}
+                                      >
+                                        {task.priority}
+                                      </Badge>
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {["LOW", "MEDIUM", "HIGH", "URGENT"].map((p) => (
+                                        <SelectItem key={p} value={p}>
+                                          {p}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </td>
+                              )}
+                              {isCol("assignee") && (
+                                <td className="px-3 py-2.5">
+                                  <Select
+                                    value={task.assigneeId || "unassigned"}
+                                    onValueChange={(v) =>
+                                      onUpdate(
+                                        task.id,
+                                        "assigneeId",
+                                        v === "unassigned" ? "" : v
+                                      )
+                                    }
+                                  >
+                                    <SelectTrigger className="h-7 w-32 text-xs border-0 bg-transparent px-0">
+                                      {task.assigneeName ? (
+                                        <div className="flex items-center gap-1.5">
+                                          <Avatar className="h-5 w-5">
+                                            <AvatarFallback className="text-[9px]">
+                                              {task.assigneeInitials}
+                                            </AvatarFallback>
+                                          </Avatar>
+                                          <span className="truncate text-xs">
+                                            {task.assigneeName}
+                                          </span>
+                                        </div>
+                                      ) : (
+                                        <span className="text-muted-foreground text-xs">
+                                          --
+                                        </span>
+                                      )}
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="unassigned">
+                                        Unassigned
+                                      </SelectItem>
+                                      {users.map((u) => (
+                                        <SelectItem key={u.id} value={u.id}>
+                                          {u.name}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </td>
+                              )}
+                              {isCol("due") && (
+                                <td className="px-3 py-2.5">
+                                  {task.dueDate ? (
+                                    <span
+                                      className={`text-xs ${
+                                        isOverdue(task.dueDate)
+                                          ? "text-red-600 font-medium"
+                                          : "text-muted-foreground"
+                                      }`}
+                                    >
+                                      {formatDate(task.dueDate)}
+                                    </span>
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground">
+                                      --
+                                    </span>
+                                  )}
+                                </td>
+                              )}
+                              {isCol("info") && (
+                                <td className="px-3 py-2.5">
+                                  <div className="flex items-center gap-2 text-muted-foreground">
+                                    {task.commentCount > 0 && (
+                                      <span className="flex items-center gap-0.5 text-xs">
+                                        <MessageSquare className="h-3 w-3" />
+                                        {task.commentCount}
+                                      </span>
+                                    )}
+                                    {task.dueDate && isOverdue(task.dueDate) && (
+                                      <AlertTriangle className="h-3 w-3 text-red-500" />
+                                    )}
+                                  </div>
+                                </td>
+                              )}
+                            </AnimatedRow>
+                          ))}
+                        </AnimatedTableBody>
+                      </table>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="mt-3">
+              <InlineAddRow teamId={teamId} onCreated={onTaskAdded} />
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
