@@ -25,6 +25,18 @@ export async function inviteUser(input: z.infer<typeof inviteSchema>): Promise<A
 
   const existingUser = await db.user.findUnique({ where: { email } });
   if (existingUser) {
+    if (!existingUser.isActive) {
+      // Reactivate the deactivated user with the new role/department
+      await db.user.update({
+        where: { id: existingUser.id },
+        data: {
+          isActive: true,
+          role: role as Role,
+          ...(departmentId ? { departmentId } : {}),
+        },
+      });
+      return { success: true };
+    }
     return { success: false, error: "User with this email already exists" };
   }
 
