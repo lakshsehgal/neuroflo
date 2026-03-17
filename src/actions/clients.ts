@@ -244,7 +244,11 @@ export async function getClientMandatesDashboardData() {
         id: true,
         name: true,
         mandates: true,
+        industry: true,
+        sentimentStatus: true,
         avgBillingAmount: true,
+        oneTimeProjectAmount: true,
+        createdAt: true,
         primaryPerformanceOwner: {
           select: {
             id: true,
