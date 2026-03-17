@@ -12,9 +12,15 @@ export async function login(
   password: string
 ): Promise<{ error?: string }> {
   try {
-    const user = await db.user.findUnique({ where: { email } });
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = await db.user.findUnique({ where: { email: normalizedEmail } });
     if (!user || !user.isActive) {
       return { error: "Invalid email or password" };
+    }
+
+    if (!user.passwordHash) {
+      console.error(`[login] User ${user.id} has no passwordHash`);
+      return { error: "Invalid email or password. Please reset your password." };
     }
 
     const isValid = await bcrypt.compare(password, user.passwordHash);
@@ -32,7 +38,8 @@ export async function login(
 
     await setSessionCookie(token);
     return {};
-  } catch {
+  } catch (err) {
+    console.error("[login] Unexpected error:", err);
     return { error: "Something went wrong. Please try again." };
   }
 }
@@ -136,7 +143,8 @@ export async function requestPasswordReset(email: string): Promise<ActionRespons
     return { success: false, error: "Invalid email" };
   }
 
-  const user = await db.user.findUnique({ where: { email } });
+  const normalizedEmail = email.trim().toLowerCase();
+  const user = await db.user.findUnique({ where: { email: normalizedEmail } });
   // Always return success to prevent email enumeration
   if (!user || !user.isActive) {
     return { success: true };
