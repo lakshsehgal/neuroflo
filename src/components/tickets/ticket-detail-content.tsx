@@ -573,9 +573,9 @@ export function TicketDetailContent({
         </div>
 
         {/* ── Right sidebar ── */}
-        <div className="space-y-5">
+        <div className="space-y-5 sticky top-6 max-h-[calc(100vh-3rem)] overflow-y-auto pb-4">
           {/* Properties card */}
-          <Card className="shadow-sm border-border/60 sticky top-6">
+          <Card className="shadow-sm border-border/60">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold text-foreground">Properties</CardTitle>
             </CardHeader>
