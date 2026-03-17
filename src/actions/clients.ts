@@ -232,6 +232,78 @@ export async function deleteInvoice(id: string): Promise<ActionResponse> {
   return { success: true };
 }
 
+// Dashboard data for Client Mandates — accessible to all authenticated users
+export async function getClientMandatesDashboardData() {
+  const { requireAuth } = await import("@/lib/permissions");
+  await requireAuth();
+
+  const [clients, departments, teams, teamMembers] = await Promise.all([
+    db.client.findMany({
+      where: { status: "ACTIVE" },
+      select: {
+        id: true,
+        name: true,
+        mandates: true,
+        avgBillingAmount: true,
+        primaryPerformanceOwner: {
+          select: {
+            id: true,
+            name: true,
+            departmentId: true,
+            department: { select: { id: true, name: true } },
+          },
+        },
+        secondaryPerformanceOwner: {
+          select: {
+            id: true,
+            name: true,
+            departmentId: true,
+            department: { select: { id: true, name: true } },
+          },
+        },
+        creativeStrategyOwner: {
+          select: {
+            id: true,
+            name: true,
+            departmentId: true,
+            department: { select: { id: true, name: true } },
+          },
+        },
+      },
+      orderBy: { name: "asc" },
+    }),
+    db.department.findMany({
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
+    db.team.findMany({
+      select: {
+        id: true,
+        name: true,
+        departmentId: true,
+        department: { select: { id: true, name: true } },
+      },
+      orderBy: { name: "asc" },
+    }),
+    db.teamMember.findMany({
+      select: {
+        userId: true,
+        role: true,
+        team: {
+          select: {
+            id: true,
+            name: true,
+            departmentId: true,
+            department: { select: { id: true, name: true } },
+          },
+        },
+      },
+    }),
+  ]);
+
+  return { clients, departments, teams, teamMembers };
+}
+
 // Get active users for owner assignment dropdowns
 export async function getClientOwnerCandidates() {
   await requireRole("OPERATOR");

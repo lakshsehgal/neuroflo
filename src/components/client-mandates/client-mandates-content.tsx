@@ -10,8 +10,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { PageTransition, AnimatedTableBody, AnimatedRow } from "@/components/motion";
-import { Search, Building2, FileText, X } from "lucide-react";
+import { AnimatedTableBody, AnimatedRow } from "@/components/motion";
+import { Search, FileText, X } from "lucide-react";
 
 type ClientMandate = {
   id: string;
@@ -52,19 +52,7 @@ export function ClientMandatesContent({
   const allMandates = Array.from(new Set(clients.flatMap((c) => c.mandates))).sort();
 
   return (
-    <PageTransition>
-      <div className="space-y-6">
-        {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Building2 className="h-6 w-6 text-primary" />
-            Client Mandates
-          </h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Active clients, their mandates, and scope of work — visible to everyone.
-          </p>
-        </div>
-
+      <div className="space-y-6 mt-4">
         {/* Search + filter */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <div className="relative flex-1 max-w-sm">
@@ -219,6 +207,5 @@ export function ClientMandatesContent({
           </DialogContent>
         </Dialog>
       </div>
-    </PageTransition>
   );
 }
