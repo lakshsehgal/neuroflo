@@ -110,10 +110,27 @@ const ALL_COLUMNS = [
   { key: "commercials", label: "Commercials", required: false },
   { key: "invoiceDue", label: "Invoice Due", required: false },
   { key: "nextInvoice", label: "Next Invoice", required: false },
+  { key: "engagement", label: "Engagement Start", required: false },
+  { key: "retention", label: "Retention", required: false },
   { key: "actions", label: "", required: true },
 ];
 
-const DEFAULT_VISIBLE = ["client", "status", "perfSentiment", "creativeSentiment", "mandates", "primaryPerf", "secondaryPerf", "creativeStrategy", "avgBilling", "oneTimeProject", "commercials", "invoiceDue", "nextInvoice", "actions"];
+const DEFAULT_VISIBLE = ["client", "status", "perfSentiment", "creativeSentiment", "mandates", "primaryPerf", "secondaryPerf", "creativeStrategy", "avgBilling", "oneTimeProject", "commercials", "invoiceDue", "nextInvoice", "engagement", "retention", "actions"];
+
+function formatRetention(startDate: Date | string | null): string {
+  if (!startDate) return "—";
+  const start = new Date(startDate);
+  const now = new Date();
+  const diffMs = now.getTime() - start.getTime();
+  if (diffMs < 0) return "Not started";
+  const totalDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  const years = Math.floor(totalDays / 365);
+  const months = Math.floor((totalDays % 365) / 30);
+  const days = totalDays % 30;
+  if (years > 0) return `${years}y ${months}m`;
+  if (months > 0) return `${months}m ${days}d`;
+  return `${days}d`;
+}
 
 const MANDATE_OPTIONS = [
   "Meta Ads",
@@ -154,6 +171,7 @@ type ClientData = {
   mandates: string[];
   invoicingDueDay: number | null;
   reminderDaysBefore: number;
+  engagementStartDate: Date | string | null;
   primaryPerformanceOwnerId: string | null;
   primaryPerformanceOwner: OwnerInfo;
   secondaryPerformanceOwnerId: string | null;
@@ -245,6 +263,7 @@ export function ClientsManagement({ clients: initialClients, reminders, thisMont
     avgBillingAmount: "", oneTimeProjectAmount: "", decidedCommercials: "",
     invoicingDueDay: "", reminderDaysBefore: "3",
     mandates: [] as string[],
+    engagementStartDate: "",
   });
 
   function handleSubmit(e: React.FormEvent) {
@@ -268,6 +287,7 @@ export function ClientsManagement({ clients: initialClients, reminders, thisMont
         invoicingDueDay: form.invoicingDueDay ? parseInt(form.invoicingDueDay) : null,
         reminderDaysBefore: parseInt(form.reminderDaysBefore) || 3,
         mandates: form.mandates.length > 0 ? form.mandates : undefined,
+        engagementStartDate: form.engagementStartDate || undefined,
       });
       if (result.success) {
         setDialogOpen(false);
@@ -278,6 +298,7 @@ export function ClientsManagement({ clients: initialClients, reminders, thisMont
           avgBillingAmount: "", oneTimeProjectAmount: "", decidedCommercials: "",
           invoicingDueDay: "", reminderDaysBefore: "3",
           mandates: [],
+          engagementStartDate: "",
         });
       }
     });
@@ -443,6 +464,10 @@ export function ClientsManagement({ clients: initialClients, reminders, thisMont
                       <Label>Reminder Days Before</Label>
                       <Input type="number" value={form.reminderDaysBefore} onChange={(e) => setForm({ ...form, reminderDaysBefore: e.target.value })} />
                     </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Engagement Start Date</Label>
+                    <Input type="date" value={form.engagementStartDate} onChange={(e) => setForm({ ...form, engagementStartDate: e.target.value })} />
                   </div>
                   <Button type="submit" className="w-full" disabled={isPending}>
                     {isPending ? "Creating..." : "Create Client"}
@@ -682,6 +707,8 @@ function ClientsTab({
                 {isColVisible("commercials") && <th className="px-3 py-3 text-left text-xs font-medium">Commercials</th>}
                 {isColVisible("invoiceDue") && <th className="px-3 py-3 text-left text-xs font-medium">Invoice Due</th>}
                 {isColVisible("nextInvoice") && <th className="px-3 py-3 text-left text-xs font-medium">Next Invoice</th>}
+                {isColVisible("engagement") && <th className="px-3 py-3 text-left text-xs font-medium">Engagement Start</th>}
+                {isColVisible("retention") && <th className="px-3 py-3 text-left text-xs font-medium">Retention</th>}
                 <th className="px-3 py-3 text-left text-xs font-medium w-10"></th>
               </tr>
             </thead>
@@ -822,6 +849,21 @@ function ClientsTab({
                             <p className="text-xs text-muted-foreground mt-0.5">{formatDate(nextInvoice.dueDate)}</p>
                           </div>
                         ) : <span className="text-xs text-muted-foreground">—</span>}
+                      </td>
+                    )}
+                    {isColVisible("engagement") && (
+                      <td className="px-3 py-2.5">
+                        <Input
+                          type="date"
+                          className="h-7 w-[130px] text-xs border-0 bg-transparent hover:bg-muted/40 px-1 focus:ring-0"
+                          value={client.engagementStartDate ? new Date(client.engagementStartDate).toISOString().split("T")[0] : ""}
+                          onChange={(e) => handleInlineUpdate(client.id, "engagementStartDate", e.target.value || null)}
+                        />
+                      </td>
+                    )}
+                    {isColVisible("retention") && (
+                      <td className="px-3 py-2.5">
+                        <span className="text-xs font-medium text-muted-foreground">{formatRetention(client.engagementStartDate)}</span>
                       </td>
                     )}
                     <td className="px-3 py-2.5">

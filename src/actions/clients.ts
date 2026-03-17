@@ -25,6 +25,7 @@ const clientSchema = z.object({
   mandates: z.array(z.string()).optional(),
   performanceSentiment: z.enum(["HAPPY", "NEUTRAL", "AT_RISK", "CHURNED"]).optional(),
   creativeSentiment: z.enum(["HAPPY", "NEUTRAL", "AT_RISK", "CHURNED"]).optional(),
+  engagementStartDate: z.string().optional(),
 });
 
 export async function createClient(
@@ -35,7 +36,13 @@ export async function createClient(
   const parsed = clientSchema.safeParse(input);
   if (!parsed.success) return { success: false, error: "Invalid input" };
 
-  const client = await db.client.create({ data: parsed.data });
+  const { engagementStartDate, ...rest } = parsed.data;
+  const client = await db.client.create({
+    data: {
+      ...rest,
+      engagementStartDate: engagementStartDate ? new Date(engagementStartDate) : undefined,
+    },
+  });
 
   revalidatePath("/admin/clients");
   return { success: true, data: { id: client.id } };
@@ -50,7 +57,14 @@ export async function updateClient(
   const parsed = clientSchema.safeParse(input);
   if (!parsed.success) return { success: false, error: "Invalid input" };
 
-  await db.client.update({ where: { id }, data: parsed.data });
+  const { engagementStartDate: esd, ...updateRest } = parsed.data;
+  await db.client.update({
+    where: { id },
+    data: {
+      ...updateRest,
+      engagementStartDate: esd ? new Date(esd) : undefined,
+    },
+  });
 
   revalidatePath("/admin/clients");
   revalidatePath(`/admin/clients/${id}`);
@@ -72,12 +86,14 @@ export async function updateClientField(
     "website", "industry", "name", "mandates",
     "primaryPerformanceOwnerId", "secondaryPerformanceOwnerId", "creativeStrategyOwnerId",
     "performanceSentiment", "creativeSentiment",
+    "engagementStartDate",
   ];
   if (!allowedFields.includes(field)) {
     return { success: false, error: "Invalid field" };
   }
 
-  await db.client.update({ where: { id }, data: { [field]: value } });
+  const dbValue = field === "engagementStartDate" && typeof value === "string" ? new Date(value) : value;
+  await db.client.update({ where: { id }, data: { [field]: dbValue } });
 
   revalidatePath("/admin/clients");
   revalidatePath(`/admin/clients/${id}`);

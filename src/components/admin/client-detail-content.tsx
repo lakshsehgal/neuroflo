@@ -121,6 +121,7 @@ export function ClientDetailContent({ client: initial, onboarding: initialOnboar
     invoicingDueDay: client.invoicingDueDay?.toString() || "",
     reminderDaysBefore: client.reminderDaysBefore.toString(),
     notes: client.notes || "",
+    engagementStartDate: client.engagementStartDate ? new Date(client.engagementStartDate).toISOString().split("T")[0] : "",
   });
 
   // Invoice form
@@ -142,6 +143,7 @@ export function ClientDetailContent({ client: initial, onboarding: initialOnboar
         invoicingDueDay: form.invoicingDueDay ? parseInt(form.invoicingDueDay) : null,
         reminderDaysBefore: parseInt(form.reminderDaysBefore) || 3,
         notes: form.notes || undefined,
+        engagementStartDate: form.engagementStartDate || undefined,
       });
       setEditing(false);
     });
@@ -321,6 +323,10 @@ export function ClientDetailContent({ client: initial, onboarding: initialOnboar
                     </div>
                   </div>
                   <div className="space-y-2">
+                    <Label>Engagement Start Date</Label>
+                    <Input type="date" value={form.engagementStartDate} onChange={(e) => setForm({ ...form, engagementStartDate: e.target.value })} />
+                  </div>
+                  <div className="space-y-2">
                     <Label>Notes</Label>
                     <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={2} />
                   </div>
@@ -361,6 +367,14 @@ export function ClientDetailContent({ client: initial, onboarding: initialOnboar
                   <div>
                     <p className="text-xs text-muted-foreground">Invoice Due Day</p>
                     <p className="mt-1 text-sm">{client.invoicingDueDay ? `Day ${client.invoicingDueDay} of month` : "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Engagement Start</p>
+                    <p className="mt-1 text-sm">{client.engagementStartDate ? new Date(client.engagementStartDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Retention Period</p>
+                    <p className="mt-1 text-sm font-medium">{client.engagementStartDate ? (() => { const start = new Date(client.engagementStartDate); const now = new Date(); const days = Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)); const y = Math.floor(days / 365); const m = Math.floor((days % 365) / 30); const d = days % 30; return y > 0 ? `${y}y ${m}m` : m > 0 ? `${m}m ${d}d` : `${d}d`; })() : "—"}</p>
                   </div>
                   {client.sow && (
                     <div className="col-span-2">

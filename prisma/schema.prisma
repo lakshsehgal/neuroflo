@@ -488,6 +488,7 @@ model Client {
   decidedCommercials     String?
   invoicingDueDay        Int?
   reminderDaysBefore  Int             @default(3)
+  engagementStartDate DateTime?
   createdAt           DateTime        @default(now())
   updatedAt           DateTime        @updatedAt
 
