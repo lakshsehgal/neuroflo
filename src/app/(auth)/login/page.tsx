@@ -26,16 +26,24 @@ export default function LoginPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
-      const data = await res.json();
+
+      let data;
+      try {
+        data = await res.json();
+      } catch {
+        setError(`Server error (${res.status}). Please try again.`);
+        setLoading(false);
+        return;
+      }
 
       if (!res.ok || data.error) {
-        setError(data.error || "Something went wrong. Please try again.");
+        setError(data.error || `Error (${res.status}). Please try again.`);
         setLoading(false);
       } else {
         router.push("/dashboard");
       }
-    } catch {
-      setError("Something went wrong. Please try again.");
+    } catch (err) {
+      setError(`Connection error: ${err instanceof Error ? err.message : "Unknown"}`);
       setLoading(false);
     }
   }
