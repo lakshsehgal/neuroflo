@@ -37,6 +37,8 @@ import {
   AlertTriangle,
   Settings2,
   Check,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import Link from "next/link";
 import { formatDate, isOverdue } from "@/lib/utils";
@@ -678,6 +680,19 @@ function TableView({
   visibleColumns: string[];
 }) {
   const isCol = (key: string) => visibleColumns.includes(key);
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+
+  const toggleGroup = useCallback((groupKey: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(groupKey)) {
+        next.delete(groupKey);
+      } else {
+        next.add(groupKey);
+      }
+      return next;
+    });
+  }, []);
 
   if (teamGroups.length === 0) {
     return (
@@ -735,10 +750,24 @@ function TableView({
                 const headerColor = groupHeaderColors[colorIdx % groupHeaderColors.length];
                 colorIdx++;
 
+                const groupKey = `${teamId}__${ag.assigneeId || "__unassigned__"}`;
+                const isCollapsed = collapsedGroups.has(groupKey);
+
                 return (
                   <div key={ag.assigneeId || "__unassigned__"}>
-                    {/* Assignee group header — bold, colored, like monday.com */}
-                    <div className="flex items-center gap-2 mb-2">
+                    {/* Assignee group header — bold, colored, clickable to collapse */}
+                    <button
+                      type="button"
+                      onClick={() => toggleGroup(groupKey)}
+                      className="flex items-center gap-2 mb-2 w-full text-left group cursor-pointer hover:opacity-80 transition-opacity"
+                    >
+                      <motion.span
+                        animate={{ rotate: isCollapsed ? 0 : 90 }}
+                        transition={{ duration: 0.15 }}
+                        className={`${headerColor}`}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </motion.span>
                       {ag.assigneeId ? (
                         <>
                           <Avatar className="h-6 w-6">
@@ -758,9 +787,18 @@ function TableView({
                       <span className="text-xs text-muted-foreground">
                         {ag.tasks.length} task{ag.tasks.length !== 1 ? "s" : ""}
                       </span>
-                    </div>
+                    </button>
 
-                    {/* Table header row */}
+                    {/* Collapsible table */}
+                    <AnimatePresence initial={false}>
+                    {!isCollapsed && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.2, ease: "easeInOut" }}
+                      className="overflow-hidden"
+                    >
                     <div className="overflow-x-auto rounded-lg border bg-card">
                       <table className="w-full text-sm">
                         <thead>
@@ -938,6 +976,9 @@ function TableView({
                         </AnimatedTableBody>
                       </table>
                     </div>
+                    </motion.div>
+                    )}
+                    </AnimatePresence>
                   </div>
                 );
               })}
