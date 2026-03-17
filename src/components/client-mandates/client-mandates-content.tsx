@@ -18,6 +18,9 @@ type ClientMandate = {
   name: string;
   mandates: string[];
   sow: string | null;
+  primaryPerformanceOwner: { id: string; name: string } | null;
+  secondaryPerformanceOwner: { id: string; name: string } | null;
+  creativeStrategyOwner: { id: string; name: string } | null;
 };
 
 const MANDATE_COLORS: Record<string, string> = {
@@ -116,6 +119,15 @@ export function ClientMandatesContent({
                     Mandates
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
+                    Primary Perf. Owner
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
+                    Secondary Perf. Owner
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
+                    Creative Strategy Owner
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
                     Scope of Work
                   </th>
                 </tr>
@@ -123,7 +135,7 @@ export function ClientMandatesContent({
               <AnimatedTableBody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={3} className="px-4 py-12 text-center text-muted-foreground">
+                    <td colSpan={6} className="px-4 py-12 text-center text-muted-foreground">
                       No clients found
                     </td>
                   </tr>
@@ -159,6 +171,15 @@ export function ClientMandatesContent({
                             ))}
                           </div>
                         )}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">
+                        {client.primaryPerformanceOwner?.name || "—"}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">
+                        {client.secondaryPerformanceOwner?.name || "—"}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">
+                        {client.creativeStrategyOwner?.name || "—"}
                       </td>
                       <td className="px-4 py-3">
                         {client.sow ? (

@@ -67,6 +67,7 @@ export async function updateClientField(
     "decidedCommercials", "invoicingDueDay", "reminderDaysBefore",
     "sow", "notes", "contactName", "contactEmail", "contactPhone",
     "website", "industry", "name", "mandates",
+    "primaryPerformanceOwnerId", "secondaryPerformanceOwnerId", "creativeStrategyOwnerId",
   ];
   if (!allowedFields.includes(field)) {
     return { success: false, error: "Invalid field" };
@@ -106,6 +107,9 @@ export async function getClientMandatesView() {
       name: true,
       mandates: true,
       sow: true,
+      primaryPerformanceOwner: { select: { id: true, name: true } },
+      secondaryPerformanceOwner: { select: { id: true, name: true } },
+      creativeStrategyOwner: { select: { id: true, name: true } },
     },
     orderBy: { name: "asc" },
   });
@@ -122,6 +126,9 @@ export async function getClients() {
         orderBy: { dueDate: "asc" },
         take: 1,
       },
+      primaryPerformanceOwner: { select: { id: true, name: true } },
+      secondaryPerformanceOwner: { select: { id: true, name: true } },
+      creativeStrategyOwner: { select: { id: true, name: true } },
     },
     orderBy: { name: "asc" },
   });
@@ -225,6 +232,17 @@ export async function deleteInvoice(id: string): Promise<ActionResponse> {
   return { success: true };
 }
 
+// Get active users for owner assignment dropdowns
+export async function getClientOwnerCandidates() {
+  await requireRole("OPERATOR");
+
+  return db.user.findMany({
+    where: { isActive: true },
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  });
+}
+
 // Revenue forecasting
 export async function getRevenueForecasting() {
   await requireRole("OPERATOR");
@@ -284,6 +302,12 @@ export async function getClientDashboardData() {
         sentimentStatus: true,
         avgBillingAmount: true,
         oneTimeProjectAmount: true,
+        primaryPerformanceOwnerId: true,
+        secondaryPerformanceOwnerId: true,
+        creativeStrategyOwnerId: true,
+        primaryPerformanceOwner: { select: { id: true, name: true } },
+        secondaryPerformanceOwner: { select: { id: true, name: true } },
+        creativeStrategyOwner: { select: { id: true, name: true } },
         _count: { select: { invoices: true, projects: true } },
       },
     }),

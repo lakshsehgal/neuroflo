@@ -1,12 +1,15 @@
-import { getClients, getRevenueForecasting, getUpcomingReminders, getClientDashboardData } from "@/actions/clients";
+import { getClients, getRevenueForecasting, getUpcomingReminders, getClientDashboardData, getClientOwnerCandidates } from "@/actions/clients";
+import { getCurrentUser } from "@/lib/permissions";
 import { ClientsManagement } from "@/components/admin/clients-management";
 
 export default async function AdminClientsPage() {
-  const [clients, revenueData, reminders, dashboardData] = await Promise.all([
+  const [clients, revenueData, reminders, dashboardData, ownerCandidates, currentUser] = await Promise.all([
     getClients(),
     getRevenueForecasting(),
     getUpcomingReminders(),
     getClientDashboardData(),
+    getClientOwnerCandidates(),
+    getCurrentUser(),
   ]);
 
   // Calculate this month's estimated revenue
@@ -67,6 +70,8 @@ export default async function AdminClientsPage() {
       thisMonthRevenue={thisMonthRevenue}
       nextMonthRevenue={nextMonthRevenue}
       dashboardData={dashboardData}
+      ownerCandidates={ownerCandidates}
+      currentUserId={currentUser?.id || ""}
     />
   );
 }

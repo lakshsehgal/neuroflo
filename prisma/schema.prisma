@@ -166,6 +166,11 @@ model User {
   assignedTeamTasks TeamTask[]      @relation("TeamTaskAssignee")
   createdTeamTasks  TeamTask[]      @relation("TeamTaskCreator")
 
+  // Client ownership
+  primaryPerformanceClients   Client[] @relation("ClientPrimaryPerformance")
+  secondaryPerformanceClients Client[] @relation("ClientSecondaryPerformance")
+  creativeStrategyClients     Client[] @relation("ClientCreativeStrategy")
+
   // Google Calendar OAuth
   googleAccessToken  String?
   googleRefreshToken String?
@@ -476,6 +481,14 @@ model Client {
 
   onboardingToken  String?   @unique
   onboardingsentAt DateTime?
+
+  // Owner assignments
+  primaryPerformanceOwnerId    String?
+  primaryPerformanceOwner      User?   @relation("ClientPrimaryPerformance", fields: [primaryPerformanceOwnerId], references: [id])
+  secondaryPerformanceOwnerId  String?
+  secondaryPerformanceOwner    User?   @relation("ClientSecondaryPerformance", fields: [secondaryPerformanceOwnerId], references: [id])
+  creativeStrategyOwnerId      String?
+  creativeStrategyOwner        User?   @relation("ClientCreativeStrategy", fields: [creativeStrategyOwnerId], references: [id])
 
   campaigns  Campaign[]
   projects   Project[]

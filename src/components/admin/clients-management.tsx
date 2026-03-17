@@ -100,6 +100,9 @@ const ALL_COLUMNS = [
   { key: "status", label: "Status", required: false },
   { key: "sentiment", label: "Sentiment", required: false },
   { key: "mandates", label: "Mandates", required: false },
+  { key: "primaryPerf", label: "Primary Perf. Owner", required: false },
+  { key: "secondaryPerf", label: "Secondary Perf. Owner", required: false },
+  { key: "creativeStrategy", label: "Creative Strategy Owner", required: false },
   { key: "sow", label: "SOW", required: false },
   { key: "avgBilling", label: "Avg Billing", required: false },
   { key: "oneTimeProject", label: "One-Time Project", required: false },
@@ -109,7 +112,7 @@ const ALL_COLUMNS = [
   { key: "actions", label: "", required: true },
 ];
 
-const DEFAULT_VISIBLE = ["client", "status", "sentiment", "mandates", "avgBilling", "oneTimeProject", "commercials", "invoiceDue", "nextInvoice", "actions"];
+const DEFAULT_VISIBLE = ["client", "status", "sentiment", "mandates", "primaryPerf", "secondaryPerf", "creativeStrategy", "avgBilling", "oneTimeProject", "commercials", "invoiceDue", "nextInvoice", "actions"];
 
 const MANDATE_OPTIONS = [
   "Meta Ads",
@@ -131,6 +134,8 @@ const MANDATE_COLORS: Record<string, string> = {
   "Statics Only": "bg-slate-100 text-slate-800",
 };
 
+type OwnerInfo = { id: string; name: string } | null;
+
 type ClientData = {
   id: string;
   name: string;
@@ -146,6 +151,12 @@ type ClientData = {
   mandates: string[];
   invoicingDueDay: number | null;
   reminderDaysBefore: number;
+  primaryPerformanceOwnerId: string | null;
+  primaryPerformanceOwner: OwnerInfo;
+  secondaryPerformanceOwnerId: string | null;
+  secondaryPerformanceOwner: OwnerInfo;
+  creativeStrategyOwnerId: string | null;
+  creativeStrategyOwner: OwnerInfo;
   _count: { projects: number; invoices: number };
   invoices: { id: string; dueDate: Date; status: string; amount: number }[];
 };
@@ -175,8 +186,16 @@ type DashboardClient = {
   sentimentStatus: string;
   avgBillingAmount: number | null;
   oneTimeProjectAmount: number | null;
+  primaryPerformanceOwnerId: string | null;
+  secondaryPerformanceOwnerId: string | null;
+  creativeStrategyOwnerId: string | null;
+  primaryPerformanceOwner: OwnerInfo;
+  secondaryPerformanceOwner: OwnerInfo;
+  creativeStrategyOwner: OwnerInfo;
   _count: { invoices: number; projects: number };
 };
+
+type OwnerCandidate = { id: string; name: string };
 
 interface Props {
   clients: ClientData[];
@@ -184,14 +203,17 @@ interface Props {
   thisMonthRevenue: number;
   nextMonthRevenue: number;
   dashboardData: { allInvoices: DashboardInvoice[]; clients: DashboardClient[] };
+  ownerCandidates: OwnerCandidate[];
+  currentUserId: string;
 }
 
-export function ClientsManagement({ clients: initialClients, reminders, thisMonthRevenue, nextMonthRevenue, dashboardData }: Props) {
+export function ClientsManagement({ clients: initialClients, reminders, thisMonthRevenue, nextMonthRevenue, dashboardData, ownerCandidates, currentUserId }: Props) {
   const router = useRouter();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [activeTab, setActiveTab] = useState<"clients" | "churned" | "dashboard">("clients");
   const [clients, setClients] = useState(initialClients);
+  const [myClientsOnly, setMyClientsOnly] = useState(false);
 
   // Column visibility
   const [visibleColumns, setVisibleColumns] = useState<string[]>(() => {
@@ -265,14 +287,25 @@ export function ClientsManagement({ clients: initialClients, reminders, thisMont
     setClients((prev) =>
       prev.map((c) => {
         if (c.id !== clientId) return c;
-        return { ...c, [field]: value };
+        const updated = { ...c, [field]: value };
+        // Also update the resolved owner name for display
+        const ownerFieldMap: Record<string, string> = {
+          primaryPerformanceOwnerId: "primaryPerformanceOwner",
+          secondaryPerformanceOwnerId: "secondaryPerformanceOwner",
+          creativeStrategyOwnerId: "creativeStrategyOwner",
+        };
+        if (ownerFieldMap[field]) {
+          const user = ownerCandidates.find((u) => u.id === value);
+          (updated as Record<string, unknown>)[ownerFieldMap[field]] = user ? { id: user.id, name: user.name } : null;
+        }
+        return updated;
       })
     );
     // Persist
     startTransition(async () => {
       await updateClientField(clientId, field, value);
     });
-  }, []);
+  }, [ownerCandidates]);
 
   const fmt = (n: number) =>
     new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n);
@@ -405,11 +438,32 @@ export function ClientsManagement({ clients: initialClients, reminders, thisMont
               Dashboard
             </button>
           </div>
+          {activeTab !== "dashboard" && (
+            <button
+              onClick={() => setMyClientsOnly(!myClientsOnly)}
+              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium border transition-all ${
+                myClientsOnly
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-background hover:bg-muted border-border text-muted-foreground"
+              }`}
+            >
+              <Eye className="h-3.5 w-3.5" />
+              My Clients
+            </button>
+          )}
         </div>
 
         {activeTab === "clients" ? (
           <ClientsTab
-            clients={clients.filter((c) => c.status !== "CHURNED")}
+            clients={clients.filter((c) => {
+              if (c.status === "CHURNED") return false;
+              if (myClientsOnly) {
+                return c.primaryPerformanceOwnerId === currentUserId
+                  || c.secondaryPerformanceOwnerId === currentUserId
+                  || c.creativeStrategyOwnerId === currentUserId;
+              }
+              return true;
+            })}
             reminders={reminders}
             thisMonthRevenue={thisMonthRevenue}
             nextMonthRevenue={nextMonthRevenue}
@@ -420,10 +474,19 @@ export function ClientsManagement({ clients: initialClients, reminders, thisMont
             handleInlineUpdate={handleInlineUpdate}
             handleDelete={handleDelete}
             router={router}
+            ownerCandidates={ownerCandidates}
           />
         ) : activeTab === "churned" ? (
           <ChurnedTab
-            clients={clients.filter((c) => c.status === "CHURNED")}
+            clients={clients.filter((c) => {
+              if (c.status !== "CHURNED") return false;
+              if (myClientsOnly) {
+                return c.primaryPerformanceOwnerId === currentUserId
+                  || c.secondaryPerformanceOwnerId === currentUserId
+                  || c.creativeStrategyOwnerId === currentUserId;
+              }
+              return true;
+            })}
             handleInlineUpdate={handleInlineUpdate}
             handleDelete={handleDelete}
             router={router}
@@ -440,7 +503,7 @@ export function ClientsManagement({ clients: initialClients, reminders, thisMont
 /* ─── Clients Tab ─── */
 function ClientsTab({
   clients, reminders, thisMonthRevenue, nextMonthRevenue, fmt,
-  visibleColumns, isColVisible, toggleColumn, handleInlineUpdate, handleDelete, router,
+  visibleColumns, isColVisible, toggleColumn, handleInlineUpdate, handleDelete, router, ownerCandidates,
 }: {
   clients: ClientData[];
   reminders: ReminderData[];
@@ -453,6 +516,7 @@ function ClientsTab({
   handleInlineUpdate: (id: string, field: string, value: string | number | null) => void;
   handleDelete: (id: string) => void;
   router: ReturnType<typeof useRouter>;
+  ownerCandidates: OwnerCandidate[];
 }) {
   return (
     <>
@@ -562,6 +626,9 @@ function ClientsTab({
                 {isColVisible("status") && <th className="px-3 py-3 text-left text-xs font-medium">Status</th>}
                 {isColVisible("sentiment") && <th className="px-3 py-3 text-left text-xs font-medium">Sentiment</th>}
                 {isColVisible("mandates") && <th className="px-3 py-3 text-left text-xs font-medium">Mandates</th>}
+                {isColVisible("primaryPerf") && <th className="px-3 py-3 text-left text-xs font-medium">Primary Perf.</th>}
+                {isColVisible("secondaryPerf") && <th className="px-3 py-3 text-left text-xs font-medium">Secondary Perf.</th>}
+                {isColVisible("creativeStrategy") && <th className="px-3 py-3 text-left text-xs font-medium">Creative Strategy</th>}
                 {isColVisible("sow") && <th className="px-3 py-3 text-left text-xs font-medium">SOW</th>}
                 {isColVisible("avgBilling") && <th className="px-3 py-3 text-left text-xs font-medium">Avg Billing</th>}
                 {isColVisible("oneTimeProject") && <th className="px-3 py-3 text-left text-xs font-medium">One-Time</th>}
@@ -619,6 +686,33 @@ function ClientsTab({
                         <MandateSelector
                           clientId={client.id}
                           mandates={client.mandates}
+                        />
+                      </td>
+                    )}
+                    {isColVisible("primaryPerf") && (
+                      <td className="px-3 py-2.5">
+                        <OwnerSelector
+                          value={client.primaryPerformanceOwnerId}
+                          candidates={ownerCandidates}
+                          onSelect={(v) => handleInlineUpdate(client.id, "primaryPerformanceOwnerId", v)}
+                        />
+                      </td>
+                    )}
+                    {isColVisible("secondaryPerf") && (
+                      <td className="px-3 py-2.5">
+                        <OwnerSelector
+                          value={client.secondaryPerformanceOwnerId}
+                          candidates={ownerCandidates}
+                          onSelect={(v) => handleInlineUpdate(client.id, "secondaryPerformanceOwnerId", v)}
+                        />
+                      </td>
+                    )}
+                    {isColVisible("creativeStrategy") && (
+                      <td className="px-3 py-2.5">
+                        <OwnerSelector
+                          value={client.creativeStrategyOwnerId}
+                          candidates={ownerCandidates}
+                          onSelect={(v) => handleInlineUpdate(client.id, "creativeStrategyOwnerId", v)}
                         />
                       </td>
                     )}
@@ -1179,5 +1273,43 @@ function MandateSelector({
         </div>
       </PopoverContent>
     </Popover>
+  );
+}
+
+/* ─── Owner Selector ─── */
+function OwnerSelector({
+  value,
+  candidates,
+  onSelect,
+}: {
+  value: string | null;
+  candidates: OwnerCandidate[];
+  onSelect: (value: string | null) => void;
+}) {
+  const selected = candidates.find((c) => c.id === value);
+
+  return (
+    <Select
+      value={value || "none"}
+      onValueChange={(v) => onSelect(v === "none" ? null : v)}
+    >
+      <SelectTrigger className="h-7 w-[130px] text-xs border-0 bg-transparent hover:bg-muted/40 px-1 focus:ring-0 focus:ring-offset-0">
+        {selected ? (
+          <span className="truncate text-xs">{selected.name}</span>
+        ) : (
+          <span className="text-xs text-muted-foreground">—</span>
+        )}
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="none">
+          <span className="text-muted-foreground">Unassigned</span>
+        </SelectItem>
+        {candidates.map((u) => (
+          <SelectItem key={u.id} value={u.id}>
+            {u.name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }

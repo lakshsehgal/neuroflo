@@ -11,6 +11,9 @@ export default async function ClientMandatesPage() {
         name: c.name,
         mandates: c.mandates,
         sow: c.sow,
+        primaryPerformanceOwner: c.primaryPerformanceOwner,
+        secondaryPerformanceOwner: c.secondaryPerformanceOwner,
+        creativeStrategyOwner: c.creativeStrategyOwner,
       }))}
     />
   );
