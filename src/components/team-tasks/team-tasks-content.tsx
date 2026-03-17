@@ -706,9 +706,9 @@ function TableView({
             </span>
           </div>
 
-          {group.assigneeGroups.map((ag) => (
+          {group.assigneeGroups.map((ag, agIdx) => (
             <div key={ag.assigneeId || "__unassigned__"}>
-              <div className="flex items-center gap-2 px-4 py-2 border-b bg-muted/10">
+              <div className={`flex items-center gap-2 px-4 py-2.5 border-b bg-muted/30 ${agIdx > 0 ? "border-t-2 border-t-muted" : ""}`}>
                 {ag.assigneeId ? (
                   <>
                     <Avatar className="h-5 w-5">
