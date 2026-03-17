@@ -145,6 +145,23 @@ export async function cancelInvite(inviteId: string): Promise<ActionResponse> {
   return { success: true };
 }
 
+export async function resendInviteEmail(inviteId: string): Promise<ActionResponse> {
+  await requireRole("ADMIN");
+
+  const invite = await db.invite.findUnique({ where: { id: inviteId } });
+  if (!invite) return { success: false, error: "Invite not found" };
+  if (invite.acceptedAt) return { success: false, error: "Invite already accepted" };
+  if (invite.expiresAt < new Date()) return { success: false, error: "Invite has expired" };
+
+  try {
+    await sendInviteEmail({ to: invite.email, inviteToken: invite.token, role: invite.role });
+  } catch {
+    return { success: false, error: "Failed to send email" };
+  }
+
+  return { success: true };
+}
+
 export async function deleteDepartment(id: string): Promise<ActionResponse> {
   try {
     await requireRole("ADMIN");

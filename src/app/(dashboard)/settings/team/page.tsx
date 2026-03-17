@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useTransition } from "react";
-import { getTeamMembers, getPendingInvites, inviteUser, updateUserRole, updateUserDepartment, deactivateUser, cancelInvite, getDepartments } from "@/actions/admin";
+import { getTeamMembers, getPendingInvites, inviteUser, updateUserRole, updateUserDepartment, deactivateUser, cancelInvite, resendInviteEmail, getDepartments } from "@/actions/admin";
 import { getTeamsWithDepartments, addTeamMember, removeTeamMember } from "@/actions/team-tasks";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Mail, Clock, Copy, Check, UserX, X, Users, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Mail, Clock, Copy, Check, UserX, X, Users, ChevronDown, ChevronUp, Send } from "lucide-react";
 
 type TeamMembership = {
   id: string;
@@ -44,6 +44,7 @@ export default function TeamPage() {
   const [error, setError] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
+  const [resentInvite, setResentInvite] = useState<string | null>(null);
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -69,6 +70,9 @@ export default function TeamPage() {
     const result = await inviteUser({ email, role: role as "ADMIN" | "MANAGER" | "OPERATOR" | "MEMBER" | "VIEWER", departmentId: deptId || undefined });
     if (result.success) {
       setEmail(""); setRole("MEMBER"); setDeptId(""); setDialogOpen(false); loadData();
+      if (result.error) {
+        alert(result.error);
+      }
     } else {
       setError(result.error || "Failed to send invite");
     }
@@ -120,6 +124,18 @@ export default function TeamPage() {
     setTimeout(() => setCopiedToken(null), 2000);
   }
 
+  function handleResendEmail(inviteId: string) {
+    startTransition(async () => {
+      const result = await resendInviteEmail(inviteId);
+      if (result.success) {
+        setResentInvite(inviteId);
+        setTimeout(() => setResentInvite(null), 2000);
+      } else {
+        alert(result.error || "Failed to resend email");
+      }
+    });
+  }
+
   const roleColors: Record<string, string> = {
     ADMIN: "bg-red-100 text-red-800", MANAGER: "bg-blue-100 text-blue-800",
     OPERATOR: "bg-purple-100 text-purple-800", MEMBER: "bg-green-100 text-green-800", VIEWER: "bg-gray-100 text-gray-800",
@@ -166,8 +182,8 @@ export default function TeamPage() {
                   </Select>
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground">An invite link will be generated. Share it with the user to create their account. Expires in 7 days.</p>
-              <Button type="submit" className="w-full" disabled={loading}>{loading ? "Sending..." : "Generate Invite Link"}</Button>
+              <p className="text-xs text-muted-foreground">An invite email will be sent with a link to create their account. Expires in 7 days.</p>
+              <Button type="submit" className="w-full" disabled={loading}>{loading ? "Sending Invite..." : "Send Invite"}</Button>
             </form>
           </DialogContent>
         </Dialog>
@@ -311,11 +327,14 @@ export default function TeamPage() {
                     <Mail className="h-5 w-5 text-muted-foreground" />
                     <div>
                       <p className="text-sm font-medium">{invite.email}</p>
-                      <p className="flex items-center gap-1 text-xs text-muted-foreground"><Clock className="h-3 w-3" />Expires {new Date(invite.expiresAt).toLocaleDateString()}</p>
+                      <p className="flex items-center gap-1 text-xs text-muted-foreground"><Mail className="h-3 w-3" />Invite sent &middot; <Clock className="h-3 w-3" />Expires {new Date(invite.expiresAt).toLocaleDateString()}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge className={roleColors[invite.role] || ""} variant="secondary">{invite.role}</Badge>
+                    <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => handleResendEmail(invite.id)}>
+                      {resentInvite === invite.id ? <><Check className="h-3 w-3" />Sent</> : <><Send className="h-3 w-3" />Resend Email</>}
+                    </Button>
                     <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => copyInviteLink(invite.token)}>
                       {copiedToken === invite.token ? <><Check className="h-3 w-3" />Copied</> : <><Copy className="h-3 w-3" />Copy Link</>}
                     </Button>
