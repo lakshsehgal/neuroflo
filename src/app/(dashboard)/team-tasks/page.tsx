@@ -16,10 +16,10 @@ export default async function TeamTasksPage() {
     getCurrentUserTeamIds(),
   ]);
 
-  // Exclude Creative department teams from team tasks view
-  const excludedDept = "Creative";
+  // Exclude "Design" team — their tasks are managed in Creative Tickets
+  const excludedTeamNames = new Set(["Design"]);
   const excludedTeamIds = new Set(
-    teams.filter((t) => t.department.name === excludedDept).map((t) => t.id)
+    teams.filter((t) => excludedTeamNames.has(t.name)).map((t) => t.id)
   );
 
   return (
@@ -49,7 +49,7 @@ export default async function TeamTasksPage() {
         }))}
       users={users}
       teams={teams
-        .filter((t) => t.department.name !== excludedDept)
+        .filter((t) => !excludedTeamIds.has(t.id))
         .map((t) => ({
           id: t.id,
           name: t.name,
