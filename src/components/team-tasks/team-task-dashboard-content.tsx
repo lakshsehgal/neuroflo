@@ -99,8 +99,10 @@ const TEAM_COLORS = [
 
 export function TeamTaskDashboardContent({
   data,
+  teamIdMap = {},
 }: {
   data: TeamTaskAnalytics;
+  teamIdMap?: Record<string, string>;
 }) {
   const { summary } = data;
 
@@ -142,6 +144,7 @@ export function TeamTaskDashboardContent({
           color="text-blue-500"
           bgColor="bg-blue-500/10"
           delay={0}
+          href="/team-tasks"
         />
         <SummaryCard
           title="Open / Active"
@@ -151,6 +154,7 @@ export function TeamTaskDashboardContent({
           bgColor="bg-orange-500/10"
           subtitle={`${summary.completionRate}% completion rate`}
           delay={0.05}
+          href="/team-tasks"
         />
         <SummaryCard
           title="Completed"
@@ -159,6 +163,7 @@ export function TeamTaskDashboardContent({
           color="text-green-500"
           bgColor="bg-green-500/10"
           delay={0.1}
+          href="/team-tasks"
         />
         <SummaryCard
           title="Needs Attention"
@@ -168,6 +173,7 @@ export function TeamTaskDashboardContent({
           bgColor="bg-red-500/10"
           subtitle={`${summary.overdueTasks} overdue, ${summary.blockedTasks} blocked`}
           delay={0.15}
+          href="/team-tasks"
         />
       </div>
 
@@ -308,9 +314,14 @@ export function TeamTaskDashboardContent({
                       team.total > 0
                         ? Math.round((team.done / team.total) * 100)
                         : 0;
+                    const teamId = teamIdMap[team.name];
 
                     return (
-                      <div key={team.name}>
+                      <Link
+                        key={team.name}
+                        href={teamId ? `/team-tasks?team=${teamId}` : "/team-tasks"}
+                        className="block rounded-lg p-2 -mx-2 hover:bg-muted/50 transition-colors cursor-pointer"
+                      >
                         <div className="flex items-center justify-between mb-1.5">
                           <div className="flex items-center gap-2">
                             <span className="text-sm font-medium">
@@ -345,7 +356,7 @@ export function TeamTaskDashboardContent({
                         <p className="text-[10px] text-muted-foreground mt-0.5">
                           {completionPct}% complete
                         </p>
-                      </div>
+                      </Link>
                     );
                   })}
                 </div>
@@ -490,6 +501,7 @@ function SummaryCard({
   bgColor,
   subtitle,
   delay,
+  href,
 }: {
   title: string;
   value: number;
@@ -498,31 +510,36 @@ function SummaryCard({
   bgColor: string;
   subtitle?: string;
   delay: number;
+  href?: string;
 }) {
+  const content = (
+    <Card className="hover:shadow-md transition-shadow cursor-pointer">
+      <CardContent className="pt-6">
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="text-sm text-muted-foreground">{title}</p>
+            <p className="mt-1 text-3xl font-bold">{value}</p>
+            {subtitle && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {subtitle}
+              </p>
+            )}
+          </div>
+          <div className={`rounded-lg p-2.5 ${bgColor}`}>
+            <Icon className={`h-5 w-5 ${color}`} />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay }}
     >
-      <Card className="hover:shadow-md transition-shadow">
-        <CardContent className="pt-6">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">{title}</p>
-              <p className="mt-1 text-3xl font-bold">{value}</p>
-              {subtitle && (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {subtitle}
-                </p>
-              )}
-            </div>
-            <div className={`rounded-lg p-2.5 ${bgColor}`}>
-              <Icon className={`h-5 w-5 ${color}`} />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {href ? <Link href={href}>{content}</Link> : content}
     </motion.div>
   );
 }

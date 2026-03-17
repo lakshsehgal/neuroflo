@@ -7,7 +7,12 @@ import {
 import { getTeamUsers } from "@/actions/tickets";
 import { TeamTasksContent } from "@/components/team-tasks/team-tasks-content";
 
-export default async function TeamTasksPage() {
+export default async function TeamTasksPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ team?: string }>;
+}) {
+  const params = await searchParams;
   const [tasks, users, teams, workloadTasks, userTeamIds] = await Promise.all([
     getTeamTasks(),
     getTeamUsers(),
@@ -56,6 +61,7 @@ export default async function TeamTasksPage() {
           department: t.department,
         }))}
       userTeamIds={userTeamIds.filter((id) => !excludedTeamIds.has(id))}
+      initialTeamFilter={params.team || null}
       workloadTasks={workloadTasks
         .filter((t) => !excludedTeamIds.has(t.teamId))
         .map((t) => ({

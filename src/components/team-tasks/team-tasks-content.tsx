@@ -186,6 +186,7 @@ interface Props {
   users: User[];
   teams: TeamInfo[];
   userTeamIds: string[];
+  initialTeamFilter?: string | null;
   workloadTasks: WorkloadTask[];
 }
 
@@ -194,6 +195,7 @@ export function TeamTasksContent({
   users,
   teams,
   userTeamIds,
+  initialTeamFilter,
   workloadTasks,
 }: Props) {
   const [view, setView] = useState<"table" | "kanban" | "workload">("table");
@@ -202,8 +204,9 @@ export function TeamTasksContent({
   const [filterPriority, setFilterPriority] = useState<string>("all");
   const [filterAssignee, setFilterAssignee] = useState<string>("all");
   const [filterTeam, setFilterTeam] = useState<string>("all");
-  // Auto-pick the user's team if they belong to exactly one team
+  // Priority: URL param > user's single team > all
   const [selectedTeamTab, setSelectedTeamTab] = useState<string>(() => {
+    if (initialTeamFilter && teams.some((t) => t.id === initialTeamFilter)) return initialTeamFilter;
     if (userTeamIds.length === 1) return userTeamIds[0];
     return "all";
   });
