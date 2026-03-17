@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 380" fill="none">
+  <!-- 3D Isometric "N" Logo - Yellow with black outlines -->
+  <!-- Left vertical bar of N -->
+  <polygon points="40,280 40,100 100,60 100,180 140,155 140,95 100,60 40,100" fill="#FFC107" stroke="#1a1a1a" stroke-width="5" stroke-linejoin="round"/>
+  <polygon points="40,280 100,240 100,60 40,100" fill="#FFC107" stroke="#1a1a1a" stroke-width="5" stroke-linejoin="round"/>
+  <polygon points="40,280 100,240 100,320 40,360" fill="#E5A800" stroke="#1a1a1a" stroke-width="5" stroke-linejoin="round"/>
+  <polygon points="40,100 40,280 40,360 100,320 100,240 40,280" fill="#FFC107" stroke="none"/>
+
+  <!-- Rebuild cleaner -->
+  <!-- Front-left leg -->
+  <polygon points="50,110 50,300 110,340 110,150" fill="#FFC107" stroke="#1a1a1a" stroke-width="4.5" stroke-linejoin="round"/>
+  <!-- Top-left leg -->
+  <polygon points="50,110 110,70 170,110 110,150" fill="#FFD54F" stroke="#1a1a1a" stroke-width="4.5" stroke-linejoin="round"/>
+  <!-- Side-left leg -->
+  <polygon points="110,150 170,110 170,300 110,340" fill="#E5A800" stroke="#1a1a1a" stroke-width="4.5" stroke-linejoin="round"/>
+
+  <!-- Diagonal connector -->
+  <polygon points="110,150 170,110 290,230 230,270" fill="#FFD54F" stroke="#1a1a1a" stroke-width="4.5" stroke-linejoin="round"/>
+  <polygon points="110,150 110,210 230,330 230,270" fill="#FFC107" stroke="#1a1a1a" stroke-width="4.5" stroke-linejoin="round"/>
+  <polygon points="170,110 170,170 290,290 290,230" fill="#E5A800" stroke="#1a1a1a" stroke-width="4.5" stroke-linejoin="round"/>
+
+  <!-- Front-right leg -->
+  <polygon points="230,80 230,270 290,310 290,120" fill="#FFC107" stroke="#1a1a1a" stroke-width="4.5" stroke-linejoin="round"/>
+  <!-- Top-right leg -->
+  <polygon points="230,80 290,40 350,80 290,120" fill="#FFD54F" stroke="#1a1a1a" stroke-width="4.5" stroke-linejoin="round"/>
+  <!-- Side-right leg -->
+  <polygon points="290,120 350,80 350,270 290,310" fill="#E5A800" stroke="#1a1a1a" stroke-width="4.5" stroke-linejoin="round"/>
+</svg>
