@@ -1,11 +1,11 @@
-import { google } from "googleapis";
+import { OAuth2Client } from "google-auth-library";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
 export function getOAuth2Client() {
-  return new google.auth.OAuth2(
+  return new OAuth2Client(
     GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET,
     `${APP_URL}/api/google-calendar/callback`
@@ -24,6 +24,16 @@ export function getAuthUrl() {
   });
 }
 
+interface GoogleCalendarEvent {
+  id?: string;
+  summary?: string;
+  start?: { dateTime?: string; date?: string };
+  end?: { dateTime?: string; date?: string };
+  location?: string;
+  htmlLink?: string;
+  colorId?: string;
+}
+
 export async function getCalendarEvents(
   accessToken: string,
   refreshToken: string | null
@@ -34,22 +44,39 @@ export async function getCalendarEvents(
     refresh_token: refreshToken,
   });
 
-  const calendar = google.calendar({ version: "v3", auth: oauth2Client });
+  // Refresh token if needed
+  const { token } = await oauth2Client.getAccessToken();
 
   const now = new Date();
   const endOfWeek = new Date(now);
   endOfWeek.setDate(endOfWeek.getDate() + 7);
 
-  const response = await calendar.events.list({
+  const params = new URLSearchParams({
     calendarId: "primary",
     timeMin: now.toISOString(),
     timeMax: endOfWeek.toISOString(),
-    maxResults: 20,
-    singleEvents: true,
+    maxResults: "20",
+    singleEvents: "true",
     orderBy: "startTime",
   });
 
-  return (response.data.items || []).map((event) => ({
+  const response = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/primary/events?${params}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Calendar API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  const items: GoogleCalendarEvent[] = data.items || [];
+
+  return items.map((event) => ({
     id: event.id || "",
     title: event.summary || "Untitled",
     start: event.start?.dateTime || event.start?.date || "",
