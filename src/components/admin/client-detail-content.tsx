@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { updateClient, updateClientField, updateClientMandates, createInvoice, updateInvoiceStatus, updateInvoice, deleteInvoice } from "@/actions/clients";
+import { updateClient, updateClientField, updateClientMandates, createInvoice, updateInvoiceStatus, updateInvoice, deleteInvoice, deleteClient } from "@/actions/clients";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,7 @@ import { formatDate } from "@/lib/utils";
 import { AnimatedTableBody, AnimatedRow } from "@/components/motion";
 import { Plus, ArrowLeft, Link2, Copy, CheckCircle2, UserPlus, Pencil, Trash2 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { generateOnboardingToken } from "@/actions/onboarding";
 import type { getClient } from "@/actions/clients";
 
@@ -98,6 +99,7 @@ const MANDATE_COLORS: Record<string, string> = {
 };
 
 export function ClientDetailContent({ client: initial, onboarding: initialOnboarding, ownerCandidates = [] }: { client: ClientData; onboarding?: OnboardingData; ownerCandidates?: { id: string; name: string }[] }) {
+  const router = useRouter();
   const [client, setClient] = useState(initial);
   const [isPending, startTransition] = useTransition();
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
@@ -212,12 +214,31 @@ export function ClientDetailContent({ client: initial, onboarding: initialOnboar
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" asChild><Link href="/admin/clients"><ArrowLeft className="h-4 w-4" /></Link></Button>
-        <div>
-          <h1 className="text-2xl font-bold">{client.name}</h1>
-          {client.industry && <p className="text-sm text-muted-foreground">{client.industry}</p>}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" asChild><Link href="/admin/clients"><ArrowLeft className="h-4 w-4" /></Link></Button>
+          <div>
+            <h1 className="text-2xl font-bold">{client.name}</h1>
+            {client.industry && <p className="text-sm text-muted-foreground">{client.industry}</p>}
+          </div>
         </div>
+        <Button
+          variant="destructive"
+          size="sm"
+          disabled={isPending}
+          onClick={() => {
+            if (!confirm("Delete this client and all associated data? This cannot be undone.")) return;
+            startTransition(async () => {
+              const result = await deleteClient(client.id);
+              if (result.success) {
+                router.push("/admin/clients");
+              }
+            });
+          }}
+        >
+          <Trash2 className="mr-2 h-4 w-4" />
+          Delete Client
+        </Button>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
