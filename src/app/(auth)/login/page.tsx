@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { login } from "@/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Image from "next/image";
@@ -22,15 +21,21 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const result = await login(email, password);
-      if (result?.error) {
-        setError(result.error);
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+
+      if (!res.ok || data.error) {
+        setError(data.error || "Something went wrong. Please try again.");
         setLoading(false);
+      } else {
+        router.push("/dashboard");
       }
-      // On success, the server action redirects to /dashboard
     } catch {
-      // redirect() from server action throws on the client — this is expected
-      // If it's a genuine error, show it
+      setError("Something went wrong. Please try again.");
       setLoading(false);
     }
   }
