@@ -23,15 +23,14 @@ export default function LoginPage() {
 
     try {
       const result = await login(email, password);
-      if (result.error) {
+      if (result?.error) {
         setError(result.error);
         setLoading(false);
-      } else {
-        router.refresh();
-        router.push("/dashboard");
       }
+      // On success, the server action redirects to /dashboard
     } catch {
-      setError("Something went wrong. Please try again.");
+      // redirect() from server action throws on the client — this is expected
+      // If it's a genuine error, show it
       setLoading(false);
     }
   }

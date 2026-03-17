@@ -3,6 +3,7 @@
 import * as bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { z } from "zod";
+import { redirect } from "next/navigation";
 import { createSessionToken, setSessionCookie, deleteSessionCookie } from "@/lib/auth";
 import { sendPasswordResetEmail } from "@/lib/email";
 import type { ActionResponse } from "@/types";
@@ -11,71 +12,45 @@ export async function login(
   email: string,
   password: string
 ): Promise<{ error?: string }> {
-  console.log("[login] Attempting login for:", email);
+  let loginSuccess = false;
+
   try {
     const normalizedEmail = email.trim().toLowerCase();
-
-    let user;
-    try {
-      user = await db.user.findUnique({ where: { email: normalizedEmail } });
-    } catch (dbErr) {
-      console.error("[login] DB query failed:", dbErr);
-      return { error: "Something went wrong. Please try again." };
-    }
-
-    console.log("[login] User found:", !!user, user ? { id: user.id, hasHash: !!user.passwordHash, role: user.role, isActive: user.isActive } : null);
+    const user = await db.user.findUnique({ where: { email: normalizedEmail } });
 
     if (!user || !user.isActive) {
       return { error: "Invalid email or password" };
     }
 
     if (!user.passwordHash) {
-      console.error(`[login] User ${user.id} has no passwordHash`);
       return { error: "Invalid email or password. Please reset your password." };
     }
 
-    let isValid;
-    try {
-      isValid = await bcrypt.compare(password, user.passwordHash);
-    } catch (bcryptErr) {
-      console.error("[login] bcrypt.compare failed:", bcryptErr, "hash prefix:", user.passwordHash.substring(0, 7));
-      return { error: "Something went wrong. Please reset your password." };
-    }
-    console.log("[login] bcrypt result:", isValid);
-
+    const isValid = await bcrypt.compare(password, user.passwordHash);
     if (!isValid) {
       return { error: "Invalid email or password" };
     }
 
-    let token;
-    try {
-      token = await createSessionToken({
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        image: user.avatar,
-      });
-      console.log("[login] Token created, length:", token.length);
-    } catch (tokenErr) {
-      console.error("[login] createSessionToken failed:", tokenErr);
-      return { error: "Something went wrong. Please try again." };
-    }
+    const token = await createSessionToken({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      image: user.avatar,
+    });
 
-    try {
-      await setSessionCookie(token);
-      console.log("[login] Cookie set successfully");
-    } catch (cookieErr) {
-      console.error("[login] setSessionCookie failed:", cookieErr);
-      return { error: "Something went wrong. Please try again." };
-    }
-
-    console.log("[login] Success for user:", user.id);
-    return {};
+    await setSessionCookie(token);
+    loginSuccess = true;
   } catch (err) {
-    console.error("[login] Unexpected outer error:", String(err), err instanceof Error ? err.stack : "");
+    console.error("[login] Error:", err);
     return { error: "Something went wrong. Please try again." };
   }
+
+  if (loginSuccess) {
+    redirect("/dashboard");
+  }
+
+  return { error: "Something went wrong. Please try again." };
 }
 
 export async function logout(): Promise<void> {
