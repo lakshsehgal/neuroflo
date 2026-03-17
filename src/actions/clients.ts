@@ -66,7 +66,7 @@ export async function updateClientField(
     "status", "sentimentStatus", "avgBillingAmount", "oneTimeProjectAmount",
     "decidedCommercials", "invoicingDueDay", "reminderDaysBefore",
     "sow", "notes", "contactName", "contactEmail", "contactPhone",
-    "website", "industry", "name",
+    "website", "industry", "name", "mandates",
   ];
   if (!allowedFields.includes(field)) {
     return { success: false, error: "Invalid field" };
@@ -77,6 +77,38 @@ export async function updateClientField(
   revalidatePath("/admin/clients");
   revalidatePath(`/admin/clients/${id}`);
   return { success: true };
+}
+
+export async function updateClientMandates(
+  id: string,
+  mandates: string[]
+): Promise<ActionResponse> {
+  await requireRole("OPERATOR");
+
+  await db.client.update({ where: { id }, data: { mandates } });
+
+  revalidatePath("/admin/clients");
+  revalidatePath(`/admin/clients/${id}`);
+  revalidatePath("/client-mandates");
+  return { success: true };
+}
+
+// Read-only: accessible to all authenticated users for the Client Mandates page
+export async function getClientMandatesView() {
+  // No role restriction — all authenticated users can view
+  const { requireAuth } = await import("@/lib/permissions");
+  await requireAuth();
+
+  return db.client.findMany({
+    where: { status: "ACTIVE" },
+    select: {
+      id: true,
+      name: true,
+      mandates: true,
+      sow: true,
+    },
+    orderBy: { name: "asc" },
+  });
 }
 
 export async function getClients() {

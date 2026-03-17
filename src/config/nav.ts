@@ -12,6 +12,7 @@ import {
   Crown,
   User,
   ListTodo,
+  ClipboardList,
   type LucideIcon,
 } from "lucide-react";
 import type { UserRole } from "@/lib/roles";
@@ -43,6 +44,7 @@ export const navConfig: NavSection[] = [
       { title: "Team Tasks", href: "/team-tasks", icon: ListTodo },
       { title: "Creative Tickets", href: "/tickets", icon: Ticket },
       { title: "Chat", href: "/chat", icon: MessageSquare },
+      { title: "Client Mandates", href: "/client-mandates", icon: ClipboardList },
     ],
   },
   {

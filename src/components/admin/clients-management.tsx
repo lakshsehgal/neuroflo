@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useMemo, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { createClient, deleteClient, updateClientField } from "@/actions/clients";
+import { createClient, deleteClient, updateClientField, updateClientMandates } from "@/actions/clients";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -99,6 +99,7 @@ const ALL_COLUMNS = [
   { key: "client", label: "Client", required: true },
   { key: "status", label: "Status", required: false },
   { key: "sentiment", label: "Sentiment", required: false },
+  { key: "mandates", label: "Mandates", required: false },
   { key: "sow", label: "SOW", required: false },
   { key: "avgBilling", label: "Avg Billing", required: false },
   { key: "oneTimeProject", label: "One-Time Project", required: false },
@@ -108,7 +109,27 @@ const ALL_COLUMNS = [
   { key: "actions", label: "", required: true },
 ];
 
-const DEFAULT_VISIBLE = ["client", "status", "sentiment", "avgBilling", "oneTimeProject", "commercials", "invoiceDue", "nextInvoice", "actions"];
+const DEFAULT_VISIBLE = ["client", "status", "sentiment", "mandates", "avgBilling", "oneTimeProject", "commercials", "invoiceDue", "nextInvoice", "actions"];
+
+const MANDATE_OPTIONS = [
+  "Meta Ads",
+  "Google Ads",
+  "Post-Production",
+  "UGCs",
+  "Whatsapp Marketing",
+  "CRO",
+  "Statics Only",
+];
+
+const MANDATE_COLORS: Record<string, string> = {
+  "Meta Ads": "bg-blue-100 text-blue-800",
+  "Google Ads": "bg-green-100 text-green-800",
+  "Post-Production": "bg-purple-100 text-purple-800",
+  "UGCs": "bg-amber-100 text-amber-800",
+  "Whatsapp Marketing": "bg-emerald-100 text-emerald-800",
+  "CRO": "bg-red-100 text-red-800",
+  "Statics Only": "bg-slate-100 text-slate-800",
+};
 
 type ClientData = {
   id: string;
@@ -122,6 +143,7 @@ type ClientData = {
   avgBillingAmount: number | null;
   oneTimeProjectAmount: number | null;
   decidedCommercials: string | null;
+  mandates: string[];
   invoicingDueDay: number | null;
   reminderDaysBefore: number;
   _count: { projects: number; invoices: number };
@@ -539,6 +561,7 @@ function ClientsTab({
                 <th className="px-4 py-3 text-left text-xs font-medium">Client</th>
                 {isColVisible("status") && <th className="px-3 py-3 text-left text-xs font-medium">Status</th>}
                 {isColVisible("sentiment") && <th className="px-3 py-3 text-left text-xs font-medium">Sentiment</th>}
+                {isColVisible("mandates") && <th className="px-3 py-3 text-left text-xs font-medium">Mandates</th>}
                 {isColVisible("sow") && <th className="px-3 py-3 text-left text-xs font-medium">SOW</th>}
                 {isColVisible("avgBilling") && <th className="px-3 py-3 text-left text-xs font-medium">Avg Billing</th>}
                 {isColVisible("oneTimeProject") && <th className="px-3 py-3 text-left text-xs font-medium">One-Time</th>}
@@ -589,6 +612,14 @@ function ClientsTab({
                             ))}
                           </SelectContent>
                         </Select>
+                      </td>
+                    )}
+                    {isColVisible("mandates") && (
+                      <td className="px-3 py-2.5">
+                        <MandateSelector
+                          clientId={client.id}
+                          mandates={client.mandates}
+                        />
                       </td>
                     )}
                     {isColVisible("sow") && (
@@ -1082,5 +1113,71 @@ function DashboardTab({ dashboardData, fmt }: { dashboardData: { allInvoices: Da
         </Card>
       </div>
     </div>
+  );
+}
+
+/* ─── Mandate Multi-Select ─── */
+function MandateSelector({
+  clientId,
+  mandates,
+}: {
+  clientId: string;
+  mandates: string[];
+}) {
+  const [open, setOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const [localMandates, setLocalMandates] = useState(mandates);
+
+  function toggleMandate(mandate: string) {
+    const updated = localMandates.includes(mandate)
+      ? localMandates.filter((m) => m !== mandate)
+      : [...localMandates, mandate];
+    setLocalMandates(updated);
+    startTransition(async () => {
+      await updateClientMandates(clientId, updated);
+    });
+  }
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button className="flex flex-wrap gap-1 min-w-[120px] max-w-[200px] text-left">
+          {localMandates.length === 0 ? (
+            <span className="text-xs text-muted-foreground">+ Add</span>
+          ) : (
+            localMandates.map((m) => (
+              <Badge
+                key={m}
+                variant="secondary"
+                className={`text-[9px] px-1.5 py-0 ${MANDATE_COLORS[m] || ""}`}
+              >
+                {m}
+              </Badge>
+            ))
+          )}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-52 p-2" align="start">
+        <p className="text-xs font-medium mb-2 px-1">Select mandates</p>
+        <div className="space-y-1">
+          {MANDATE_OPTIONS.map((opt) => {
+            const selected = localMandates.includes(opt);
+            return (
+              <button
+                key={opt}
+                onClick={() => toggleMandate(opt)}
+                className={`flex items-center justify-between w-full rounded-md px-2 py-1.5 text-xs transition-colors ${
+                  selected ? "bg-primary/10 text-primary font-medium" : "hover:bg-muted"
+                }`}
+                disabled={isPending}
+              >
+                <span>{opt}</span>
+                {selected && <Check className="h-3 w-3" />}
+              </button>
+            );
+          })}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
