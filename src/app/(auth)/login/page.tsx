@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import { login } from "@/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -83,13 +82,13 @@ export default function LoginPage() {
           >
             <div className="relative">
               <div className="absolute inset-0 blur-3xl bg-amber-500/20 rounded-full scale-150" />
-              <Image
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
                 src="/images/icon.png"
                 alt="Neuroid"
                 width={180}
                 height={180}
                 className="relative drop-shadow-2xl"
-                priority
               />
             </div>
           </motion.div>
@@ -151,13 +150,13 @@ export default function LoginPage() {
             <div className="flex flex-col items-center gap-4 mb-3">
               <div className="relative">
                 <div className="absolute inset-0 blur-2xl bg-amber-500/20 rounded-full scale-150" />
-                <Image
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
                   src="/images/icon.png"
                   alt="Neuroid"
                   width={80}
                   height={80}
                   className="relative drop-shadow-xl"
-                  priority
                 />
               </div>
               <h1 className="text-2xl font-bold tracking-tight text-white">
