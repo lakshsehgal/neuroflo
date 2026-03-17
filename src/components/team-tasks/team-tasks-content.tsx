@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useTransition, useEffect } from "react";
+import { useState, useMemo, useCallback, useTransition, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,10 +39,21 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
+  Trash2,
+  Calendar,
+  Send,
 } from "lucide-react";
 import Link from "next/link";
 import { formatDate, isOverdue } from "@/lib/utils";
-import { updateTeamTask, updateTeamTaskStatus, createTeamTask } from "@/actions/team-tasks";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { updateTeamTask, updateTeamTaskStatus, createTeamTask, deleteTeamTask, addTeamTaskComment } from "@/actions/team-tasks";
 import {
   DndContext,
   DragOverlay,
@@ -231,8 +242,28 @@ export function TeamTasksContent({
 
   const [localTasks, setLocalTasks] = useState<TeamTaskData[]>(initialTasks);
   const [isPending, startTransition] = useTransition();
+  const [detailTask, setDetailTask] = useState<TeamTaskData | null>(null);
 
   const tasks = localTasks;
+
+  const handleDelete = useCallback(
+    (taskId: string) => {
+      setLocalTasks((prev) => prev.filter((t) => t.id !== taskId));
+      if (detailTask?.id === taskId) setDetailTask(null);
+      startTransition(async () => {
+        await deleteTeamTask(taskId);
+      });
+    },
+    [detailTask]
+  );
+
+  const handleOpenDetail = useCallback(
+    (taskId: string) => {
+      const task = localTasks.find((t) => t.id === taskId);
+      if (task) setDetailTask(task);
+    },
+    [localTasks]
+  );
 
   // Compute per-team task counts for tabs
   const teamTabStats = useMemo(() => {
@@ -637,10 +668,12 @@ export function TeamTasksContent({
             onUpdate={handleInlineUpdate}
             onTaskAdded={(task: TeamTaskData) => setLocalTasks((prev) => [...prev, task])}
             visibleColumns={visibleColumns}
+            onOpenDetail={handleOpenDetail}
+            onDelete={handleDelete}
           />
         )}
         {view === "kanban" && (
-          <KanbanView tasks={filtered} onStatusChange={handleInlineUpdate} />
+          <KanbanView tasks={filtered} onStatusChange={handleInlineUpdate} onOpenDetail={handleOpenDetail} />
         )}
         {view === "workload" && (
           <WorkloadView
@@ -648,6 +681,15 @@ export function TeamTasksContent({
           />
         )}
       </div>
+
+      {/* Task Detail Dialog */}
+      <TeamTaskDetailDialog
+        task={detailTask}
+        users={users}
+        onClose={() => setDetailTask(null)}
+        onUpdate={handleInlineUpdate}
+        onDelete={handleDelete}
+      />
     </PageTransition>
   );
 }
@@ -659,6 +701,8 @@ function TableView({
   onUpdate,
   onTaskAdded,
   visibleColumns,
+  onOpenDetail,
+  onDelete,
 }: {
   teamGroups: [
     string,
@@ -678,6 +722,8 @@ function TableView({
   onUpdate: (id: string, field: string, value: string) => void;
   onTaskAdded: (task: TeamTaskData) => void;
   visibleColumns: string[];
+  onOpenDetail: (taskId: string) => void;
+  onDelete: (taskId: string) => void;
 }) {
   const isCol = (key: string) => visibleColumns.includes(key);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
@@ -835,12 +881,13 @@ function TableView({
                           {ag.tasks.map((task) => (
                             <AnimatedRow
                               key={task.id}
-                              className={`border-b last:border-0 border-l-[3px] ${accent} hover:bg-muted/20 transition-colors`}
+                              className={`group border-b last:border-0 border-l-[3px] ${accent} hover:bg-muted/20 transition-colors`}
                             >
                               <td className="pl-5 pr-3 py-2.5">
                                 <EditableTitle
                                   value={task.title}
                                   onSave={(v) => onUpdate(task.id, "title", v)}
+                                  onClick={() => onOpenDetail(task.id)}
                                 />
                               </td>
                               {isCol("status") && (
@@ -971,6 +1018,16 @@ function TableView({
                                   </div>
                                 </td>
                               )}
+                              <td className="px-2 py-2.5">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-red-600"
+                                  onClick={() => onDelete(task.id)}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </td>
                             </AnimatedRow>
                           ))}
                         </AnimatedTableBody>
@@ -998,12 +1055,15 @@ function TableView({
 function EditableTitle({
   value,
   onSave,
+  onClick,
 }: {
   value: string;
   onSave: (newValue: string) => void;
+  onClick?: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
+  const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const commit = () => {
     const trimmed = draft.trim();
@@ -1033,8 +1093,26 @@ function EditableTitle({
 
   return (
     <span
-      className="font-medium text-sm line-clamp-1 cursor-text hover:bg-muted/40 rounded px-1 -ml-1 py-0.5"
-      onClick={() => { setDraft(value); setEditing(true); }}
+      className="font-medium text-sm line-clamp-1 cursor-pointer hover:text-foreground hover:underline rounded px-1 -ml-1 py-0.5"
+      onClick={() => {
+        if (clickTimer.current) {
+          clearTimeout(clickTimer.current);
+          clickTimer.current = null;
+          return;
+        }
+        clickTimer.current = setTimeout(() => {
+          clickTimer.current = null;
+          onClick?.();
+        }, 250);
+      }}
+      onDoubleClick={() => {
+        if (clickTimer.current) {
+          clearTimeout(clickTimer.current);
+          clickTimer.current = null;
+        }
+        setDraft(value);
+        setEditing(true);
+      }}
     >
       {value}
     </span>
@@ -1115,9 +1193,11 @@ function InlineAddRow({
 function KanbanView({
   tasks,
   onStatusChange,
+  onOpenDetail,
 }: {
   tasks: TeamTaskData[];
   onStatusChange: (id: string, field: string, value: string) => void;
+  onOpenDetail: (taskId: string) => void;
 }) {
   const [activeTask, setActiveTask] = useState<TeamTaskData | null>(null);
   const sensors = useSensors(
@@ -1168,7 +1248,7 @@ function KanbanView({
         {kanbanColumns.map((col) => {
           const colTasks = tasks.filter((t) => t.status === col.key);
           return (
-            <KanbanColumn key={col.key} column={col} tasks={colTasks} />
+            <KanbanColumn key={col.key} column={col} tasks={colTasks} onOpenDetail={onOpenDetail} />
           );
         })}
       </div>
@@ -1182,9 +1262,11 @@ function KanbanView({
 function KanbanColumn({
   column,
   tasks,
+  onOpenDetail,
 }: {
   column: { key: string; label: string; color: string };
   tasks: TeamTaskData[];
+  onOpenDetail: (taskId: string) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: column.key });
 
@@ -1204,7 +1286,7 @@ function KanbanColumn({
       >
         <div className="p-2 space-y-2 min-h-[100px]">
           {tasks.map((task) => (
-            <SortableKanbanCard key={task.id} task={task} />
+            <SortableKanbanCard key={task.id} task={task} onOpenDetail={onOpenDetail} />
           ))}
         </div>
       </SortableContext>
@@ -1212,7 +1294,7 @@ function KanbanColumn({
   );
 }
 
-function SortableKanbanCard({ task }: { task: TeamTaskData }) {
+function SortableKanbanCard({ task, onOpenDetail }: { task: TeamTaskData; onOpenDetail: (taskId: string) => void }) {
   const {
     attributes,
     listeners,
@@ -1230,7 +1312,7 @@ function SortableKanbanCard({ task }: { task: TeamTaskData }) {
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <KanbanCard task={task} />
+      <KanbanCard task={task} onOpenDetail={onOpenDetail} />
     </div>
   );
 }
@@ -1238,15 +1320,22 @@ function SortableKanbanCard({ task }: { task: TeamTaskData }) {
 function KanbanCard({
   task,
   isDragging,
+  onOpenDetail,
 }: {
   task: TeamTaskData;
   isDragging?: boolean;
+  onOpenDetail?: (taskId: string) => void;
 }) {
   return (
     <Card
       className={`p-2.5 cursor-grab active:cursor-grabbing ${isDragging ? "shadow-lg ring-2 ring-primary/30" : "hover:shadow-sm"}`}
     >
-      <p className="text-sm font-medium line-clamp-2 mb-2">{task.title}</p>
+      <p
+        className="text-sm font-medium line-clamp-2 mb-2 cursor-pointer hover:underline"
+        onClick={() => onOpenDetail?.(task.id)}
+      >
+        {task.title}
+      </p>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           <Badge
@@ -1271,6 +1360,251 @@ function KanbanCard({
         )}
       </div>
     </Card>
+  );
+}
+
+/* ─── Task Detail Dialog ─── */
+function TeamTaskDetailDialog({
+  task,
+  users,
+  onClose,
+  onUpdate,
+  onDelete,
+}: {
+  task: TeamTaskData | null;
+  users: User[];
+  onClose: () => void;
+  onUpdate: (id: string, field: string, value: string) => void;
+  onDelete: (taskId: string) => void;
+}) {
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState("");
+  const [editingDesc, setEditingDesc] = useState(false);
+  const [descDraft, setDescDraft] = useState("");
+  const [comment, setComment] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [, startTransition] = useTransition();
+
+  // Reset state when task changes
+  useEffect(() => {
+    if (task) {
+      setTitleDraft(task.title);
+      setDescDraft(task.description || "");
+      setEditingTitle(false);
+      setEditingDesc(false);
+      setComment("");
+      setConfirmDelete(false);
+    }
+  }, [task?.id]);
+
+  if (!task) return null;
+
+  const commitTitle = () => {
+    const trimmed = titleDraft.trim();
+    if (trimmed && trimmed !== task.title) {
+      onUpdate(task.id, "title", trimmed);
+    }
+    setEditingTitle(false);
+  };
+
+  const commitDesc = () => {
+    const trimmed = descDraft.trim();
+    if (trimmed !== (task.description || "")) {
+      onUpdate(task.id, "description", trimmed);
+    }
+    setEditingDesc(false);
+  };
+
+  const handleComment = () => {
+    if (!comment.trim()) return;
+    startTransition(async () => {
+      await addTeamTaskComment(task.id, comment.trim());
+    });
+    setComment("");
+  };
+
+  return (
+    <Dialog open={!!task} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="sr-only">Task Details</DialogTitle>
+          <DialogDescription className="sr-only">View and edit task details</DialogDescription>
+        </DialogHeader>
+
+        {/* Title */}
+        <div className="space-y-4">
+          {editingTitle ? (
+            <Input
+              autoFocus
+              value={titleDraft}
+              onChange={(e) => setTitleDraft(e.target.value)}
+              onBlur={commitTitle}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") commitTitle();
+                if (e.key === "Escape") { setTitleDraft(task.title); setEditingTitle(false); }
+              }}
+              className="text-lg font-semibold"
+            />
+          ) : (
+            <h2
+              className="text-lg font-semibold cursor-text hover:bg-muted/40 rounded px-2 py-1 -ml-2"
+              onDoubleClick={() => { setTitleDraft(task.title); setEditingTitle(true); }}
+            >
+              {task.title}
+            </h2>
+          )}
+
+          {/* Meta row */}
+          <div className="flex flex-wrap gap-3">
+            <div className="space-y-1">
+              <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Status</label>
+              <Select value={task.status} onValueChange={(v) => onUpdate(task.id, "status", v)}>
+                <SelectTrigger className="h-8 w-32 text-xs">
+                  <Badge variant="outline" className={`text-[10px] px-2 py-0.5 ${statusColors[task.status] || ""}`}>
+                    {statusLabels[task.status] || task.status}
+                  </Badge>
+                </SelectTrigger>
+                <SelectContent>
+                  {statusColumnOrder.map((s) => (
+                    <SelectItem key={s} value={s}>{statusLabels[s]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Priority</label>
+              <Select value={task.priority} onValueChange={(v) => onUpdate(task.id, "priority", v)}>
+                <SelectTrigger className="h-8 w-28 text-xs">
+                  <Badge className={`text-[10px] px-2 py-0.5 ${priorityColors[task.priority] || ""}`}>
+                    {task.priority}
+                  </Badge>
+                </SelectTrigger>
+                <SelectContent>
+                  {["LOW", "MEDIUM", "HIGH", "URGENT"].map((p) => (
+                    <SelectItem key={p} value={p}>{p}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Assignee</label>
+              <Select
+                value={task.assigneeId || "unassigned"}
+                onValueChange={(v) => onUpdate(task.id, "assigneeId", v === "unassigned" ? "" : v)}
+              >
+                <SelectTrigger className="h-8 w-36 text-xs">
+                  {task.assigneeName ? (
+                    <div className="flex items-center gap-1.5">
+                      <Avatar className="h-5 w-5">
+                        <AvatarFallback className="text-[9px]">{task.assigneeInitials}</AvatarFallback>
+                      </Avatar>
+                      <span className="truncate">{task.assigneeName}</span>
+                    </div>
+                  ) : (
+                    <span className="text-muted-foreground">Unassigned</span>
+                  )}
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
+                  {users.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {task.dueDate && (
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Due Date</label>
+                <div className="flex items-center gap-1.5 h-8 px-2 text-xs">
+                  <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className={isOverdue(task.dueDate) ? "text-red-600 font-medium" : ""}>
+                    {formatDate(task.dueDate)}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Team & Creator info */}
+          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+            <span>Team: <span className="text-foreground font-medium">{task.teamName}</span></span>
+            <span>{task.departmentName}</span>
+            {task.createdByName && <span>Created by {task.createdByName}</span>}
+          </div>
+
+          {/* Description */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Description</label>
+            {editingDesc ? (
+              <Textarea
+                autoFocus
+                value={descDraft}
+                onChange={(e) => setDescDraft(e.target.value)}
+                onBlur={commitDesc}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") { setDescDraft(task.description || ""); setEditingDesc(false); }
+                }}
+                rows={4}
+                className="text-sm"
+                placeholder="Add a description..."
+              />
+            ) : (
+              <div
+                className="min-h-[60px] rounded-md border border-transparent hover:border-border cursor-text p-2 text-sm text-muted-foreground"
+                onDoubleClick={() => { setDescDraft(task.description || ""); setEditingDesc(true); }}
+              >
+                {task.description || <span className="italic">No description. Double-click to add one.</span>}
+              </div>
+            )}
+          </div>
+
+          {/* Comment input */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Add Comment</label>
+            <div className="flex gap-2">
+              <Input
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                placeholder="Write a comment..."
+                className="text-sm"
+                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleComment(); } }}
+              />
+              <Button size="sm" onClick={handleComment} disabled={!comment.trim()}>
+                <Send className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Delete */}
+          <div className="border-t pt-4 flex justify-end">
+            {confirmDelete ? (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Delete this task?</span>
+                <Button variant="destructive" size="sm" onClick={() => onDelete(task.id)}>
+                  Yes, delete
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setConfirmDelete(false)}>
+                  Cancel
+                </Button>
+              </div>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground hover:text-red-600"
+                onClick={() => setConfirmDelete(true)}
+              >
+                <Trash2 className="h-4 w-4 mr-1.5" />
+                Delete task
+              </Button>
+            )}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
