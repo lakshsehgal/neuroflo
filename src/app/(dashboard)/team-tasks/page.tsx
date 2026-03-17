@@ -2,16 +2,18 @@ import {
   getTeamTasks,
   getTeamsWithDepartments,
   getTeamTaskWorkloadData,
+  getCurrentUserTeamIds,
 } from "@/actions/team-tasks";
 import { getTeamUsers } from "@/actions/tickets";
 import { TeamTasksContent } from "@/components/team-tasks/team-tasks-content";
 
 export default async function TeamTasksPage() {
-  const [tasks, users, teams, workloadTasks] = await Promise.all([
+  const [tasks, users, teams, workloadTasks, userTeamIds] = await Promise.all([
     getTeamTasks(),
     getTeamUsers(),
     getTeamsWithDepartments(),
     getTeamTaskWorkloadData(),
+    getCurrentUserTeamIds(),
   ]);
 
   return (
@@ -43,6 +45,7 @@ export default async function TeamTasksPage() {
         name: t.name,
         department: t.department,
       }))}
+      userTeamIds={userTeamIds}
       workloadTasks={workloadTasks.map((t) => ({
         id: t.id,
         status: t.status,

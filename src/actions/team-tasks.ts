@@ -278,6 +278,17 @@ export async function getTeamTaskAnalytics() {
   };
 }
 
+export async function getCurrentUserTeamIds(): Promise<string[]> {
+  const user = await requireAuth();
+
+  const memberships = await db.teamMember.findMany({
+    where: { userId: user.id },
+    select: { teamId: true },
+  });
+
+  return memberships.map((m) => m.teamId);
+}
+
 // ─── Team Management ──────────────────────────────────
 
 export async function createTeam(

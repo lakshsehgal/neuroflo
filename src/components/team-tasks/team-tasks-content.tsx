@@ -185,6 +185,7 @@ interface Props {
   tasks: TeamTaskData[];
   users: User[];
   teams: TeamInfo[];
+  userTeamIds: string[];
   workloadTasks: WorkloadTask[];
 }
 
@@ -192,6 +193,7 @@ export function TeamTasksContent({
   tasks: initialTasks,
   users,
   teams,
+  userTeamIds,
   workloadTasks,
 }: Props) {
   const [view, setView] = useState<"table" | "kanban" | "workload">("table");
@@ -200,7 +202,11 @@ export function TeamTasksContent({
   const [filterPriority, setFilterPriority] = useState<string>("all");
   const [filterAssignee, setFilterAssignee] = useState<string>("all");
   const [filterTeam, setFilterTeam] = useState<string>("all");
-  const [selectedTeamTab, setSelectedTeamTab] = useState<string>("all");
+  // Auto-pick the user's team if they belong to exactly one team
+  const [selectedTeamTab, setSelectedTeamTab] = useState<string>(() => {
+    if (userTeamIds.length === 1) return userTeamIds[0];
+    return "all";
+  });
   const [showFilters, setShowFilters] = useState(false);
 
   // Column visibility
@@ -332,21 +338,55 @@ export function TeamTasksContent({
   ).length;
   const blockedCount = scopedTasks.filter((t) => t.status === "BLOCKED").length;
 
-  // Group tasks by team for display
+  // Group tasks by team, then by assignee within each team
+  type AssigneeGroup = {
+    assigneeId: string | null;
+    assigneeName: string | null;
+    assigneeInitials: string | null;
+    tasks: TeamTaskData[];
+  };
+  type TeamGroup = {
+    teamName: string;
+    deptName: string;
+    tasks: TeamTaskData[];
+    assigneeGroups: AssigneeGroup[];
+  };
+
   const teamGroups = useMemo(() => {
-    const groups = new Map<
-      string,
-      { teamName: string; deptName: string; tasks: TeamTaskData[] }
-    >();
+    const groups = new Map<string, TeamGroup>();
     filtered.forEach((t) => {
       const existing = groups.get(t.teamId) || {
         teamName: t.teamName,
         deptName: t.departmentName,
         tasks: [],
+        assigneeGroups: [],
       };
       existing.tasks.push(t);
       groups.set(t.teamId, existing);
     });
+
+    // Build assignee sub-groups for each team
+    groups.forEach((group) => {
+      const byAssignee = new Map<string, AssigneeGroup>();
+      group.tasks.forEach((t) => {
+        const key = t.assigneeId || "__unassigned__";
+        const existing = byAssignee.get(key) || {
+          assigneeId: t.assigneeId,
+          assigneeName: t.assigneeName,
+          assigneeInitials: t.assigneeInitials,
+          tasks: [],
+        };
+        existing.tasks.push(t);
+        byAssignee.set(key, existing);
+      });
+      // Sort: assigned first (alphabetically), unassigned last
+      group.assigneeGroups = Array.from(byAssignee.values()).sort((a, b) => {
+        if (!a.assigneeId) return 1;
+        if (!b.assigneeId) return -1;
+        return (a.assigneeName || "").localeCompare(b.assigneeName || "");
+      });
+    });
+
     return Array.from(groups.entries());
   }, [filtered]);
 
@@ -685,7 +725,7 @@ export function TeamTasksContent({
   );
 }
 
-/* ─── Table View Grouped by Team ─── */
+/* ─── Table View Grouped by Team → Assignee ─── */
 function TableView({
   teamGroups,
   users,
@@ -695,7 +735,17 @@ function TableView({
 }: {
   teamGroups: [
     string,
-    { teamName: string; deptName: string; tasks: TeamTaskData[] },
+    {
+      teamName: string;
+      deptName: string;
+      tasks: TeamTaskData[];
+      assigneeGroups: {
+        assigneeId: string | null;
+        assigneeName: string | null;
+        assigneeInitials: string | null;
+        tasks: TeamTaskData[];
+      }[];
+    },
   ][];
   users: User[];
   teams: TeamInfo[];
@@ -721,8 +771,8 @@ function TableView({
   return (
     <div className="space-y-6">
       {teamGroups.map(([teamId, group]) => (
-        <div key={teamId}>
-          <div className="flex items-center gap-2 mb-2">
+        <div key={teamId} className="space-y-4">
+          <div className="flex items-center gap-2">
             <div className="flex items-center gap-2">
               <Users className="h-4 w-4 text-primary" />
               <h3 className="font-semibold text-sm">{group.teamName}</h3>
@@ -735,6 +785,32 @@ function TableView({
               </span>
             </div>
           </div>
+
+          {/* Assignee sub-groups within each team */}
+          {group.assigneeGroups.map((ag) => (
+            <div key={ag.assigneeId || "__unassigned__"} className="ml-2">
+              <div className="flex items-center gap-2 mb-1.5">
+                {ag.assigneeId ? (
+                  <>
+                    <Avatar className="h-5 w-5">
+                      <AvatarFallback className="text-[9px]">
+                        {ag.assigneeInitials}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="text-xs font-medium">{ag.assigneeName}</span>
+                  </>
+                ) : (
+                  <>
+                    <div className="h-5 w-5 rounded-full bg-muted flex items-center justify-center">
+                      <Users className="h-3 w-3 text-muted-foreground" />
+                    </div>
+                    <span className="text-xs font-medium text-muted-foreground">Unassigned</span>
+                  </>
+                )}
+                <span className="text-[10px] text-muted-foreground">
+                  {ag.tasks.length} task{ag.tasks.length !== 1 ? "s" : ""}
+                </span>
+              </div>
           <Card>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -771,7 +847,7 @@ function TableView({
                   </tr>
                 </thead>
                 <AnimatedTableBody>
-                  {group.tasks.map((task) => (
+                  {ag.tasks.map((task) => (
                     <AnimatedRow
                       key={task.id}
                       className="border-b last:border-0 cursor-pointer hover:bg-muted/30 transition-colors"
@@ -915,6 +991,8 @@ function TableView({
               </table>
             </div>
           </Card>
+            </div>
+          ))}
         </div>
       ))}
     </div>
