@@ -84,7 +84,7 @@ export default function LoginPage() {
             <div className="relative">
               <div className="absolute inset-0 blur-3xl bg-amber-500/20 rounded-full scale-150" />
               <Image
-                src="/images/icon.png"
+                src="/images/icon.webp"
                 alt="Neuroid"
                 width={140}
                 height={140}
@@ -152,7 +152,7 @@ export default function LoginPage() {
                 <div className="absolute inset-0 blur-2xl bg-amber-500/20 rounded-full scale-150" />
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src="/images/icon.png"
+                  src="/images/icon.webp"
                   alt="Neuroid"
                   width={80}
                   height={80}

@@ -66,7 +66,7 @@ export function Sidebar({ userRole }: SidebarProps) {
                 className="flex items-center gap-2"
               >
                 <Image
-                  src="/images/neuroid-logo.png"
+                  src="/images/neuroid-logo.webp"
                   alt="Neuroid"
                   width={120}
                   height={28}
