@@ -31,12 +31,15 @@ export async function login(
       return { error: "Invalid email or password" };
     }
 
+    // Only include avatar if it's a URL (not base64 data)
+    const avatar = user.avatar && user.avatar.length < 500 ? user.avatar : null;
+
     const token = await createSessionToken({
       id: user.id,
       name: user.name,
       email: user.email,
       role: user.role,
-      image: user.avatar,
+      image: avatar,
     });
 
     await setSessionCookie(token);
