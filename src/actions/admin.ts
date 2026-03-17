@@ -90,7 +90,11 @@ export async function deactivateUser(userId: string): Promise<ActionResponse> {
 }
 
 export async function createDepartment(name: string): Promise<ActionResponse> {
-  await requireRole("ADMIN");
+  try {
+    await requireRole("ADMIN");
+  } catch {
+    return { success: false, error: "You must be an admin to create departments" };
+  }
 
   if (!name || name.length < 2) {
     return { success: false, error: "Department name must be at least 2 characters" };
@@ -119,7 +123,11 @@ export async function cancelInvite(inviteId: string): Promise<ActionResponse> {
 }
 
 export async function deleteDepartment(id: string): Promise<ActionResponse> {
-  await requireRole("ADMIN");
+  try {
+    await requireRole("ADMIN");
+  } catch {
+    return { success: false, error: "You must be an admin to delete departments" };
+  }
 
   const dept = await db.department.findUnique({
     where: { id },

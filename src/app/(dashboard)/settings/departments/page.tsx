@@ -102,12 +102,16 @@ export default function DepartmentsPage() {
     setLoading(true);
     setError("");
 
-    const result = await createDepartment(newDeptName);
-    if (result.success) {
-      setNewDeptName("");
-      loadAll();
-    } else {
-      setError(result.error || "Failed to create department");
+    try {
+      const result = await createDepartment(newDeptName);
+      if (result.success) {
+        setNewDeptName("");
+        loadAll();
+      } else {
+        setError(result.error || "Failed to create department");
+      }
+    } catch {
+      setError("Failed to create department. You may not have admin permissions.");
     }
     setLoading(false);
   }
