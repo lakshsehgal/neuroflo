@@ -11,9 +11,7 @@ import {
   Bell,
   BellRing,
   Ticket,
-  MessageSquare,
   ArrowRight,
-  UserPlus,
   Loader2,
   Check,
   ClipboardList,
@@ -231,30 +229,6 @@ export function NotificationPreferencesContent({
             description="When you're added as a member to a project"
             checked={prefs.projectMemberAdded}
             onChange={() => toggle("projectMemberAdded")}
-          />
-        </CardContent>
-      </Card>
-
-      {/* Chat Notifications */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm flex items-center gap-2">
-            <MessageSquare className="h-4 w-4 text-purple-500" />
-            Chat
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <ToggleRow
-            label="@Mentions"
-            description="When someone mentions you with @ in a chat channel"
-            checked={prefs.chatMention}
-            onChange={() => toggle("chatMention")}
-          />
-          <ToggleRow
-            label="Channel Invites"
-            description="When you're invited to a new channel"
-            checked={prefs.channelInvite}
-            onChange={() => toggle("channelInvite")}
           />
         </CardContent>
       </Card>

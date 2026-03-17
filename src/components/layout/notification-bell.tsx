@@ -13,7 +13,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
-import { Bell, Check, CheckCheck, Ticket, MessageSquare, UserPlus, ArrowRight, ClipboardList, FolderOpen } from "lucide-react";
+import { Bell, Check, CheckCheck, Ticket, MessageSquare, ArrowRight, ClipboardList, FolderOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatRelativeTime } from "@/lib/utils";
 import Link from "next/link";
@@ -86,8 +86,6 @@ export function NotificationBell() {
     TASK_ASSIGNED: <ClipboardList className="h-3.5 w-3.5 text-emerald-500" />,
     TASK_COMMENT: <MessageSquare className="h-3.5 w-3.5 text-teal-500" />,
     PROJECT_MEMBER_ADDED: <FolderOpen className="h-3.5 w-3.5 text-indigo-500" />,
-    CHAT_MENTION: <MessageSquare className="h-3.5 w-3.5 text-purple-500" />,
-    CHANNEL_INVITE: <UserPlus className="h-3.5 w-3.5 text-cyan-500" />,
   };
 
   return (

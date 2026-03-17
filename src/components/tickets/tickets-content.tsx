@@ -199,6 +199,7 @@ export function TicketsContent({ tickets: initialTickets, users, clients, worklo
   const [filterPriority, setFilterPriority] = useState<string>("all");
   const [filterAssignee, setFilterAssignee] = useState<string>("all");
   const [filterClient, setFilterClient] = useState<string>("all");
+  const [filterDueDate, setFilterDueDate] = useState<string>("all");
   const [showFilters, setShowFilters] = useState(false);
 
   // Column visibility
@@ -228,23 +229,38 @@ export function TicketsContent({ tickets: initialTickets, users, clients, worklo
   const tickets = localTickets;
 
   const filtered = useMemo(() => {
+    const now = new Date();
+    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    const weekEnd = new Date(todayEnd);
+    weekEnd.setDate(weekEnd.getDate() + (7 - weekEnd.getDay()));
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+
     return tickets.filter((t) => {
       if (search && !t.title.toLowerCase().includes(search.toLowerCase()) && !t.clientName?.toLowerCase().includes(search.toLowerCase())) return false;
       if (filterStatus !== "all" && t.status !== filterStatus) return false;
       if (filterPriority !== "all" && t.priority !== filterPriority) return false;
       if (filterAssignee !== "all" && t.assigneeId !== filterAssignee) return false;
       if (filterClient !== "all" && t.clientName !== filterClient) return false;
+      if (filterDueDate !== "all") {
+        const due = t.dueDate ? new Date(t.dueDate) : null;
+        if (filterDueDate === "overdue" && (!due || due >= now)) return false;
+        if (filterDueDate === "today" && (!due || due < now || due > todayEnd)) return false;
+        if (filterDueDate === "this_week" && (!due || due < now || due > weekEnd)) return false;
+        if (filterDueDate === "this_month" && (!due || due < now || due > monthEnd)) return false;
+        if (filterDueDate === "no_date" && due) return false;
+      }
       return true;
     });
-  }, [tickets, search, filterStatus, filterPriority, filterAssignee, filterClient]);
+  }, [tickets, search, filterStatus, filterPriority, filterAssignee, filterClient, filterDueDate]);
 
-  const activeFilterCount = [filterStatus, filterPriority, filterAssignee, filterClient].filter((f) => f !== "all").length;
+  const activeFilterCount = [filterStatus, filterPriority, filterAssignee, filterClient, filterDueDate].filter((f) => f !== "all").length;
 
   const clearFilters = () => {
     setFilterStatus("all");
     setFilterPriority("all");
     setFilterAssignee("all");
     setFilterClient("all");
+    setFilterDueDate("all");
     setSearch("");
   };
 
@@ -463,6 +479,17 @@ export function TicketsContent({ tickets: initialTickets, users, clients, worklo
                     {clients.map((c) => (
                       <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+                <Select value={filterDueDate} onValueChange={setFilterDueDate}>
+                  <SelectTrigger className="h-8 w-40 text-xs"><SelectValue placeholder="Due Date" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Due Dates</SelectItem>
+                    <SelectItem value="overdue">Overdue</SelectItem>
+                    <SelectItem value="today">Due Today</SelectItem>
+                    <SelectItem value="this_week">Due This Week</SelectItem>
+                    <SelectItem value="this_month">Due This Month</SelectItem>
+                    <SelectItem value="no_date">No Due Date</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

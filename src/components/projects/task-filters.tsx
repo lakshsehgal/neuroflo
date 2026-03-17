@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, X, Filter } from "lucide-react";
 
 type Member = {
@@ -22,6 +23,7 @@ export type FilterState = {
   assignees: string[];
   priorities: string[];
   labels: string[];
+  dueDate: string;
 };
 
 interface TaskFiltersProps {
@@ -50,7 +52,8 @@ export function TaskFilters({
     filters.search ||
     filters.assignees.length > 0 ||
     filters.priorities.length > 0 ||
-    filters.labels.length > 0;
+    filters.labels.length > 0 ||
+    filters.dueDate !== "all";
 
   function toggleFilter(
     key: "assignees" | "priorities" | "labels",
@@ -64,7 +67,7 @@ export function TaskFilters({
   }
 
   function clearAll() {
-    onFiltersChange({ search: "", assignees: [], priorities: [], labels: [] });
+    onFiltersChange({ search: "", assignees: [], priorities: [], labels: [], dueDate: "all" });
   }
 
   return (
@@ -154,6 +157,21 @@ export function TaskFilters({
             ))}
           </div>
         )}
+
+        {/* Due Date filter */}
+        <Select value={filters.dueDate} onValueChange={(v) => onFiltersChange({ ...filters, dueDate: v })}>
+          <SelectTrigger className="h-8 w-40 text-xs">
+            <SelectValue placeholder="Due Date" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Due Dates</SelectItem>
+            <SelectItem value="overdue">Overdue</SelectItem>
+            <SelectItem value="today">Due Today</SelectItem>
+            <SelectItem value="this_week">Due This Week</SelectItem>
+            <SelectItem value="this_month">Due This Month</SelectItem>
+            <SelectItem value="no_date">No Due Date</SelectItem>
+          </SelectContent>
+        </Select>
 
         {/* Clear */}
         {hasFilters && (

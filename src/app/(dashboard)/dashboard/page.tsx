@@ -21,8 +21,6 @@ export default async function DashboardPage() {
     myTeamTasks,
     upcomingProjectDeadlines,
     upcomingTeamDeadlines,
-    unreadChannels,
-    recentMentions,
     dbUser,
   ] = await Promise.all([
     // Projects where user has assigned tasks
@@ -126,59 +124,6 @@ export default async function DashboardPage() {
       orderBy: { dueDate: "asc" },
       take: 8,
     }),
-    // Unread channels with last message preview
-    db.channelMember.findMany({
-      where: { userId: user.id },
-      include: {
-        channel: {
-          include: {
-            messages: {
-              orderBy: { createdAt: "desc" },
-              take: 1,
-              include: { author: { select: { name: true } } },
-            },
-          },
-        },
-      },
-    }).then(async (memberships) => {
-      const channels = [];
-      for (const m of memberships) {
-        const unreadCount = await db.message.count({
-          where: {
-            channelId: m.channelId,
-            parentId: null,
-            createdAt: { gt: m.lastReadAt },
-            authorId: { not: user.id },
-          },
-        });
-        if (unreadCount > 0) {
-          const lastMsg = m.channel.messages[0];
-          channels.push({
-            channelId: m.channelId,
-            channelName: m.channel.name,
-            unreadCount,
-            lastMessage: lastMsg
-              ? { content: lastMsg.content, authorName: lastMsg.author.name, createdAt: lastMsg.createdAt.toISOString() }
-              : null,
-          });
-        }
-      }
-      return channels.sort((a, b) => b.unreadCount - a.unreadCount);
-    }),
-    // Recent @mentions of the user in messages
-    db.message.findMany({
-      where: {
-        content: { contains: `@${user.name}` },
-        authorId: { not: user.id },
-        createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
-      },
-      include: {
-        author: { select: { name: true, avatar: true } },
-        channel: { select: { name: true } },
-      },
-      orderBy: { createdAt: "desc" },
-      take: 5,
-    }),
     // User's Google Calendar status
     db.user.findUnique({
       where: { id: user.id },
@@ -230,8 +175,6 @@ export default async function DashboardPage() {
   ].sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
    .slice(0, 8);
 
-  const totalUnreadMessages = unreadChannels.reduce((sum, c) => sum + c.unreadCount, 0);
-
   const stats = [
     { label: "My Projects", value: myProjectCount, iconName: "FolderKanban", href: "/projects", color: "text-blue-600", bgColor: "bg-blue-500/10" },
     { label: "My Tickets", value: myTicketCount, iconName: "Ticket", href: "/tickets", color: "text-orange-600", bgColor: "bg-orange-500/10" },
@@ -275,18 +218,7 @@ export default async function DashboardPage() {
         createdAt: a.createdAt.toISOString(),
       }))}
       upcomingDeadlines={upcomingDeadlines}
-      unreadChannels={unreadChannels}
-      recentMentions={recentMentions.map((m) => ({
-        id: m.id,
-        content: m.content,
-        authorName: m.author.name,
-        authorAvatar: m.author.avatar,
-        channelName: m.channel.name,
-        channelId: m.channelId,
-        createdAt: m.createdAt.toISOString(),
-      }))}
       overdueCount={overdueCount}
-      unreadMessages={totalUnreadMessages}
       calendarConnected={dbUser?.googleCalendarConnected ?? false}
     />
   );

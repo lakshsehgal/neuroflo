@@ -210,6 +210,7 @@ export function TeamTasksContent({
   const [filterPriority, setFilterPriority] = useState<string>("all");
   const [filterAssignee, setFilterAssignee] = useState<string>("all");
   const [filterTeam, setFilterTeam] = useState<string>("all");
+  const [filterDueDate, setFilterDueDate] = useState<string>("all");
   // Priority: URL param > user's single team > all
   const [selectedTeamTab, setSelectedTeamTab] = useState<string>(() => {
     if (initialTeamFilter && teams.some((t) => t.id === initialTeamFilter)) return initialTeamFilter;
@@ -282,6 +283,12 @@ export function TeamTasksContent({
   const effectiveTeamFilter = selectedTeamTab !== "all" ? selectedTeamTab : filterTeam;
 
   const filtered = useMemo(() => {
+    const now = new Date();
+    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    const weekEnd = new Date(todayEnd);
+    weekEnd.setDate(weekEnd.getDate() + (7 - weekEnd.getDay()));
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+
     return tasks.filter((t) => {
       if (
         search &&
@@ -295,14 +302,23 @@ export function TeamTasksContent({
       if (filterAssignee !== "all" && t.assigneeId !== filterAssignee)
         return false;
       if (effectiveTeamFilter !== "all" && t.teamId !== effectiveTeamFilter) return false;
+      if (filterDueDate !== "all") {
+        const due = t.dueDate ? new Date(t.dueDate) : null;
+        if (filterDueDate === "overdue" && (!due || due >= now)) return false;
+        if (filterDueDate === "today" && (!due || due < now || due > todayEnd)) return false;
+        if (filterDueDate === "this_week" && (!due || due < now || due > weekEnd)) return false;
+        if (filterDueDate === "this_month" && (!due || due < now || due > monthEnd)) return false;
+        if (filterDueDate === "no_date" && due) return false;
+      }
       return true;
     });
-  }, [tasks, search, filterStatus, filterPriority, filterAssignee, effectiveTeamFilter]);
+  }, [tasks, search, filterStatus, filterPriority, filterAssignee, effectiveTeamFilter, filterDueDate]);
 
   const activeFilterCount = [
     filterStatus,
     filterPriority,
     filterAssignee,
+    filterDueDate,
     // Only count dropdown team filter when no team tab is selected
     selectedTeamTab === "all" ? filterTeam : "all",
   ].filter((f) => f !== "all").length;
@@ -312,6 +328,7 @@ export function TeamTasksContent({
     setFilterPriority("all");
     setFilterAssignee("all");
     setFilterTeam("all");
+    setFilterDueDate("all");
     setSearch("");
   };
 
@@ -653,6 +670,22 @@ export function TeamTasksContent({
                         {u.name}
                       </SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+                <Select
+                  value={filterDueDate}
+                  onValueChange={setFilterDueDate}
+                >
+                  <SelectTrigger className="h-8 w-40 text-xs">
+                    <SelectValue placeholder="Due Date" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Due Dates</SelectItem>
+                    <SelectItem value="overdue">Overdue</SelectItem>
+                    <SelectItem value="today">Due Today</SelectItem>
+                    <SelectItem value="this_week">Due This Week</SelectItem>
+                    <SelectItem value="this_month">Due This Month</SelectItem>
+                    <SelectItem value="no_date">No Due Date</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

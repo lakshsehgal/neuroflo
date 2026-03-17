@@ -25,12 +25,15 @@ export interface SessionUser {
 }
 
 export async function createSessionToken(user: SessionUser): Promise<string> {
+  // Only include image if it's a short URL — never embed base64 data in JWT
+  const safeImage = user.image && user.image.length < 500 ? user.image : null;
+
   return new SignJWT({
     id: user.id,
     name: user.name,
     email: user.email,
     role: user.role,
-    image: user.image,
+    image: safeImage,
   })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()

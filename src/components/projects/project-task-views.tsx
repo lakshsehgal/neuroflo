@@ -54,6 +54,7 @@ export function ProjectTaskViews({
     assignees: [],
     priorities: [],
     labels: [],
+    dueDate: "all",
   });
 
   // Apply filters
@@ -82,6 +83,19 @@ export function ProjectTaskViews({
         !task.labels.some((l) => filters.labels.includes(l.id))
       ) {
         return false;
+      }
+      if (filters.dueDate !== "all") {
+        const now = new Date();
+        const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+        const weekEnd = new Date(todayEnd);
+        weekEnd.setDate(weekEnd.getDate() + (7 - weekEnd.getDay()));
+        const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+        const due = task.dueDate ? new Date(task.dueDate) : null;
+        if (filters.dueDate === "overdue" && (!due || due >= now)) return false;
+        if (filters.dueDate === "today" && (!due || due < now || due > todayEnd)) return false;
+        if (filters.dueDate === "this_week" && (!due || due < now || due > weekEnd)) return false;
+        if (filters.dueDate === "this_month" && (!due || due < now || due > monthEnd)) return false;
+        if (filters.dueDate === "no_date" && due) return false;
       }
       return true;
     });

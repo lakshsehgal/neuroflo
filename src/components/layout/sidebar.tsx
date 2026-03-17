@@ -9,9 +9,8 @@ import { hasMinRole, type UserRole } from "@/lib/roles";
 import { ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { getTotalUnreadCount } from "@/actions/chat";
 
 interface SidebarProps {
   userRole: UserRole;
@@ -20,23 +19,6 @@ interface SidebarProps {
 export function Sidebar({ userRole }: SidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
-  const [chatUnread, setChatUnread] = useState(0);
-
-  // Poll for unread chat count
-  useEffect(() => {
-    let cancelled = false;
-    async function fetchUnread() {
-      try {
-        const count = await getTotalUnreadCount();
-        if (!cancelled) setChatUnread(count);
-      } catch {
-        // ignore
-      }
-    }
-    fetchUnread();
-    const interval = setInterval(fetchUnread, 15000);
-    return () => { cancelled = true; clearInterval(interval); };
-  }, []);
 
   function filterItems(items: NavItem[]): NavItem[] {
     return items.filter((item) => {
@@ -149,7 +131,7 @@ export function Sidebar({ userRole }: SidebarProps) {
                       label={item.title}
                       active={isActive}
                       collapsed={collapsed}
-                      badge={item.href === "/chat" ? chatUnread : 0}
+                      badge={0}
                     />
                   );
                 })}

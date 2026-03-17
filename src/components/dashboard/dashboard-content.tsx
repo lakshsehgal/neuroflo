@@ -22,14 +22,11 @@ import {
   Calendar,
   Clock,
   AlertTriangle,
-  MessageSquare,
   ArrowRight,
   ExternalLink,
   TrendingUp,
   Zap,
   CalendarDays,
-  AtSign,
-  Hash,
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
@@ -98,27 +95,6 @@ type DeadlineItem = {
   status: string;
 };
 
-type UnreadChannel = {
-  channelId: string;
-  channelName: string;
-  unreadCount: number;
-  lastMessage: {
-    content: string;
-    authorName: string;
-    createdAt: string;
-  } | null;
-};
-
-type MentionItem = {
-  id: string;
-  content: string;
-  authorName: string;
-  authorAvatar: string | null;
-  channelName: string;
-  channelId: string;
-  createdAt: string;
-};
-
 interface DashboardContentProps {
   userName: string;
   stats: StatItem[];
@@ -127,10 +103,7 @@ interface DashboardContentProps {
   myTickets: TicketItem[];
   recentActivity: ActivityItem[];
   upcomingDeadlines: DeadlineItem[];
-  unreadChannels: UnreadChannel[];
-  recentMentions: MentionItem[];
   overdueCount: number;
-  unreadMessages: number;
   calendarConnected: boolean;
 }
 
@@ -203,10 +176,7 @@ export function DashboardContent({
   myTickets,
   recentActivity,
   upcomingDeadlines,
-  unreadChannels,
-  recentMentions,
   overdueCount,
-  unreadMessages,
   calendarConnected,
 }: DashboardContentProps) {
   const searchParams = useSearchParams();
@@ -275,22 +245,6 @@ export function DashboardContent({
                   </Badge>
                 </Link>
               )}
-              {unreadMessages > 0 && (
-                <Link href="/chat">
-                  <Badge variant="secondary" className="gap-1 cursor-pointer hover:opacity-80">
-                    <MessageSquare className="h-3 w-3" />
-                    {unreadMessages} unread {unreadMessages === 1 ? "message" : "messages"}
-                  </Badge>
-                </Link>
-              )}
-              {recentMentions.length > 0 && (
-                <Link href="/chat">
-                  <Badge variant="outline" className="gap-1 cursor-pointer hover:opacity-80 border-blue-300 text-blue-600">
-                    <AtSign className="h-3 w-3" />
-                    {recentMentions.length} mention{recentMentions.length !== 1 ? "s" : ""} this week
-                  </Badge>
-                </Link>
-              )}
               {upcomingDeadlines.length > 0 && (
                 <Badge variant="outline" className="gap-1">
                   <Clock className="h-3 w-3" />
@@ -338,7 +292,7 @@ export function DashboardContent({
 
         {/* Quick Actions Row */}
         <FadeIn delay={0.15}>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <Link href="/projects/new">
               <Button variant="outline" className="w-full h-auto py-3 flex-col gap-1.5 hover:bg-primary/5 hover:border-primary/30 transition-all">
                 <FolderKanban className="h-5 w-5 text-blue-500" />
@@ -349,15 +303,6 @@ export function DashboardContent({
               <Button variant="outline" className="w-full h-auto py-3 flex-col gap-1.5 hover:bg-orange-500/5 hover:border-orange-500/30 transition-all">
                 <Ticket className="h-5 w-5 text-orange-500" />
                 <span className="text-xs font-medium">New Ticket</span>
-              </Button>
-            </Link>
-            <Link href="/chat">
-              <Button variant="outline" className="w-full h-auto py-3 flex-col gap-1.5 hover:bg-green-500/5 hover:border-green-500/30 transition-all relative">
-                <MessageSquare className="h-5 w-5 text-green-500" />
-                <span className="text-xs font-medium">Open Chat</span>
-                {unreadMessages > 0 && (
-                  <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500 animate-pulse" />
-                )}
               </Button>
             </Link>
             <Link href="/team-tasks/new">
@@ -733,112 +678,6 @@ export function DashboardContent({
               </Card>
             </FadeIn>
 
-            {/* Unread Chats */}
-            <FadeIn delay={0.3}>
-              <Card>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <MessageSquare className="h-4 w-4 text-green-500" />
-                      Unread Chats
-                    </CardTitle>
-                    <Link href="/chat" className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1 transition-colors">
-                      Open <ArrowRight className="h-3 w-3" />
-                    </Link>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {unreadChannels.length === 0 ? (
-                    <div className="flex flex-col items-center py-4 text-center text-muted-foreground">
-                      <MessageSquare className="h-8 w-8 mb-2 opacity-30" />
-                      <p className="text-sm">All caught up!</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {unreadChannels.slice(0, 5).map((ch) => (
-                        <Link
-                          key={ch.channelId}
-                          href={`/chat?channel=${ch.channelId}`}
-                          className="flex items-start gap-2.5 rounded-lg border p-2.5 hover:bg-accent transition-all"
-                        >
-                          <div className="h-8 w-8 rounded-lg bg-green-500/10 flex items-center justify-center shrink-0">
-                            <Hash className="h-4 w-4 text-green-600" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center justify-between">
-                              <p className="text-sm font-medium truncate">{ch.channelName}</p>
-                              <Badge variant="destructive" className="text-[9px] px-1.5 py-0 ml-1 shrink-0">
-                                {ch.unreadCount}
-                              </Badge>
-                            </div>
-                            {ch.lastMessage && (
-                              <p className="text-xs text-muted-foreground truncate mt-0.5">
-                                <span className="font-medium">{ch.lastMessage.authorName}:</span>{" "}
-                                {ch.lastMessage.content.length > 50
-                                  ? ch.lastMessage.content.slice(0, 50) + "..."
-                                  : ch.lastMessage.content}
-                              </p>
-                            )}
-                          </div>
-                        </Link>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </FadeIn>
-
-            {/* @Mentions */}
-            {recentMentions.length > 0 && (
-              <FadeIn delay={0.35}>
-                <Card>
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-base flex items-center gap-2">
-                        <AtSign className="h-4 w-4 text-blue-500" />
-                        Mentions
-                      </CardTitle>
-                      <Link href="/chat" className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1 transition-colors">
-                        View all <ArrowRight className="h-3 w-3" />
-                      </Link>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2.5">
-                      {recentMentions.map((mention) => {
-                        const initials = mention.authorName.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
-                        return (
-                          <Link
-                            key={mention.id}
-                            href={`/chat?channel=${mention.channelId}`}
-                            className="flex items-start gap-2.5 rounded-lg border p-2.5 hover:bg-accent transition-all"
-                          >
-                            <Avatar className="h-7 w-7 shrink-0 mt-0.5">
-                              {mention.authorAvatar && <AvatarImage src={mention.authorAvatar} />}
-                              <AvatarFallback className="text-[9px]">{initials}</AvatarFallback>
-                            </Avatar>
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-xs font-medium">{mention.authorName}</span>
-                                <span className="text-[10px] text-muted-foreground">in #{mention.channelName}</span>
-                              </div>
-                              <p className="text-xs text-muted-foreground truncate mt-0.5">
-                                {mention.content.length > 80
-                                  ? mention.content.slice(0, 80) + "..."
-                                  : mention.content}
-                              </p>
-                              <span className="text-[10px] text-muted-foreground">
-                                {formatRelativeTime(new Date(mention.createdAt))}
-                              </span>
-                            </div>
-                          </Link>
-                        );
-                      })}
-                    </div>
-                  </CardContent>
-                </Card>
-              </FadeIn>
-            )}
           </div>
         </div>
       </div>
