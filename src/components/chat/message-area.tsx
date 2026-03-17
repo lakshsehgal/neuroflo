@@ -16,6 +16,8 @@ import {
   toggleReaction,
   getUserProfile,
   markChannelRead,
+  togglePinMessage,
+  getPinnedMessages,
 } from "@/actions/chat";
 import { uploadFile } from "@/lib/upload";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -45,6 +47,8 @@ import {
   SmilePlus,
   Mic,
   Square,
+  Pin,
+  PinOff,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -91,6 +95,9 @@ interface MessageData {
   _count?: { replies: number };
   replies?: { author: { id: string; name: string; avatar: string | null }; createdAt: Date }[];
   reactions?: ReactionData[];
+  pinned?: boolean;
+  pinnedBy?: { id: string; name: string } | null;
+  pinnedAt?: Date | null;
   author: {
     id: string;
     name: string;
@@ -169,6 +176,10 @@ export function MessageArea({
   const [bookmarkUrl, setBookmarkUrl] = useState("");
   const [addingBookmark, setAddingBookmark] = useState(false);
   const [showAddBookmark, setShowAddBookmark] = useState(false);
+  // Pinned messages state
+  const [showPinnedPanel, setShowPinnedPanel] = useState(false);
+  const [pinnedMessages, setPinnedMessages] = useState<MessageData[]>([]);
+  const [pinnedCount, setPinnedCount] = useState(0);
   // Rename state
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState(channelName);
@@ -462,6 +473,37 @@ export function MessageArea({
     setShowBookmarks(!showBookmarks);
   }
 
+  // ─── Pinned messages ────────────────────────────────────
+  async function loadPinnedMessages() {
+    const data = await getPinnedMessages(channelId);
+    setPinnedMessages(data as MessageData[]);
+    setPinnedCount(data.length);
+  }
+
+  async function handleTogglePin(messageId: string) {
+    await togglePinMessage(messageId);
+    // Update local state
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === messageId ? { ...m, pinned: !m.pinned } : m
+      )
+    );
+    // Refresh pinned count
+    loadPinnedMessages();
+  }
+
+  function handleTogglePinnedPanel() {
+    if (!showPinnedPanel) {
+      loadPinnedMessages();
+    }
+    setShowPinnedPanel(!showPinnedPanel);
+  }
+
+  // Load pinned count on mount
+  useEffect(() => {
+    getPinnedMessages(channelId).then((data) => setPinnedCount(data.length));
+  }, [channelId]);
+
   // ─── Rename ────────────────────────────────────────────
   async function handleRename() {
     const trimmed = renameValue.trim();
@@ -557,6 +599,16 @@ export function MessageArea({
           )}
         </div>
         <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            className={cn("h-8 gap-1.5 text-xs", showPinnedPanel && "text-primary")}
+            onClick={handleTogglePinnedPanel}
+            title="Pinned Messages"
+          >
+            <Pin className="h-3.5 w-3.5" />
+            Pins{pinnedCount > 0 && ` (${pinnedCount})`}
+          </Button>
           <Button
             variant="ghost"
             size="sm"
@@ -684,6 +736,70 @@ export function MessageArea({
         )}
       </AnimatePresence>
 
+      {/* Pinned messages panel */}
+      <AnimatePresence>
+        {showPinnedPanel && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden border-b"
+          >
+            <div className="px-4 py-2 max-h-60 overflow-y-auto">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                  <Pin className="h-3 w-3" />
+                  Pinned Messages
+                </h4>
+                <button
+                  onClick={() => setShowPinnedPanel(false)}
+                  className="rounded-full p-0.5 hover:bg-muted"
+                >
+                  <X className="h-3.5 w-3.5 text-muted-foreground" />
+                </button>
+              </div>
+              {pinnedMessages.length === 0 ? (
+                <p className="text-xs text-muted-foreground py-3 text-center">No pinned messages yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {pinnedMessages.map((pm) => (
+                    <div
+                      key={pm.id}
+                      className="group flex items-start gap-2 rounded-md border bg-muted/30 px-3 py-2 hover:bg-muted/60 transition-colors"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 mb-0.5">
+                          <span className="text-xs font-semibold">{pm.author.name}</span>
+                          {pm.pinnedBy && (
+                            <span className="text-[10px] text-muted-foreground">
+                              pinned by {pm.pinnedBy.name}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-foreground/80 line-clamp-2">{pm.content}</p>
+                        {pm.fileName && (
+                          <span className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                            <Paperclip className="h-2.5 w-2.5" /> {pm.fileName}
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => handleTogglePin(pm.id)}
+                        className="opacity-0 group-hover:opacity-100 rounded p-1 hover:bg-destructive/10 hover:text-destructive transition-all shrink-0"
+                        title="Unpin message"
+                      >
+                        <PinOff className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Messages */}
       <div
         ref={scrollContainerRef}
@@ -729,11 +845,22 @@ export function MessageArea({
                 initial={{ y: 8 }}
                 animate={{ y: 0 }}
                 transition={{ delay: 0.1, duration: 0.4 }}
+                className="flex flex-col items-center gap-3"
               >
-                <ChannelIcon className="mb-2 h-10 w-10 opacity-30" />
+                <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center">
+                  <ChannelIcon className="h-8 w-8 text-primary/60" />
+                </div>
+                <div className="text-center">
+                  <p className="text-lg font-semibold text-foreground">Welcome to #{channelName}</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {isGeneral
+                      ? "This is the general channel for everyone in the workspace."
+                      : channelType === "PRIVATE"
+                      ? "This is a private channel. Only invited members can see messages here."
+                      : "This is the beginning of the channel. Start the conversation!"}
+                  </p>
+                </div>
               </motion.div>
-              <p className="text-sm font-medium">No messages yet</p>
-              <p className="text-xs">Be the first to send a message!</p>
             </motion.div>
           ) : (
             <motion.div
@@ -742,6 +869,22 @@ export function MessageArea({
               animate={{ opacity: 1 }}
               transition={{ duration: 0.25 }}
             >
+              {/* Channel intro */}
+              {!messages[0]?.id.startsWith("temp-") && (
+                <div className="mb-6 pb-4 border-b border-dashed">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                      <ChannelIcon className="h-5 w-5 text-primary/60" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-semibold">#{channelName}</h3>
+                      <p className="text-xs text-muted-foreground">
+                        {channelType === "PRIVATE" ? "Private channel" : "Public channel"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
               {messages.map((msg, idx) => {
                 const prevMsg = idx > 0 ? messages[idx - 1] : null;
                 const msgDate = new Date(msg.createdAt);
@@ -768,6 +911,7 @@ export function MessageArea({
                       onVote={handleVote}
                       onOpenThread={() => setThreadMessage(msg)}
                       onReaction={handleReaction}
+                      onPin={handleTogglePin}
                     />
                   </div>
                 );
@@ -929,48 +1073,7 @@ export function MessageArea({
               )}
             </AnimatePresence>
 
-            <div className="flex gap-2 items-end">
-              <input
-                ref={fileInputRef}
-                type="file"
-                className="hidden"
-                onChange={handleFileSelect}
-                accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.txt,.csv"
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9 shrink-0"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
-              >
-                {uploading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Paperclip className="h-4 w-4" />
-                )}
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className={cn("h-9 w-9 shrink-0", showPollForm && "text-indigo-500")}
-                onClick={() => setShowPollForm(!showPollForm)}
-                title="Create poll"
-              >
-                <BarChart3 className="h-4 w-4" />
-              </Button>
-              <VoiceNoteButton
-                channelId={channelId}
-                currentUserId={currentUserId}
-                currentUserName={currentUserName}
-                onSent={async () => {
-                  const data = await getMessages(channelId);
-                  setMessages(data.messages as MessageData[]);
-                  setTimeout(scrollToBottom, 100);
-                }}
-              />
+            <div className="rounded-lg border bg-muted/20 focus-within:ring-2 focus-within:ring-ring/50 transition-shadow duration-200">
               <textarea
                 ref={inputRef}
                 placeholder={`Message #${channelName} — type @ to mention`}
@@ -978,7 +1081,7 @@ export function MessageArea({
                 onChange={handleInputChange}
                 onKeyDown={handleKeyDown}
                 rows={1}
-                className="flex-1 resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 transition-shadow duration-200 max-h-32 min-h-9"
+                className="w-full resize-none bg-transparent px-3 py-2.5 text-sm placeholder:text-muted-foreground focus-visible:outline-none max-h-32 min-h-9"
                 style={{
                   height: "auto",
                   minHeight: "36px",
@@ -989,21 +1092,66 @@ export function MessageArea({
                   target.style.height = Math.min(target.scrollHeight, 128) + "px";
                 }}
               />
-              <motion.div whileTap={{ scale: 0.92 }} transition={{ type: "spring", stiffness: 400, damping: 20 }}>
+              <div className="flex items-center gap-0.5 px-1.5 pb-1.5">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  onChange={handleFileSelect}
+                  accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.txt,.csv"
+                />
                 <Button
                   type="button"
+                  variant="ghost"
                   size="icon"
-                  disabled={(!input.trim() && !pendingFile) || sending}
-                  className="shrink-0 h-9 w-9 transition-opacity"
-                  onClick={handleSend}
+                  className="h-8 w-8 shrink-0 rounded-md"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  title="Attach file"
                 >
-                  {sending ? (
+                  {uploading ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
-                    <Send className="h-4 w-4" />
+                    <Paperclip className="h-4 w-4 text-muted-foreground" />
                   )}
                 </Button>
-              </motion.div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className={cn("h-8 w-8 shrink-0 rounded-md", showPollForm && "text-indigo-500")}
+                  onClick={() => setShowPollForm(!showPollForm)}
+                  title="Create poll"
+                >
+                  <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                </Button>
+                <VoiceNoteButton
+                  channelId={channelId}
+                  currentUserId={currentUserId}
+                  currentUserName={currentUserName}
+                  onSent={async () => {
+                    const data = await getMessages(channelId);
+                    setMessages(data.messages as MessageData[]);
+                    setTimeout(scrollToBottom, 100);
+                  }}
+                />
+                <div className="flex-1" />
+                <motion.div whileTap={{ scale: 0.92 }} transition={{ type: "spring", stiffness: 400, damping: 20 }}>
+                  <Button
+                    type="button"
+                    size="icon"
+                    disabled={(!input.trim() && !pendingFile) || sending}
+                    className="shrink-0 h-8 w-8 rounded-md transition-opacity"
+                    onClick={handleSend}
+                  >
+                    {sending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4" />
+                    )}
+                  </Button>
+                </motion.div>
+              </div>
             </div>
           </div>
         </div>
@@ -1624,6 +1772,7 @@ function MessageBubble({
   onVote,
   onOpenThread,
   onReaction,
+  onPin,
 }: {
   message: MessageData;
   isConsecutive: boolean;
@@ -1632,6 +1781,7 @@ function MessageBubble({
   onVote: (optionId: string) => void;
   onOpenThread: () => void;
   onReaction: (messageId: string, emoji: string) => void;
+  onPin: (messageId: string) => void;
 }) {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const time = new Date(message.createdAt);
@@ -1720,6 +1870,13 @@ function MessageBubble({
           )}
         </button>
       )}
+      {/* Pinned indicator */}
+      {message.pinned && (
+        <div className="flex items-center gap-1 mt-1 text-[10px] text-amber-600 dark:text-amber-400">
+          <Pin className="h-2.5 w-2.5" />
+          <span>Pinned</span>
+        </div>
+      )}
       {/* Hover actions */}
       <div className={cn("items-center gap-0.5 absolute -top-3 right-2 rounded-md border bg-popover shadow-sm px-0.5 py-0.5 z-10", showEmojiPicker ? "flex" : "hidden group-hover:flex")}>
         <div className="relative">
@@ -1748,6 +1905,13 @@ function MessageBubble({
             <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
           </button>
         )}
+        <button
+          onClick={() => onPin(message.id)}
+          className={cn("rounded p-1 hover:bg-muted transition-colors", message.pinned && "text-amber-600 dark:text-amber-400")}
+          title={message.pinned ? "Unpin message" : "Pin message"}
+        >
+          {message.pinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5 text-muted-foreground" />}
+        </button>
       </div>
     </>
   );

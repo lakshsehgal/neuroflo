@@ -207,6 +207,7 @@ export async function getMessages(channelId: string, cursor?: string) {
   const take = 50;
   const messageInclude = {
     author: { select: { id: true, name: true, avatar: true, position: true } },
+    pinnedBy: { select: { id: true, name: true } },
     poll: {
       include: {
         options: {
@@ -798,4 +799,48 @@ export async function renameChannel(
 
   revalidatePath("/chat");
   return { success: true };
+}
+
+// ─── Pin Messages ──────────────────────────────────────
+
+export async function togglePinMessage(
+  messageId: string
+): Promise<ActionResponse> {
+  const user = await requireAuth();
+
+  const message = await db.message.findUnique({
+    where: { id: messageId },
+    select: { pinned: true, channelId: true },
+  });
+  if (!message) return { success: false, error: "Message not found" };
+
+  // Verify user is a member of the channel
+  const membership = await db.channelMember.findUnique({
+    where: { channelId_userId: { channelId: message.channelId, userId: user.id } },
+  });
+  if (!membership) return { success: false, error: "Not a channel member" };
+
+  await db.message.update({
+    where: { id: messageId },
+    data: {
+      pinned: !message.pinned,
+      pinnedAt: message.pinned ? null : new Date(),
+      pinnedById: message.pinned ? null : user.id,
+    },
+  });
+
+  return { success: true };
+}
+
+export async function getPinnedMessages(channelId: string) {
+  await requireAuth();
+
+  return db.message.findMany({
+    where: { channelId, pinned: true },
+    include: {
+      author: { select: { id: true, name: true, avatar: true, position: true } },
+      pinnedBy: { select: { id: true, name: true } },
+    },
+    orderBy: { pinnedAt: "desc" },
+  });
 }
