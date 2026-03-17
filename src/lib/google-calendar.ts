@@ -48,14 +48,14 @@ export async function getCalendarEvents(
   const { token } = await oauth2Client.getAccessToken();
 
   const now = new Date();
-  const endOfWeek = new Date(now);
-  endOfWeek.setDate(endOfWeek.getDate() + 7);
+  const endDate = new Date(now);
+  endDate.setDate(endDate.getDate() + 3);
 
   const params = new URLSearchParams({
     calendarId: "primary",
     timeMin: now.toISOString(),
-    timeMax: endOfWeek.toISOString(),
-    maxResults: "20",
+    timeMax: endDate.toISOString(),
+    maxResults: "15",
     singleEvents: "true",
     orderBy: "startTime",
   });
