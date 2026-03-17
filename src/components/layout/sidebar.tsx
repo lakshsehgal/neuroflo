@@ -62,9 +62,14 @@ export function Sidebar({ userRole }: SidebarProps) {
             >
               <Link
                 href="/dashboard"
-                className="text-xl font-bold tracking-tight"
+                className="flex items-center gap-2"
               >
-                Neuroid
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/images/neuroid-logo.png"
+                  alt="Neuroid"
+                  className="h-7 w-auto"
+                />
               </Link>
             </motion.div>
           )}

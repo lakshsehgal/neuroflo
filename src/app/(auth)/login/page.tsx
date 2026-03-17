@@ -86,8 +86,8 @@ export default function LoginPage() {
               <img
                 src="/images/icon.png"
                 alt="Neuroid"
-                width={180}
-                height={180}
+                width={140}
+                height={140}
                 className="relative drop-shadow-2xl"
               />
             </div>
