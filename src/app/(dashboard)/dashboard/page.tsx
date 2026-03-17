@@ -12,30 +12,78 @@ export default async function DashboardPage() {
   weekFromNow.setDate(weekFromNow.getDate() + 7);
 
   const [
-    projectCount,
-    ticketCount,
+    myProjectCount,
+    myTicketCount,
     recentActivity,
     myTasks,
     myTickets,
-    taskCount,
-    upcomingDeadlines,
-    teamMembers,
-    unreadMessages,
+    myTeamTaskCount,
+    myTeamTasks,
+    upcomingProjectDeadlines,
+    upcomingTeamDeadlines,
+    unreadChannels,
+    recentMentions,
     dbUser,
   ] = await Promise.all([
-    db.project.count(),
-    db.ticket.count({ where: { status: { notIn: ["APPROVED"] } } }),
+    // Projects where user has assigned tasks
+    db.project.count({
+      where: {
+        tasks: { some: { assigneeId: user.id } },
+      },
+    }),
+    // User's open tickets (created or assigned)
+    db.ticket.count({
+      where: {
+        OR: [{ creatorId: user.id }, { assigneeId: user.id }],
+        status: { notIn: ["APPROVED"] },
+      },
+    }),
+    // Recent activity on entities the user is involved with
     db.activityLog.findMany({
+      where: {
+        OR: [
+          { userId: user.id },
+          {
+            entityType: "TASK",
+            entityId: {
+              in: await db.task
+                .findMany({ where: { assigneeId: user.id }, select: { id: true } })
+                .then((t) => t.map((x) => x.id)),
+            },
+          },
+          {
+            entityType: "TICKET",
+            entityId: {
+              in: await db.ticket
+                .findMany({
+                  where: { OR: [{ creatorId: user.id }, { assigneeId: user.id }] },
+                  select: { id: true },
+                })
+                .then((t) => t.map((x) => x.id)),
+            },
+          },
+          {
+            entityType: "TEAM_TASK",
+            entityId: {
+              in: await db.teamTask
+                .findMany({ where: { assigneeId: user.id }, select: { id: true } })
+                .then((t) => t.map((x) => x.id)),
+            },
+          },
+        ],
+      },
       include: { user: { select: { name: true, avatar: true } } },
       orderBy: { createdAt: "desc" },
       take: 15,
     }),
+    // My project tasks
     db.task.findMany({
       where: { assigneeId: user.id, status: { notIn: ["DELIVERED", "ON_HOLD"] } },
       include: { project: { select: { name: true } } },
       orderBy: { dueDate: "asc" },
       take: 5,
     }),
+    // My tickets
     db.ticket.findMany({
       where: {
         OR: [{ creatorId: user.id }, { assigneeId: user.id }],
@@ -45,40 +93,86 @@ export default async function DashboardPage() {
       orderBy: { updatedAt: "desc" },
       take: 5,
     }),
-    db.task.count({ where: { status: { notIn: ["DELIVERED", "ON_HOLD"] } } }),
-    // Upcoming deadlines - tasks with due dates in next 7 days
+    // My team tasks count
+    db.teamTask.count({
+      where: { assigneeId: user.id, status: { notIn: ["DONE", "ON_HOLD"] } },
+    }),
+    // My team tasks list
+    db.teamTask.findMany({
+      where: { assigneeId: user.id, status: { notIn: ["DONE", "ON_HOLD"] } },
+      include: { team: { select: { name: true } } },
+      orderBy: [{ priority: "desc" }, { dueDate: "asc" }],
+      take: 5,
+    }),
+    // Upcoming deadlines (project tasks)
     db.task.findMany({
       where: {
         assigneeId: user.id,
         status: { notIn: ["DELIVERED", "ON_HOLD"] },
         dueDate: { gte: now, lte: weekFromNow },
       },
-      include: {
-        project: { select: { name: true } },
-      },
+      include: { project: { select: { name: true } } },
       orderBy: { dueDate: "asc" },
       take: 8,
     }),
-    // Team members
-    db.user.findMany({
-      where: { isActive: true },
-      select: { id: true, name: true, avatar: true, position: true, role: true },
-      orderBy: { name: "asc" },
-      take: 12,
+    // Upcoming deadlines (team tasks)
+    db.teamTask.findMany({
+      where: {
+        assigneeId: user.id,
+        status: { notIn: ["DONE", "ON_HOLD"] },
+        dueDate: { gte: now, lte: weekFromNow },
+      },
+      include: { team: { select: { name: true } } },
+      orderBy: { dueDate: "asc" },
+      take: 8,
     }),
-    // Unread messages count
+    // Unread channels with last message preview
     db.channelMember.findMany({
       where: { userId: user.id },
-      select: { channelId: true, lastReadAt: true },
+      include: {
+        channel: {
+          include: {
+            messages: {
+              orderBy: { createdAt: "desc" },
+              take: 1,
+              include: { author: { select: { name: true } } },
+            },
+          },
+        },
+      },
     }).then(async (memberships) => {
-      let total = 0;
+      const channels = [];
       for (const m of memberships) {
-        const count = await db.message.count({
+        const unreadCount = await db.message.count({
           where: { channelId: m.channelId, createdAt: { gt: m.lastReadAt } },
         });
-        total += count;
+        if (unreadCount > 0) {
+          const lastMsg = m.channel.messages[0];
+          channels.push({
+            channelId: m.channelId,
+            channelName: m.channel.name,
+            unreadCount,
+            lastMessage: lastMsg
+              ? { content: lastMsg.content, authorName: lastMsg.author.name, createdAt: lastMsg.createdAt.toISOString() }
+              : null,
+          });
+        }
       }
-      return total;
+      return channels.sort((a, b) => b.unreadCount - a.unreadCount);
+    }),
+    // Recent @mentions of the user in messages
+    db.message.findMany({
+      where: {
+        content: { contains: `@${user.name}` },
+        authorId: { not: user.id },
+        createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+      },
+      include: {
+        author: { select: { name: true, avatar: true } },
+        channel: { select: { name: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 5,
     }),
     // User's Google Calendar status
     db.user.findUnique({
@@ -87,20 +181,57 @@ export default async function DashboardPage() {
     }),
   ]);
 
-  // Overdue tasks count
-  const overdueCount = await db.task.count({
-    where: {
-      assigneeId: user.id,
-      status: { notIn: ["DELIVERED", "ON_HOLD"] },
-      dueDate: { lt: now },
-    },
-  });
+  // Overdue tasks count (project + team)
+  const [overdueProjectCount, overdueTeamCount] = await Promise.all([
+    db.task.count({
+      where: {
+        assigneeId: user.id,
+        status: { notIn: ["DELIVERED", "ON_HOLD"] },
+        dueDate: { lt: now },
+      },
+    }),
+    db.teamTask.count({
+      where: {
+        assigneeId: user.id,
+        status: { notIn: ["DONE", "ON_HOLD"] },
+        dueDate: { lt: now },
+      },
+    }),
+  ]);
+  const overdueCount = overdueProjectCount + overdueTeamCount;
+
+  // Merge project + team task deadlines into one sorted list
+  const upcomingDeadlines = [
+    ...upcomingProjectDeadlines.map((t) => ({
+      id: t.id,
+      title: t.title,
+      projectId: t.projectId,
+      source: "project" as const,
+      sourceName: t.project.name,
+      dueDate: t.dueDate!.toISOString(),
+      priority: t.priority,
+      status: t.status,
+    })),
+    ...upcomingTeamDeadlines.map((t) => ({
+      id: t.id,
+      title: t.title,
+      projectId: null as string | null,
+      source: "team" as const,
+      sourceName: t.team.name,
+      dueDate: t.dueDate!.toISOString(),
+      priority: t.priority,
+      status: t.status,
+    })),
+  ].sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
+   .slice(0, 8);
+
+  const totalUnreadMessages = unreadChannels.reduce((sum, c) => sum + c.unreadCount, 0);
 
   const stats = [
-    { label: "Projects", value: projectCount, iconName: "FolderKanban", href: "/projects", color: "text-blue-600", bgColor: "bg-blue-500/10" },
-    { label: "Open Tickets", value: ticketCount, iconName: "Ticket", href: "/tickets", color: "text-orange-600", bgColor: "bg-orange-500/10" },
-    { label: "Active Tasks", value: taskCount, iconName: "CheckSquare", href: "/team-tasks", color: "text-green-600", bgColor: "bg-green-500/10" },
-    { label: "My Tasks", value: myTasks.length, iconName: "User", href: "/projects", color: "text-purple-600", bgColor: "bg-purple-500/10" },
+    { label: "My Projects", value: myProjectCount, iconName: "FolderKanban", href: "/projects", color: "text-blue-600", bgColor: "bg-blue-500/10" },
+    { label: "My Tickets", value: myTicketCount, iconName: "Ticket", href: "/tickets", color: "text-orange-600", bgColor: "bg-orange-500/10" },
+    { label: "My Team Tasks", value: myTeamTaskCount, iconName: "CheckSquare", href: "/team-tasks", color: "text-green-600", bgColor: "bg-green-500/10" },
+    { label: "Due This Week", value: upcomingDeadlines.length, iconName: "User", href: "/team-tasks", color: "text-purple-600", bgColor: "bg-purple-500/10" },
   ];
 
   return (
@@ -112,6 +243,14 @@ export default async function DashboardPage() {
         title: t.title,
         projectId: t.projectId,
         projectName: t.project.name,
+        priority: t.priority,
+        dueDate: t.dueDate?.toISOString() || null,
+        status: t.status,
+      }))}
+      myTeamTasks={myTeamTasks.map((t) => ({
+        id: t.id,
+        title: t.title,
+        teamName: t.team.name,
         priority: t.priority,
         dueDate: t.dueDate?.toISOString() || null,
         status: t.status,
@@ -130,24 +269,19 @@ export default async function DashboardPage() {
         entityType: a.entityType,
         createdAt: a.createdAt.toISOString(),
       }))}
-      upcomingDeadlines={upcomingDeadlines.map((t) => ({
-        id: t.id,
-        title: t.title,
-        projectId: t.projectId,
-        projectName: t.project.name,
-        dueDate: t.dueDate!.toISOString(),
-        priority: t.priority,
-        status: t.status,
-      }))}
-      teamMembers={teamMembers.map((m) => ({
+      upcomingDeadlines={upcomingDeadlines}
+      unreadChannels={unreadChannels}
+      recentMentions={recentMentions.map((m) => ({
         id: m.id,
-        name: m.name,
-        avatar: m.avatar,
-        position: m.position,
-        role: m.role,
+        content: m.content,
+        authorName: m.author.name,
+        authorAvatar: m.author.avatar,
+        channelName: m.channel.name,
+        channelId: m.channelId,
+        createdAt: m.createdAt.toISOString(),
       }))}
       overdueCount={overdueCount}
-      unreadMessages={unreadMessages}
+      unreadMessages={totalUnreadMessages}
       calendarConnected={dbUser?.googleCalendarConnected ?? false}
     />
   );

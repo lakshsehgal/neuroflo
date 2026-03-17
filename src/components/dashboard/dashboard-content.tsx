@@ -28,7 +28,8 @@ import {
   TrendingUp,
   Zap,
   CalendarDays,
-  Users,
+  AtSign,
+  Hash,
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
@@ -61,6 +62,15 @@ type TaskItem = {
   status: string;
 };
 
+type TeamTaskItem = {
+  id: string;
+  title: string;
+  teamName: string;
+  priority: string;
+  dueDate: string | null;
+  status: string;
+};
+
 type TicketItem = {
   id: string;
   title: string;
@@ -80,29 +90,45 @@ type ActivityItem = {
 type DeadlineItem = {
   id: string;
   title: string;
-  projectId: string;
-  projectName: string;
+  projectId: string | null;
+  source: "project" | "team";
+  sourceName: string;
   dueDate: string;
   priority: string;
   status: string;
 };
 
-type TeamMember = {
+type UnreadChannel = {
+  channelId: string;
+  channelName: string;
+  unreadCount: number;
+  lastMessage: {
+    content: string;
+    authorName: string;
+    createdAt: string;
+  } | null;
+};
+
+type MentionItem = {
   id: string;
-  name: string;
-  avatar: string | null;
-  position: string | null;
-  role: string;
+  content: string;
+  authorName: string;
+  authorAvatar: string | null;
+  channelName: string;
+  channelId: string;
+  createdAt: string;
 };
 
 interface DashboardContentProps {
   userName: string;
   stats: StatItem[];
   myTasks: TaskItem[];
+  myTeamTasks: TeamTaskItem[];
   myTickets: TicketItem[];
   recentActivity: ActivityItem[];
   upcomingDeadlines: DeadlineItem[];
-  teamMembers: TeamMember[];
+  unreadChannels: UnreadChannel[];
+  recentMentions: MentionItem[];
   overdueCount: number;
   unreadMessages: number;
   calendarConnected: boolean;
@@ -137,11 +163,21 @@ function statusColor(status: string) {
     case "NEW_REQUEST": return "bg-blue-500/10 text-blue-600";
     case "IN_PROGRESS": case "DESIGNING": case "EDITING": return "bg-amber-500/10 text-amber-600";
     case "IN_REVIEW": case "REVIEW": return "bg-purple-500/10 text-purple-600";
-    case "APPROVED": case "DELIVERED": return "bg-green-500/10 text-green-600";
-    case "REVISION_NEEDED": return "bg-red-500/10 text-red-600";
+    case "APPROVED": case "DELIVERED": case "DONE": return "bg-green-500/10 text-green-600";
+    case "REVISION_NEEDED": case "BLOCKED": return "bg-red-500/10 text-red-600";
+    case "TODO": return "bg-slate-500/10 text-slate-600";
     default: return "bg-gray-500/10 text-gray-600";
   }
 }
+
+const teamTaskStatusLabels: Record<string, string> = {
+  TODO: "To Do",
+  IN_PROGRESS: "In Progress",
+  IN_REVIEW: "In Review",
+  BLOCKED: "Blocked",
+  DONE: "Done",
+  ON_HOLD: "On Hold",
+};
 
 function formatCalendarTime(dateStr: string) {
   const d = new Date(dateStr);
@@ -163,10 +199,12 @@ export function DashboardContent({
   userName,
   stats,
   myTasks,
+  myTeamTasks,
   myTickets,
   recentActivity,
   upcomingDeadlines,
-  teamMembers,
+  unreadChannels,
+  recentMentions,
   overdueCount,
   unreadMessages,
   calendarConnected,
@@ -225,12 +263,12 @@ export function DashboardContent({
           <div className="relative z-10">
             <h1 className="text-2xl font-bold">{getGreeting()}, {userName}</h1>
             <p className="text-muted-foreground mt-1">
-              Here&apos;s what&apos;s happening across your workspace today.
+              Here&apos;s your personalized overview for today.
             </p>
             {/* Quick status badges */}
             <div className="flex flex-wrap items-center gap-2 mt-3">
               {overdueCount > 0 && (
-                <Link href="/projects">
+                <Link href="/team-tasks">
                   <Badge variant="destructive" className="gap-1 cursor-pointer hover:opacity-80">
                     <AlertTriangle className="h-3 w-3" />
                     {overdueCount} overdue {overdueCount === 1 ? "task" : "tasks"}
@@ -242,6 +280,14 @@ export function DashboardContent({
                   <Badge variant="secondary" className="gap-1 cursor-pointer hover:opacity-80">
                     <MessageSquare className="h-3 w-3" />
                     {unreadMessages} unread {unreadMessages === 1 ? "message" : "messages"}
+                  </Badge>
+                </Link>
+              )}
+              {recentMentions.length > 0 && (
+                <Link href="/chat">
+                  <Badge variant="outline" className="gap-1 cursor-pointer hover:opacity-80 border-blue-300 text-blue-600">
+                    <AtSign className="h-3 w-3" />
+                    {recentMentions.length} mention{recentMentions.length !== 1 ? "s" : ""} this week
                   </Badge>
                 </Link>
               )}
@@ -314,10 +360,10 @@ export function DashboardContent({
                 )}
               </Button>
             </Link>
-            <Link href="/tickets/dashboard">
+            <Link href="/team-tasks/new">
               <Button variant="outline" className="w-full h-auto py-3 flex-col gap-1.5 hover:bg-purple-500/5 hover:border-purple-500/30 transition-all">
-                <TrendingUp className="h-5 w-5 text-purple-500" />
-                <span className="text-xs font-medium">Analytics</span>
+                <CheckSquare className="h-5 w-5 text-purple-500" />
+                <span className="text-xs font-medium">New Task</span>
               </Button>
             </Link>
           </div>
@@ -328,14 +374,14 @@ export function DashboardContent({
           {/* Left column - Tasks & Tickets (spans 2 on large) */}
           <div className="space-y-6 lg:col-span-2">
             <div className="grid gap-6 md:grid-cols-2">
-              {/* My Tasks */}
+              {/* My Project Tasks */}
               <FadeIn delay={0.2}>
                 <Card className="h-full">
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-base flex items-center gap-2">
-                        <Zap className="h-4 w-4 text-amber-500" />
-                        My Tasks
+                        <FolderKanban className="h-4 w-4 text-blue-500" />
+                        My Project Tasks
                       </CardTitle>
                       <Link href="/projects" className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1 transition-colors">
                         View all <ArrowRight className="h-3 w-3" />
@@ -389,42 +435,60 @@ export function DashboardContent({
                 </Card>
               </FadeIn>
 
-              {/* My Tickets */}
-              <FadeIn delay={0.3}>
+              {/* My Team Tasks */}
+              <FadeIn delay={0.25}>
                 <Card className="h-full">
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-base flex items-center gap-2">
-                        <Ticket className="h-4 w-4 text-orange-500" />
-                        My Tickets
+                        <Zap className="h-4 w-4 text-amber-500" />
+                        My Team Tasks
                       </CardTitle>
-                      <Link href="/tickets" className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1 transition-colors">
+                      <Link href="/team-tasks" className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1 transition-colors">
                         View all <ArrowRight className="h-3 w-3" />
                       </Link>
                     </div>
                   </CardHeader>
                   <CardContent>
-                    {myTickets.length === 0 ? (
+                    {myTeamTasks.length === 0 ? (
                       <div className="flex flex-col items-center justify-center py-6 text-muted-foreground">
-                        <Ticket className="h-8 w-8 mb-2 opacity-30" />
-                        <p className="text-sm">No active tickets</p>
+                        <CheckSquare className="h-8 w-8 mb-2 opacity-30" />
+                        <p className="text-sm">No team tasks assigned</p>
                       </div>
                     ) : (
                       <div className="space-y-2">
-                        {myTickets.map((ticket) => (
+                        {myTeamTasks.map((task) => (
                           <Link
-                            key={ticket.id}
-                            href={`/tickets/${ticket.id}`}
+                            key={task.id}
+                            href="/team-tasks"
                             className="flex items-center justify-between rounded-lg border p-3 transition-all hover:bg-accent hover:shadow-sm active:scale-[0.99]"
                           >
                             <div className="min-w-0 flex-1">
-                              <p className="text-sm font-medium truncate">{ticket.title}</p>
-                              <p className="text-xs text-muted-foreground truncate">
-                                {ticket.projectName || "No project"}
-                              </p>
+                              <p className="text-sm font-medium truncate">{task.title}</p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <p className="text-xs text-muted-foreground truncate">
+                                  {task.teamName}
+                                </p>
+                                <Badge className={`text-[9px] px-1.5 py-0 ${statusColor(task.status)}`} variant="outline">
+                                  {teamTaskStatusLabels[task.status] || task.status}
+                                </Badge>
+                                {task.dueDate && (
+                                  <span className={`text-[10px] flex items-center gap-0.5 ${getDaysUntil(task.dueDate) <= 1 ? "text-red-500" : "text-muted-foreground"}`}>
+                                    <Clock className="h-2.5 w-2.5" />
+                                    {getDaysUntil(task.dueDate) <= 0
+                                      ? "Overdue"
+                                      : getDaysUntil(task.dueDate) === 1
+                                      ? "Tomorrow"
+                                      : `${getDaysUntil(task.dueDate)}d`}
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                            <Badge className={`shrink-0 ml-2 text-[10px] ${statusColor(ticket.status)}`} variant="outline">
-                              {ticket.status.replace(/_/g, " ")}
+                            <Badge
+                              className={`shrink-0 ml-2 text-[10px] ${priorityColor(task.priority)}`}
+                              variant="outline"
+                            >
+                              {task.priority}
                             </Badge>
                           </Link>
                         ))}
@@ -435,6 +499,51 @@ export function DashboardContent({
               </FadeIn>
             </div>
 
+            {/* My Tickets */}
+            <FadeIn delay={0.3}>
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Ticket className="h-4 w-4 text-orange-500" />
+                      My Tickets
+                    </CardTitle>
+                    <Link href="/tickets" className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1 transition-colors">
+                      View all <ArrowRight className="h-3 w-3" />
+                    </Link>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {myTickets.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-6 text-muted-foreground">
+                      <Ticket className="h-8 w-8 mb-2 opacity-30" />
+                      <p className="text-sm">No active tickets</p>
+                    </div>
+                  ) : (
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {myTickets.map((ticket) => (
+                        <Link
+                          key={ticket.id}
+                          href={`/tickets/${ticket.id}`}
+                          className="flex items-center justify-between rounded-lg border p-3 transition-all hover:bg-accent hover:shadow-sm active:scale-[0.99]"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium truncate">{ticket.title}</p>
+                            <p className="text-xs text-muted-foreground truncate">
+                              {ticket.projectName || "No project"}
+                            </p>
+                          </div>
+                          <Badge className={`shrink-0 ml-2 text-[10px] ${statusColor(ticket.status)}`} variant="outline">
+                            {ticket.status.replace(/_/g, " ")}
+                          </Badge>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </FadeIn>
+
             {/* Upcoming Deadlines */}
             {upcomingDeadlines.length > 0 && (
               <FadeIn delay={0.35}>
@@ -442,17 +551,20 @@ export function DashboardContent({
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base flex items-center gap-2">
                       <CalendarDays className="h-4 w-4 text-red-500" />
-                      Upcoming Deadlines
+                      My Upcoming Deadlines
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="grid gap-2 sm:grid-cols-2">
                       {upcomingDeadlines.map((d) => {
                         const daysLeft = getDaysUntil(d.dueDate);
+                        const href = d.source === "project" && d.projectId
+                          ? `/projects/${d.projectId}`
+                          : "/team-tasks";
                         return (
                           <Link
                             key={d.id}
-                            href={`/projects/${d.projectId}`}
+                            href={href}
                             className="flex items-center gap-3 rounded-lg border p-3 hover:bg-accent transition-all"
                           >
                             <div className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 text-xs font-bold ${
@@ -464,7 +576,7 @@ export function DashboardContent({
                             <div className="min-w-0 flex-1">
                               <p className="text-sm font-medium truncate">{d.title}</p>
                               <p className="text-xs text-muted-foreground truncate">
-                                {d.projectName} &middot; {new Date(d.dueDate).toLocaleDateString([], { month: "short", day: "numeric" })}
+                                {d.sourceName} &middot; {new Date(d.dueDate).toLocaleDateString([], { month: "short", day: "numeric" })}
                               </p>
                             </div>
                             <Badge className={`text-[10px] ${priorityColor(d.priority)}`} variant="outline">{d.priority}</Badge>
@@ -477,13 +589,13 @@ export function DashboardContent({
               </FadeIn>
             )}
 
-            {/* Recent Activity */}
+            {/* Recent Activity (filtered to user-relevant) */}
             <FadeIn delay={0.4}>
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base flex items-center gap-2">
                     <TrendingUp className="h-4 w-4 text-emerald-500" />
-                    Recent Activity
+                    My Activity Feed
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -508,7 +620,7 @@ export function DashboardContent({
                               <span className="font-medium">{log.userName}</span>{" "}
                               <span className="text-muted-foreground">
                                 {log.action.toLowerCase()} a{" "}
-                                {log.entityType.toLowerCase()}
+                                {log.entityType.toLowerCase().replace(/_/g, " ")}
                               </span>
                             </div>
                             <span className="text-xs text-muted-foreground whitespace-nowrap">
@@ -527,13 +639,13 @@ export function DashboardContent({
           {/* Right sidebar column */}
           <div className="space-y-6">
             {/* Google Calendar Widget */}
-            <FadeIn delay={0.25}>
+            <FadeIn delay={0.2}>
               <Card>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-base flex items-center gap-2">
                       <Calendar className="h-4 w-4 text-blue-500" />
-                      Calendar
+                      My Calendar
                     </CardTitle>
                     {isCalendarConnected && (
                       <button
@@ -553,7 +665,7 @@ export function DashboardContent({
                       </div>
                       <p className="text-sm font-medium mb-1">Connect Google Calendar</p>
                       <p className="text-xs text-muted-foreground mb-3">
-                        See your upcoming meetings right here on your dashboard.
+                        See your upcoming meetings right here.
                       </p>
                       {calendarError && (
                         <div className="mb-3 rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
@@ -621,54 +733,112 @@ export function DashboardContent({
               </Card>
             </FadeIn>
 
-            {/* Team Members */}
-            <FadeIn delay={0.35}>
+            {/* Unread Chats */}
+            <FadeIn delay={0.3}>
               <Card>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-base flex items-center gap-2">
-                      <Users className="h-4 w-4 text-indigo-500" />
-                      Team
+                      <MessageSquare className="h-4 w-4 text-green-500" />
+                      Unread Chats
                     </CardTitle>
-                    <Link href="/settings/team" className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1 transition-colors">
-                      Manage <ArrowRight className="h-3 w-3" />
+                    <Link href="/chat" className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1 transition-colors">
+                      Open <ArrowRight className="h-3 w-3" />
                     </Link>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-2 gap-2">
-                    {teamMembers.slice(0, 8).map((member) => {
-                      const initials = member.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
-                      return (
-                        <div
-                          key={member.id}
-                          className="flex items-center gap-2 rounded-lg border p-2 hover:bg-muted/50 transition-colors"
+                  {unreadChannels.length === 0 ? (
+                    <div className="flex flex-col items-center py-4 text-center text-muted-foreground">
+                      <MessageSquare className="h-8 w-8 mb-2 opacity-30" />
+                      <p className="text-sm">All caught up!</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {unreadChannels.slice(0, 5).map((ch) => (
+                        <Link
+                          key={ch.channelId}
+                          href={`/chat?channel=${ch.channelId}`}
+                          className="flex items-start gap-2.5 rounded-lg border p-2.5 hover:bg-accent transition-all"
                         >
-                          <Avatar className="h-7 w-7 shrink-0">
-                            {member.avatar && <AvatarImage src={member.avatar} />}
-                            <AvatarFallback className="text-[9px]">{initials}</AvatarFallback>
-                          </Avatar>
-                          <div className="min-w-0">
-                            <p className="text-xs font-medium truncate">{member.name.split(" ")[0]}</p>
-                            <p className="text-[10px] text-muted-foreground truncate">
-                              {member.position || member.role}
-                            </p>
+                          <div className="h-8 w-8 rounded-lg bg-green-500/10 flex items-center justify-center shrink-0">
+                            <Hash className="h-4 w-4 text-green-600" />
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  {teamMembers.length > 8 && (
-                    <Link
-                      href="/settings/team"
-                      className="mt-2 flex items-center justify-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors py-1"
-                    >
-                      +{teamMembers.length - 8} more
-                    </Link>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between">
+                              <p className="text-sm font-medium truncate">{ch.channelName}</p>
+                              <Badge variant="destructive" className="text-[9px] px-1.5 py-0 ml-1 shrink-0">
+                                {ch.unreadCount}
+                              </Badge>
+                            </div>
+                            {ch.lastMessage && (
+                              <p className="text-xs text-muted-foreground truncate mt-0.5">
+                                <span className="font-medium">{ch.lastMessage.authorName}:</span>{" "}
+                                {ch.lastMessage.content.length > 50
+                                  ? ch.lastMessage.content.slice(0, 50) + "..."
+                                  : ch.lastMessage.content}
+                              </p>
+                            )}
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
                   )}
                 </CardContent>
               </Card>
             </FadeIn>
+
+            {/* @Mentions */}
+            {recentMentions.length > 0 && (
+              <FadeIn delay={0.35}>
+                <Card>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <AtSign className="h-4 w-4 text-blue-500" />
+                        Mentions
+                      </CardTitle>
+                      <Link href="/chat" className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1 transition-colors">
+                        View all <ArrowRight className="h-3 w-3" />
+                      </Link>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2.5">
+                      {recentMentions.map((mention) => {
+                        const initials = mention.authorName.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
+                        return (
+                          <Link
+                            key={mention.id}
+                            href={`/chat?channel=${mention.channelId}`}
+                            className="flex items-start gap-2.5 rounded-lg border p-2.5 hover:bg-accent transition-all"
+                          >
+                            <Avatar className="h-7 w-7 shrink-0 mt-0.5">
+                              {mention.authorAvatar && <AvatarImage src={mention.authorAvatar} />}
+                              <AvatarFallback className="text-[9px]">{initials}</AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs font-medium">{mention.authorName}</span>
+                                <span className="text-[10px] text-muted-foreground">in #{mention.channelName}</span>
+                              </div>
+                              <p className="text-xs text-muted-foreground truncate mt-0.5">
+                                {mention.content.length > 80
+                                  ? mention.content.slice(0, 80) + "..."
+                                  : mention.content}
+                              </p>
+                              <span className="text-[10px] text-muted-foreground">
+                                {formatRelativeTime(new Date(mention.createdAt))}
+                              </span>
+                            </div>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+              </FadeIn>
+            )}
           </div>
         </div>
       </div>
