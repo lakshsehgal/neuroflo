@@ -33,17 +33,12 @@ import {
   BarChart3,
   Filter,
   MessageSquare,
-  GripVertical,
   Users,
   AlertTriangle,
-  Clock,
   Settings2,
-  Eye,
-  EyeOff,
   Check,
 } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { formatDate, isOverdue } from "@/lib/utils";
 import { updateTeamTask, updateTeamTaskStatus, createTeamTask } from "@/actions/team-tasks";
 import {
@@ -163,7 +158,6 @@ type TeamInfo = {
 
 const TASK_COLUMNS = [
   { key: "title", label: "Title", required: true },
-  { key: "team", label: "Team", required: false },
   { key: "status", label: "Status", required: false },
   { key: "priority", label: "Priority", required: false },
   { key: "assignee", label: "Assignee", required: false },
@@ -173,7 +167,6 @@ const TASK_COLUMNS = [
 
 const DEFAULT_TASK_COLUMNS = [
   "title",
-  "team",
   "status",
   "priority",
   "assignee",
@@ -398,50 +391,23 @@ export function TeamTasksContent({
       <div className="space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight">
-                {selectedTeamTab !== "all"
-                  ? `${teams.find((t) => t.id === selectedTeamTab)?.name || "Team"} Tasks`
-                  : "Team Tasks"}
-              </h1>
-              <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
-                <span>{totalCount} total</span>
-                <span className="h-1 w-1 rounded-full bg-muted-foreground/40" />
-                <span>{filtered.length} showing</span>
-                {urgentCount > 0 && (
-                  <>
-                    <span className="h-1 w-1 rounded-full bg-muted-foreground/40" />
-                    <span className="text-orange-600 font-medium">
-                      {urgentCount} high/urgent
-                    </span>
-                  </>
-                )}
-                {overdueCount > 0 && (
-                  <>
-                    <span className="h-1 w-1 rounded-full bg-muted-foreground/40" />
-                    <span className="text-red-600 font-medium">
-                      {overdueCount} overdue
-                    </span>
-                  </>
-                )}
-                {blockedCount > 0 && (
-                  <>
-                    <span className="h-1 w-1 rounded-full bg-muted-foreground/40" />
-                    <span className="text-red-600 font-medium">
-                      {blockedCount} blocked
-                    </span>
-                  </>
-                )}
-              </div>
-            </div>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">
+              {selectedTeamTab !== "all"
+                ? `${teams.find((t) => t.id === selectedTeamTab)?.name || "Team"} Tasks`
+                : "Team Tasks"}
+            </h1>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {totalCount} task{totalCount !== 1 ? "s" : ""}
+              {filtered.length !== totalCount && ` \u00B7 ${filtered.length} showing`}
+              {overdueCount > 0 && (
+                <span className="text-red-600 font-medium"> \u00B7 {overdueCount} overdue</span>
+              )}
+            </p>
           </div>
-          <Button
-            asChild
-            className="shadow-sm bg-primary hover:bg-primary/90"
-          >
+          <Button asChild size="sm">
             <Link href={selectedTeamTab !== "all" ? `/team-tasks/new?team=${selectedTeamTab}` : "/team-tasks/new"}>
-              <Plus className="mr-1.5 h-4 w-4" />
+              <Plus className="mr-1.5 h-3.5 w-3.5" />
               New Task
             </Link>
           </Button>
@@ -449,53 +415,34 @@ export function TeamTasksContent({
 
         {/* Team Tabs */}
         {teams.length > 1 && (
-          <div className="flex items-center gap-1 overflow-x-auto rounded-lg border bg-card/50 p-1.5">
+          <div className="flex items-center gap-1 overflow-x-auto border-b pb-2">
             <button
               onClick={() => { setSelectedTeamTab("all"); setFilterTeam("all"); }}
-              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all whitespace-nowrap ${
+              className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
                 selectedTeamTab === "all"
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
               }`}
             >
-              <Users className="h-3.5 w-3.5" />
-              All Teams
-              <span className={`ml-0.5 rounded-full px-1.5 py-0 text-[10px] font-semibold ${
-                selectedTeamTab === "all"
-                  ? "bg-primary-foreground/20 text-primary-foreground"
-                  : "bg-muted text-muted-foreground"
-              }`}>
-                {tasks.length}
-              </span>
+              All ({tasks.length})
             </button>
             {teams.map((team) => {
               const stats = teamTabStats.get(team.id);
               const count = stats?.total || 0;
-              const hasUrgent = (stats?.urgent || 0) > 0;
               const hasOverdue = (stats?.overdue || 0) > 0;
               return (
                 <button
                   key={team.id}
                   onClick={() => { setSelectedTeamTab(team.id); setFilterTeam("all"); }}
-                  className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all whitespace-nowrap ${
+                  className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
                     selectedTeamTab === team.id
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
                   }`}
                 >
-                  {team.name}
-                  <span className={`ml-0.5 rounded-full px-1.5 py-0 text-[10px] font-semibold ${
-                    selectedTeamTab === team.id
-                      ? "bg-primary-foreground/20 text-primary-foreground"
-                      : "bg-muted text-muted-foreground"
-                  }`}>
-                    {count}
-                  </span>
+                  {team.name} ({count})
                   {hasOverdue && selectedTeamTab !== team.id && (
                     <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
-                  )}
-                  {hasUrgent && !hasOverdue && selectedTeamTab !== team.id && (
-                    <span className="h-1.5 w-1.5 rounded-full bg-orange-500" />
                   )}
                 </button>
               );
@@ -504,37 +451,30 @@ export function TeamTasksContent({
         )}
 
         {/* Toolbar */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-lg border bg-card/50 p-2">
-          <div className="flex items-center gap-2">
-            <div className="flex items-center rounded-md border bg-muted/30 p-0.5">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-1.5">
+            <div className="flex items-center rounded-lg border p-0.5">
               <button
                 onClick={() => setView("table")}
-                className={`flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-all ${view === "table" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                className={`rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${view === "table" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"}`}
               >
                 <LayoutList className="h-3.5 w-3.5" />
-                List
               </button>
               <button
                 onClick={() => setView("kanban")}
-                className={`flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-all ${view === "kanban" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                className={`rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${view === "kanban" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"}`}
               >
                 <Columns3 className="h-3.5 w-3.5" />
-                Kanban
               </button>
               <button
                 onClick={() => setView("workload")}
-                className={`flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-all ${view === "workload" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                className={`rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${view === "workload" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"}`}
               >
                 <BarChart3 className="h-3.5 w-3.5" />
-                Workload
               </button>
             </div>
             <Link href="/team-tasks/dashboard">
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 gap-1.5 text-xs"
-              >
+              <Button variant="ghost" size="sm" className="h-8 text-xs gap-1.5 text-muted-foreground">
                 <BarChart3 className="h-3.5 w-3.5" />
                 Dashboard
               </Button>
@@ -544,10 +484,10 @@ export function TeamTasksContent({
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Search tasks..."
+                placeholder="Search..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="h-8 w-52 pl-8 text-xs bg-background"
+                className="h-8 w-44 pl-8 text-xs"
               />
               {search && (
                 <button
@@ -561,66 +501,48 @@ export function TeamTasksContent({
             <Button
               variant={showFilters ? "secondary" : "ghost"}
               size="sm"
-              className="h-8 text-xs gap-1.5"
+              className="h-8 text-xs gap-1"
               onClick={() => setShowFilters(!showFilters)}
             >
               <Filter className="h-3 w-3" />
-              Filters
               {activeFilterCount > 0 && (
-                <span className="ml-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground px-1">
+                <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground px-1">
                   {activeFilterCount}
                 </span>
               )}
             </Button>
             {activeFilterCount > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 text-xs gap-1 text-muted-foreground"
+              <button
+                className="text-xs text-muted-foreground hover:text-foreground"
                 onClick={clearFilters}
               >
-                <X className="h-3 w-3" /> Clear
-              </Button>
+                Clear
+              </button>
             )}
-            <div className="h-4 w-px bg-border" />
             <Popover>
               <PopoverTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 text-xs gap-1.5"
-                >
-                  <Settings2 className="h-3 w-3" />
-                  Columns
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                  <Settings2 className="h-3.5 w-3.5 text-muted-foreground" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent align="end" className="w-52 p-2">
-                <p className="px-2 pb-2 text-xs font-semibold text-muted-foreground">
-                  Toggle Columns
+              <PopoverContent align="end" className="w-48 p-1.5">
+                <p className="px-2 py-1 text-xs font-medium text-muted-foreground">
+                  Columns
                 </p>
                 {TASK_COLUMNS.filter((c) => !c.required).map((col) => (
                   <button
                     key={col.key}
                     onClick={() => toggleColumn(col.key)}
-                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted/50 transition-colors"
+                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-muted/50 transition-colors"
                   >
                     {visibleColumns.includes(col.key) ? (
-                      <Eye className="h-3.5 w-3.5 text-primary" />
+                      <Check className="h-3 w-3 text-primary" />
                     ) : (
-                      <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
+                      <div className="h-3 w-3" />
                     )}
-                    <span
-                      className={
-                        visibleColumns.includes(col.key)
-                          ? ""
-                          : "text-muted-foreground"
-                      }
-                    >
+                    <span className={visibleColumns.includes(col.key) ? "" : "text-muted-foreground"}>
                       {col.label}
                     </span>
-                    {visibleColumns.includes(col.key) && (
-                      <Check className="ml-auto h-3 w-3 text-primary" />
-                    )}
                   </button>
                 ))}
               </PopoverContent>
@@ -710,7 +632,6 @@ export function TeamTasksContent({
           <TableView
             teamGroups={teamGroups}
             users={users}
-            teams={teams}
             onUpdate={handleInlineUpdate}
             onTaskAdded={(task: TeamTaskData) => setLocalTasks((prev) => [...prev, task])}
             visibleColumns={visibleColumns}
@@ -729,11 +650,10 @@ export function TeamTasksContent({
   );
 }
 
-/* ─── Table View Grouped by Team → Assignee ─── */
+/* ─── Table View Grouped by Team ─── */
 function TableView({
   teamGroups,
   users,
-  teams,
   onUpdate,
   onTaskAdded,
   visibleColumns,
@@ -753,12 +673,10 @@ function TableView({
     },
   ][];
   users: User[];
-  teams: TeamInfo[];
   onUpdate: (id: string, field: string, value: string) => void;
   onTaskAdded: (task: TeamTaskData) => void;
   visibleColumns: string[];
 }) {
-  const router = useRouter();
   const isCol = (key: string) => visibleColumns.includes(key);
 
   if (teamGroups.length === 0) {
@@ -775,264 +693,199 @@ function TableView({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {teamGroups.map(([teamId, group]) => (
-        <div key={teamId} className="space-y-4">
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2">
-              <Users className="h-4 w-4 text-primary" />
-              <h3 className="font-semibold text-sm">{group.teamName}</h3>
-              <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                {group.deptName}
-              </Badge>
-              <span className="text-xs text-muted-foreground">
-                {group.tasks.length} task
-                {group.tasks.length !== 1 ? "s" : ""}
-              </span>
-            </div>
+        <Card key={teamId}>
+          <div className="flex items-center gap-2 px-4 py-3 border-b bg-muted/20">
+            <h3 className="font-semibold text-sm">{group.teamName}</h3>
+            <span className="text-xs text-muted-foreground">
+              {group.deptName}
+            </span>
+            <span className="ml-auto text-xs text-muted-foreground">
+              {group.tasks.length} task{group.tasks.length !== 1 ? "s" : ""}
+            </span>
           </div>
-
-          {/* Assignee sub-groups within each team */}
-          {group.assigneeGroups.map((ag) => (
-            <div key={ag.assigneeId || "__unassigned__"} className="ml-2">
-              <div className="flex items-center gap-2 mb-1.5">
-                {ag.assigneeId ? (
-                  <>
-                    <Avatar className="h-5 w-5">
-                      <AvatarFallback className="text-[9px]">
-                        {ag.assigneeInitials}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="text-xs font-medium">{ag.assigneeName}</span>
-                  </>
-                ) : (
-                  <>
-                    <div className="h-5 w-5 rounded-full bg-muted flex items-center justify-center">
-                      <Users className="h-3 w-3 text-muted-foreground" />
-                    </div>
-                    <span className="text-xs font-medium text-muted-foreground">Unassigned</span>
-                  </>
-                )}
-                <span className="text-[10px] text-muted-foreground">
-                  {ag.tasks.length} task{ag.tasks.length !== 1 ? "s" : ""}
-                </span>
-              </div>
-          <Card>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-muted/30">
-                    <th className="px-4 py-2.5 text-left font-medium text-muted-foreground text-xs">
-                      Title
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b">
+                  <th className="px-4 py-2 text-left font-medium text-muted-foreground text-xs">
+                    Title
+                  </th>
+                  {isCol("status") && (
+                    <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs">
+                      Status
                     </th>
-                    {isCol("team") && (
-                      <th className="px-3 py-2.5 text-left font-medium text-muted-foreground text-xs">
-                        Team
-                      </th>
-                    )}
+                  )}
+                  {isCol("priority") && (
+                    <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs">
+                      Priority
+                    </th>
+                  )}
+                  {isCol("assignee") && (
+                    <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs">
+                      Assignee
+                    </th>
+                  )}
+                  {isCol("due") && (
+                    <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs">
+                      Due
+                    </th>
+                  )}
+                  {isCol("info") && (
+                    <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs w-16" />
+                  )}
+                </tr>
+              </thead>
+              <AnimatedTableBody>
+                {group.tasks.map((task) => (
+                  <AnimatedRow
+                    key={task.id}
+                    className="border-b last:border-0 hover:bg-muted/20 transition-colors"
+                  >
+                    <td className="px-4 py-2.5">
+                      <Link
+                        href={`/team-tasks/${task.id}`}
+                        className="font-medium text-sm hover:underline line-clamp-1"
+                      >
+                        {task.title}
+                      </Link>
+                    </td>
                     {isCol("status") && (
-                      <th className="px-3 py-2.5 text-left font-medium text-muted-foreground text-xs">
-                        Status
-                      </th>
+                      <td className="px-3 py-2.5">
+                        <Select
+                          value={task.status}
+                          onValueChange={(v) =>
+                            onUpdate(task.id, "status", v)
+                          }
+                        >
+                          <SelectTrigger className="h-7 w-28 text-xs border-0 bg-transparent px-0">
+                            <Badge
+                              variant="outline"
+                              className={`text-[10px] px-2 py-0.5 ${statusColors[task.status] || ""}`}
+                            >
+                              {statusLabels[task.status] || task.status}
+                            </Badge>
+                          </SelectTrigger>
+                          <SelectContent>
+                            {statusColumnOrder.map((s) => (
+                              <SelectItem key={s} value={s}>
+                                {statusLabels[s]}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </td>
                     )}
                     {isCol("priority") && (
-                      <th className="px-3 py-2.5 text-left font-medium text-muted-foreground text-xs">
-                        Priority
-                      </th>
+                      <td className="px-3 py-2.5">
+                        <Select
+                          value={task.priority}
+                          onValueChange={(v) =>
+                            onUpdate(task.id, "priority", v)
+                          }
+                        >
+                          <SelectTrigger className="h-7 w-24 text-xs border-0 bg-transparent px-0">
+                            <Badge
+                              className={`text-[10px] px-2 py-0.5 ${priorityColors[task.priority] || ""}`}
+                            >
+                              {task.priority}
+                            </Badge>
+                          </SelectTrigger>
+                          <SelectContent>
+                            {["LOW", "MEDIUM", "HIGH", "URGENT"].map((p) => (
+                              <SelectItem key={p} value={p}>
+                                {p}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </td>
                     )}
                     {isCol("assignee") && (
-                      <th className="px-3 py-2.5 text-left font-medium text-muted-foreground text-xs">
-                        Assignee
-                      </th>
+                      <td className="px-3 py-2.5">
+                        <Select
+                          value={task.assigneeId || "unassigned"}
+                          onValueChange={(v) =>
+                            onUpdate(
+                              task.id,
+                              "assigneeId",
+                              v === "unassigned" ? "" : v
+                            )
+                          }
+                        >
+                          <SelectTrigger className="h-7 w-32 text-xs border-0 bg-transparent px-0">
+                            {task.assigneeName ? (
+                              <div className="flex items-center gap-1.5">
+                                <Avatar className="h-5 w-5">
+                                  <AvatarFallback className="text-[9px]">
+                                    {task.assigneeInitials}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <span className="truncate text-xs">
+                                  {task.assigneeName}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground text-xs">
+                                --
+                              </span>
+                            )}
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="unassigned">
+                              Unassigned
+                            </SelectItem>
+                            {users.map((u) => (
+                              <SelectItem key={u.id} value={u.id}>
+                                {u.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </td>
                     )}
                     {isCol("due") && (
-                      <th className="px-3 py-2.5 text-left font-medium text-muted-foreground text-xs">
-                        Due
-                      </th>
+                      <td className="px-3 py-2.5">
+                        {task.dueDate ? (
+                          <span
+                            className={`text-xs ${
+                              isOverdue(task.dueDate)
+                                ? "text-red-600 font-medium"
+                                : "text-muted-foreground"
+                            }`}
+                          >
+                            {formatDate(task.dueDate)}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">
+                            --
+                          </span>
+                        )}
+                      </td>
                     )}
                     {isCol("info") && (
-                      <th className="px-3 py-2.5 text-left font-medium text-muted-foreground text-xs">
-                        Info
-                      </th>
-                    )}
-                  </tr>
-                </thead>
-                <AnimatedTableBody>
-                  {ag.tasks.map((task) => (
-                    <AnimatedRow
-                      key={task.id}
-                      className="border-b last:border-0 cursor-pointer hover:bg-muted/30 transition-colors"
-                    >
-                      <td className="px-4 py-2.5">
-                        <span className="font-medium text-sm line-clamp-1">
-                          {task.title}
-                        </span>
-                      </td>
-                      {isCol("team") && (
-                        <td className="px-3 py-2.5">
-                          <Select
-                            value={task.teamId}
-                            onValueChange={(v) =>
-                              onUpdate(task.id, "teamId", v)
-                            }
-                          >
-                            <SelectTrigger className="h-7 w-36 text-xs border-0 bg-transparent px-0">
-                              <span className="truncate text-xs">
-                                {task.teamName}
-                              </span>
-                            </SelectTrigger>
-                            <SelectContent>
-                              {teams.map((t) => (
-                                <SelectItem key={t.id} value={t.id}>
-                                  {t.name}
-                                  <span className="ml-1 text-muted-foreground">
-                                    ({t.department.name})
-                                  </span>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </td>
-                      )}
-                      {isCol("status") && (
-                        <td className="px-3 py-2.5">
-                          <Select
-                            value={task.status}
-                            onValueChange={(v) =>
-                              onUpdate(task.id, "status", v)
-                            }
-                          >
-                            <SelectTrigger className="h-7 w-32 text-xs border-0 bg-transparent px-0">
-                              <Badge
-                                variant="outline"
-                                className={`text-[10px] px-2 py-0.5 ${statusColors[task.status] || ""}`}
-                              >
-                                {statusLabels[task.status] || task.status}
-                              </Badge>
-                            </SelectTrigger>
-                            <SelectContent>
-                              {statusColumnOrder.map((s) => (
-                                <SelectItem key={s} value={s}>
-                                  {statusLabels[s]}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </td>
-                      )}
-                      {isCol("priority") && (
-                        <td className="px-3 py-2.5">
-                          <Select
-                            value={task.priority}
-                            onValueChange={(v) =>
-                              onUpdate(task.id, "priority", v)
-                            }
-                          >
-                            <SelectTrigger className="h-7 w-24 text-xs border-0 bg-transparent px-0">
-                              <Badge
-                                className={`text-[10px] px-2 py-0.5 ${priorityColors[task.priority] || ""}`}
-                              >
-                                {task.priority}
-                              </Badge>
-                            </SelectTrigger>
-                            <SelectContent>
-                              {["LOW", "MEDIUM", "HIGH", "URGENT"].map((p) => (
-                                <SelectItem key={p} value={p}>
-                                  {p}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </td>
-                      )}
-                      {isCol("assignee") && (
-                        <td className="px-3 py-2.5">
-                          <Select
-                            value={task.assigneeId || "unassigned"}
-                            onValueChange={(v) =>
-                              onUpdate(
-                                task.id,
-                                "assigneeId",
-                                v === "unassigned" ? "" : v
-                              )
-                            }
-                          >
-                            <SelectTrigger className="h-7 w-32 text-xs border-0 bg-transparent px-0">
-                              {task.assigneeName ? (
-                                <div className="flex items-center gap-1.5">
-                                  <Avatar className="h-5 w-5">
-                                    <AvatarFallback className="text-[9px]">
-                                      {task.assigneeInitials}
-                                    </AvatarFallback>
-                                  </Avatar>
-                                  <span className="truncate text-xs">
-                                    {task.assigneeName}
-                                  </span>
-                                </div>
-                              ) : (
-                                <span className="text-muted-foreground text-xs">
-                                  Unassigned
-                                </span>
-                              )}
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="unassigned">
-                                Unassigned
-                              </SelectItem>
-                              {users.map((u) => (
-                                <SelectItem key={u.id} value={u.id}>
-                                  {u.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </td>
-                      )}
-                      {isCol("due") && (
-                        <td className="px-3 py-2.5">
-                          {task.dueDate ? (
-                            <span
-                              className={`text-xs ${
-                                isOverdue(task.dueDate)
-                                  ? "text-red-600 font-medium"
-                                  : "text-muted-foreground"
-                              }`}
-                            >
-                              {formatDate(task.dueDate)}
-                            </span>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">
-                              -
+                      <td className="px-3 py-2.5">
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          {task.commentCount > 0 && (
+                            <span className="flex items-center gap-0.5 text-xs">
+                              <MessageSquare className="h-3 w-3" />
+                              {task.commentCount}
                             </span>
                           )}
-                        </td>
-                      )}
-                      {isCol("info") && (
-                        <td className="px-3 py-2.5">
-                          <div className="flex items-center gap-2 text-muted-foreground">
-                            {task.commentCount > 0 && (
-                              <span className="flex items-center gap-0.5 text-xs">
-                                <MessageSquare className="h-3 w-3" />
-                                {task.commentCount}
-                              </span>
-                            )}
-                            {task.dueDate && isOverdue(task.dueDate) && (
-                              <AlertTriangle className="h-3 w-3 text-red-500" />
-                            )}
-                          </div>
-                        </td>
-                      )}
-                    </AnimatedRow>
-                  ))}
-                </AnimatedTableBody>
-              </table>
-            </div>
-            {/* Inline quick-add row */}
-            <InlineAddRow teamId={teamId} onCreated={onTaskAdded} />
-          </Card>
-            </div>
-          ))}
-        </div>
+                          {task.dueDate && isOverdue(task.dueDate) && (
+                            <AlertTriangle className="h-3 w-3 text-red-500" />
+                          )}
+                        </div>
+                      </td>
+                    )}
+                  </AnimatedRow>
+                ))}
+              </AnimatedTableBody>
+            </table>
+          </div>
+          <InlineAddRow teamId={teamId} onCreated={onTaskAdded} />
+        </Card>
       ))}
     </div>
   );
@@ -1190,12 +1043,10 @@ function KanbanColumn({
       ref={setNodeRef}
       className={`flex-shrink-0 w-72 rounded-lg border bg-muted/20 transition-colors ${isOver ? "border-primary/50 bg-primary/5" : ""}`}
     >
-      <div className="flex items-center gap-2 p-3 border-b">
+      <div className="flex items-center gap-2 px-3 py-2.5 border-b">
         <div className={`h-2 w-2 rounded-full ${column.color}`} />
-        <span className="text-xs font-semibold">{column.label}</span>
-        <Badge variant="secondary" className="ml-auto text-[10px] px-1.5">
-          {tasks.length}
-        </Badge>
+        <span className="text-xs font-medium">{column.label}</span>
+        <span className="ml-auto text-[10px] text-muted-foreground">{tasks.length}</span>
       </div>
       <SortableContext
         items={tasks.map((t) => t.id)}
@@ -1243,54 +1094,31 @@ function KanbanCard({
 }) {
   return (
     <Card
-      className={`p-3 cursor-grab active:cursor-grabbing ${isDragging ? "shadow-lg ring-2 ring-primary/30" : "hover:shadow-sm"}`}
+      className={`p-2.5 cursor-grab active:cursor-grabbing ${isDragging ? "shadow-lg ring-2 ring-primary/30" : "hover:shadow-sm"}`}
     >
-      <div className="space-y-2">
-        <p className="text-sm font-medium line-clamp-2">{task.title}</p>
+      <p className="text-sm font-medium line-clamp-2 mb-2">{task.title}</p>
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           <Badge
-            variant="outline"
             className={`text-[9px] px-1.5 py-0 ${priorityColors[task.priority] || ""}`}
           >
             {task.priority}
           </Badge>
-          <Badge variant="outline" className="text-[9px] px-1.5 py-0">
-            {task.teamName}
-          </Badge>
-        </div>
-        <div className="flex items-center justify-between">
           {task.assigneeName ? (
-            <div className="flex items-center gap-1">
-              <Avatar className="h-5 w-5">
-                <AvatarFallback className="text-[8px]">
-                  {task.assigneeInitials}
-                </AvatarFallback>
-              </Avatar>
-              <span className="text-[10px] text-muted-foreground truncate max-w-[80px]">
-                {task.assigneeName}
-              </span>
-            </div>
-          ) : (
-            <span className="text-[10px] text-muted-foreground">
-              Unassigned
-            </span>
-          )}
-          <div className="flex items-center gap-1.5">
-            {task.dueDate && (
-              <span
-                className={`text-[10px] ${isOverdue(task.dueDate) ? "text-red-600 font-medium" : "text-muted-foreground"}`}
-              >
-                {formatDate(task.dueDate)}
-              </span>
-            )}
-            {task.commentCount > 0 && (
-              <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
-                <MessageSquare className="h-2.5 w-2.5" />
-                {task.commentCount}
-              </span>
-            )}
-          </div>
+            <Avatar className="h-5 w-5">
+              <AvatarFallback className="text-[8px]">
+                {task.assigneeInitials}
+              </AvatarFallback>
+            </Avatar>
+          ) : null}
         </div>
+        {task.dueDate && (
+          <span
+            className={`text-[10px] ${isOverdue(task.dueDate) ? "text-red-600 font-medium" : "text-muted-foreground"}`}
+          >
+            {formatDate(task.dueDate)}
+          </span>
+        )}
       </div>
     </Card>
   );
