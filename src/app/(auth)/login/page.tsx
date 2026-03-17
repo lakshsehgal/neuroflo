@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { login } from "@/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function LoginPage() {
@@ -82,8 +83,7 @@ export default function LoginPage() {
           >
             <div className="relative">
               <div className="absolute inset-0 blur-3xl bg-amber-500/20 rounded-full scale-150" />
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <Image
                 src="/images/icon.png"
                 alt="Neuroid"
                 width={140}

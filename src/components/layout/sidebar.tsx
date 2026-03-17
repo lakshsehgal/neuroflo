@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -64,11 +65,12 @@ export function Sidebar({ userRole }: SidebarProps) {
                 href="/dashboard"
                 className="flex items-center gap-2"
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+                <Image
                   src="/images/neuroid-logo.png"
                   alt="Neuroid"
-                  className="h-7 w-auto"
+                  width={120}
+                  height={28}
+                  priority
                 />
               </Link>
             </motion.div>
