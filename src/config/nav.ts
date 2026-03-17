@@ -11,6 +11,7 @@ import {
   Bell,
   Crown,
   User,
+  ListTodo,
   type LucideIcon,
 } from "lucide-react";
 import type { UserRole } from "@/lib/roles";
@@ -39,6 +40,7 @@ export const navConfig: NavSection[] = [
     label: "Work",
     items: [
       { title: "Projects", href: "/projects", icon: FolderKanban },
+      { title: "Team Tasks", href: "/team-tasks", icon: ListTodo },
       { title: "Creative Tickets", href: "/tickets", icon: Ticket },
       { title: "Chat", href: "/chat", icon: MessageSquare },
     ],

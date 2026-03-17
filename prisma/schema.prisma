@@ -101,6 +101,15 @@ enum CampaignStatus {
   COMPLETED
 }
 
+enum TeamTaskStatus {
+  TODO
+  IN_PROGRESS
+  IN_REVIEW
+  BLOCKED
+  DONE
+  ON_HOLD
+}
+
 enum ExpenseCategory {
   SALARIES
   TOOLS
@@ -153,6 +162,9 @@ model User {
   channelBookmarks ChannelBookmark[]
   messageReactions MessageReaction[]
   pinnedMessages   Message[]        @relation("PinnedMessages")
+  teamMembers      TeamMember[]
+  assignedTeamTasks TeamTask[]      @relation("TeamTaskAssignee")
+  createdTeamTasks  TeamTask[]      @relation("TeamTaskCreator")
 
   // Google Calendar OAuth
   googleAccessToken  String?
@@ -168,6 +180,53 @@ model Department {
 
   users    User[]
   projects Project[]
+  teams    Team[]
+}
+
+model Team {
+  id           String     @id @default(cuid())
+  name         String
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id])
+  createdAt    DateTime   @default(now())
+
+  members   TeamMember[]
+  teamTasks TeamTask[]
+
+  @@unique([name, departmentId])
+}
+
+model TeamMember {
+  id     String @id @default(cuid())
+  teamId String
+  team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+  role   String @default("MEMBER") // LEAD or MEMBER
+
+  @@unique([teamId, userId])
+}
+
+model TeamTask {
+  id          String         @id @default(cuid())
+  teamId      String
+  team        Team           @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  status      TeamTaskStatus @default(TODO)
+  priority    Priority       @default(MEDIUM)
+  assigneeId  String?
+  assignee    User?          @relation("TeamTaskAssignee", fields: [assigneeId], references: [id])
+  dueDate     DateTime?
+  order       Int            @default(0)
+  createdById String
+  createdBy   User           @relation("TeamTaskCreator", fields: [createdById], references: [id])
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  comments Comment[] @relation("TeamTaskComments")
+
+  @@index([teamId, status])
 }
 
 model Invite {
@@ -325,16 +384,18 @@ model Approval {
 // ─── Shared ─────────────────────────────────────────────
 
 model Comment {
-  id        String   @id @default(cuid())
-  content   String
-  authorId  String
-  author    User     @relation(fields: [authorId], references: [id])
-  taskId    String?
-  task      Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  ticketId  String?
-  ticket    Ticket?  @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String   @id @default(cuid())
+  content    String
+  authorId   String
+  author     User     @relation(fields: [authorId], references: [id])
+  taskId     String?
+  task       Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  ticketId   String?
+  ticket     Ticket?  @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  teamTaskId String?
+  teamTask   TeamTask? @relation("TeamTaskComments", fields: [teamTaskId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
 
 // ─── Asset Management ───────────────────────────────────
