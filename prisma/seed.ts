@@ -23,6 +23,9 @@ async function main() {
   await prisma.assetVersion.deleteMany();
   await prisma.asset.deleteMany();
   await prisma.assetFolder.deleteMany();
+  await prisma.teamTask.deleteMany();
+  await prisma.teamMember.deleteMany();
+  await prisma.team.deleteMany();
   await prisma.comment.deleteMany();
   await prisma.approval.deleteMany();
   await prisma.revision.deleteMany();
@@ -42,16 +45,33 @@ async function main() {
   console.log("All data cleared.");
 
   // ── Departments ──
-  const design = await prisma.department.create({
-    data: { name: "Design", description: "Creative and design team" },
+  const performance = await prisma.department.create({
+    data: { name: "Performance", description: "Performance marketing department" },
   });
 
-  const marketing = await prisma.department.create({
-    data: { name: "Marketing", description: "Marketing and campaigns" },
+  const creative = await prisma.department.create({
+    data: { name: "Creative", description: "Creative and design department" },
   });
 
-  await prisma.department.create({
-    data: { name: "Development", description: "Web and app development" },
+  const operations = await prisma.department.create({
+    data: { name: "Operations", description: "Operations and admin" },
+  });
+
+  // Keep legacy aliases for backward compat in seed
+  const design = creative;
+  const marketing = performance;
+
+  // ── Teams ──
+  const teamFlame = await prisma.team.create({
+    data: { name: "Team Flame", departmentId: performance.id },
+  });
+
+  const teamFire = await prisma.team.create({
+    data: { name: "Team Fire", departmentId: performance.id },
+  });
+
+  const teamCreative = await prisma.team.create({
+    data: { name: "Team Creative", departmentId: creative.id },
   });
 
   // ── Users (fresh hashes) ──
@@ -204,6 +224,30 @@ async function main() {
     ],
   });
 
+  // ── Team Members ──
+  await prisma.teamMember.createMany({
+    data: [
+      { teamId: teamFlame.id, userId: manager.id, role: "LEAD" },
+      { teamId: teamFire.id, userId: admin.id, role: "LEAD" },
+      { teamId: teamCreative.id, userId: designer.id, role: "LEAD" },
+    ],
+  });
+
+  // ── Sample Team Tasks ──
+  await prisma.teamTask.createMany({
+    data: [
+      { teamId: teamFlame.id, title: "Optimize Meta ad sets for Q2", status: "IN_PROGRESS", priority: "HIGH", assigneeId: manager.id, createdById: admin.id, order: 0 },
+      { teamId: teamFlame.id, title: "Prepare weekly performance report", status: "TODO", priority: "MEDIUM", assigneeId: manager.id, createdById: admin.id, order: 1 },
+      { teamId: teamFlame.id, title: "A/B test landing page variants", status: "IN_REVIEW", priority: "HIGH", createdById: admin.id, order: 2 },
+      { teamId: teamFire.id, title: "Google Ads campaign setup - Acme Corp", status: "IN_PROGRESS", priority: "URGENT", assigneeId: admin.id, createdById: admin.id, order: 0 },
+      { teamId: teamFire.id, title: "Audit conversion tracking pixels", status: "TODO", priority: "MEDIUM", createdById: admin.id, order: 1 },
+      { teamId: teamFire.id, title: "Client reporting deck - March", status: "BLOCKED", priority: "HIGH", createdById: manager.id, order: 2 },
+      { teamId: teamCreative.id, title: "Design social media templates for Q2", status: "IN_PROGRESS", priority: "MEDIUM", assigneeId: designer.id, createdById: admin.id, order: 0 },
+      { teamId: teamCreative.id, title: "UGC brief for summer campaign", status: "TODO", priority: "HIGH", createdById: manager.id, order: 1 },
+      { teamId: teamCreative.id, title: "Brand guideline update - Acme", status: "DONE", priority: "LOW", assigneeId: designer.id, createdById: admin.id, order: 2 },
+    ],
+  });
+
   console.log("");
   console.log("Seed complete! All users reset with fresh password hashes.");
   console.log("");
@@ -211,6 +255,11 @@ async function main() {
   console.log("  Admin:    admin@neuroid.agency / admin123");
   console.log("  Manager:  mike@neuroid.agency  / member123");
   console.log("  Designer: sarah@neuroid.agency / member123");
+  console.log("");
+  console.log("Teams created:");
+  console.log("  Team Flame  → Performance");
+  console.log("  Team Fire   → Performance");
+  console.log("  Team Creative → Creative");
 }
 
 main()

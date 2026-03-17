@@ -147,6 +147,12 @@ export async function getTeamsWithDepartments() {
   return db.team.findMany({
     include: {
       department: { select: { id: true, name: true } },
+      members: {
+        include: {
+          user: { select: { id: true, name: true, avatar: true } },
+        },
+        orderBy: { role: "asc" },
+      },
       _count: { select: { members: true, teamTasks: true } },
     },
     orderBy: [{ department: { name: "asc" } }, { name: "asc" }],

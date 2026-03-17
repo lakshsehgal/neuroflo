@@ -74,7 +74,7 @@ export const navConfig: NavSection[] = [
         minRole: "MANAGER",
         children: [
           { title: "Team", href: "/settings/team", icon: Users, minRole: "ADMIN" },
-          { title: "Departments", href: "/settings/departments", icon: Building2, minRole: "ADMIN" },
+          { title: "Departments & Teams", href: "/settings/departments", icon: Building2, minRole: "ADMIN" },
           { title: "Roles & Permissions", href: "/settings/roles", icon: Shield, minRole: "ADMIN" },
           { title: "General", href: "/settings/general", icon: UserCog, minRole: "ADMIN" },
         ],
