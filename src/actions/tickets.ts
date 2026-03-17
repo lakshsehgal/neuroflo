@@ -190,14 +190,51 @@ export async function addTicketComment(
     data: { content, authorId: user.id, ticketId },
   });
 
-  // Notify ticket creator and assignee about the comment
   const ticket = await db.ticket.findUnique({
     where: { id: ticketId },
     select: { title: true, creatorId: true, assigneeId: true },
   });
 
   if (ticket) {
-    const recipientIds = [ticket.creatorId, ticket.assigneeId].filter(Boolean) as string[];
+    // Parse @mentions from comment content
+    const mentionNames = Array.from(
+      content.matchAll(/@([A-Za-z]+(?:\s[A-Za-z]+)?)/g),
+      (m) => m[1]
+    );
+    const hasChannelMention = mentionNames.some((n) => n.toLowerCase() === "channel");
+
+    let recipientIds: string[];
+
+    if (hasChannelMention) {
+      // @channel → notify ALL active users in the organization
+      const allUsers = await db.user.findMany({
+        where: { isActive: true },
+        select: { id: true },
+      });
+      recipientIds = allUsers.map((u) => u.id);
+    } else {
+      // Start with ticket creator + assignee
+      recipientIds = [ticket.creatorId, ticket.assigneeId].filter(Boolean) as string[];
+
+      // Add individually @mentioned users by matching name
+      if (mentionNames.length > 0) {
+        const mentionedUsers = await db.user.findMany({
+          where: {
+            isActive: true,
+            OR: mentionNames
+              .filter((n) => n.toLowerCase() !== "channel")
+              .map((name) => ({ name: { equals: name, mode: "insensitive" as const } })),
+          },
+          select: { id: true },
+        });
+        for (const mu of mentionedUsers) {
+          if (!recipientIds.includes(mu.id)) {
+            recipientIds.push(mu.id);
+          }
+        }
+      }
+    }
+
     notifyTicketComment(ticketId, ticket.title, user.name, recipientIds, user.id).catch(console.error);
   }
 

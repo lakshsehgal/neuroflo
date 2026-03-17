@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import React, { useState, useTransition } from "react";
 import { updateTicket, updateTicketStatus, addTicketComment } from "@/actions/tickets";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { MentionTextarea } from "@/components/ui/mention-textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -65,6 +66,40 @@ const formatLabels: Record<string, string> = {
 };
 
 const formatOptions = ["STATIC", "VIDEO", "UGC", "GIF", "CAROUSEL", "DPA_FRAME"];
+
+function renderCommentWithMentions(content: string) {
+  // Match @channel or @FirstName LastName or @SingleName
+  const regex = /@(channel|[A-Za-z]+(?:\s[A-Za-z]+)?)/g;
+  const result: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match;
+
+  while ((match = regex.exec(content)) !== null) {
+    if (match.index > lastIndex) {
+      result.push(content.slice(lastIndex, match.index));
+    }
+    const isChannel = match[1] === "channel";
+    result.push(
+      <span
+        key={match.index}
+        className={`inline-block rounded px-1 py-0.5 text-xs font-semibold ${
+          isChannel
+            ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
+            : "bg-primary/10 text-primary"
+        }`}
+      >
+        @{match[1]}
+      </span>
+    );
+    lastIndex = regex.lastIndex;
+  }
+
+  if (lastIndex < content.length) {
+    result.push(content.slice(lastIndex));
+  }
+
+  return result.length > 0 ? result : content;
+}
 
 export function TicketDetailContent({
   ticket: initialTicket,
@@ -477,7 +512,9 @@ export function TicketDetailContent({
                               <span className="text-sm font-semibold text-foreground">{comment.author.name}</span>
                               <span className="text-[11px] text-muted-foreground/60">{formatRelativeTime(comment.createdAt)}</span>
                             </div>
-                            <p className="text-sm leading-relaxed text-foreground/80">{comment.content}</p>
+                            <p className="text-sm leading-relaxed text-foreground/80">
+                              {renderCommentWithMentions(comment.content)}
+                            </p>
                           </div>
                         </div>
                       </div>
@@ -490,10 +527,11 @@ export function TicketDetailContent({
               <div className="border-t bg-muted/20 p-4 mt-2 rounded-b-xl">
                 <div className="flex gap-3">
                   <div className="flex-1">
-                    <Textarea
-                      placeholder="Write a comment... (Cmd+Enter to send)"
+                    <MentionTextarea
+                      placeholder="Write a comment... Type @ to mention (Cmd+Enter to send)"
                       value={commentText}
-                      onChange={(e) => setCommentText(e.target.value)}
+                      onChange={setCommentText}
+                      users={users.map((u) => ({ id: u.id, name: u.name }))}
                       rows={2}
                       className="text-sm resize-none bg-background border-border/60 focus-visible:ring-1 focus-visible:ring-primary/30"
                       onKeyDown={(e) => {
