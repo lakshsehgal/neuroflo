@@ -30,12 +30,19 @@ export async function middleware(req: NextRequest) {
   const token = req.cookies.get(SESSION_COOKIE)?.value;
   const isLoggedIn = token ? await verifyToken(token) : false;
 
+  // These routes should always be accessible (even when logged in)
+  const isAlwaysPublic =
+    pathname.startsWith("/reset-password") ||
+    pathname.startsWith("/onboarding");
+
+  if (isAlwaysPublic) {
+    return NextResponse.next();
+  }
+
   const isAuthRoute =
     pathname.startsWith("/login") ||
     pathname.startsWith("/accept-invite") ||
-    pathname.startsWith("/forgot-password") ||
-    pathname.startsWith("/reset-password") ||
-    pathname.startsWith("/onboarding");
+    pathname.startsWith("/forgot-password");
 
   if (isAuthRoute) {
     if (isLoggedIn) {
