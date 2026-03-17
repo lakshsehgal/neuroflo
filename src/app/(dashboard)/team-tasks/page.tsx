@@ -22,7 +22,7 @@ export default async function TeamTasksPage({
   ]);
 
   // Only these teams use Team Tasks (others use project-based tracking)
-  const allowedTeamNames = new Set(["Creative Strategy", "Team Flame", "Team Fire"]);
+  const allowedTeamNames = new Set(["Creative Strategy", "Team Flame", "Team Fire", "Team Google"]);
   const allowedTeamIds = new Set(
     teams.filter((t) => allowedTeamNames.has(t.name)).map((t) => t.id)
   );

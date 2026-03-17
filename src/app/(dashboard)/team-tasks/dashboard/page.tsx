@@ -8,7 +8,7 @@ export default async function TeamTaskDashboardPage() {
   ]);
 
   // Only these teams use Team Tasks
-  const allowedTeamNames = new Set(["Creative Strategy", "Team Flame", "Team Fire"]);
+  const allowedTeamNames = new Set(["Creative Strategy", "Team Flame", "Team Fire", "Team Google"]);
   const allowedTeamSet = new Set(
     teams.filter((t) => allowedTeamNames.has(t.name)).map((t) => t.name)
   );
