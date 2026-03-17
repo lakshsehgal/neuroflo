@@ -712,6 +712,7 @@ export function TeamTasksContent({
             users={users}
             teams={teams}
             onUpdate={handleInlineUpdate}
+            onTaskAdded={(task: TeamTaskData) => setLocalTasks((prev) => [...prev, task])}
             visibleColumns={visibleColumns}
           />
         )}
@@ -734,6 +735,7 @@ function TableView({
   users,
   teams,
   onUpdate,
+  onTaskAdded,
   visibleColumns,
 }: {
   teamGroups: [
@@ -753,6 +755,7 @@ function TableView({
   users: User[];
   teams: TeamInfo[];
   onUpdate: (id: string, field: string, value: string) => void;
+  onTaskAdded: (task: TeamTaskData) => void;
   visibleColumns: string[];
 }) {
   const router = useRouter();
@@ -1025,7 +1028,7 @@ function TableView({
               </table>
             </div>
             {/* Inline quick-add row */}
-            <InlineAddRow teamId={teamId} onCreated={() => router.refresh()} />
+            <InlineAddRow teamId={teamId} onCreated={onTaskAdded} />
           </Card>
             </div>
           ))}
@@ -1041,7 +1044,7 @@ function InlineAddRow({
   onCreated,
 }: {
   teamId: string;
-  onCreated: () => void;
+  onCreated: (task: TeamTaskData) => void;
 }) {
   const [isAdding, setIsAdding] = useState(false);
   const [title, setTitle] = useState("");
@@ -1052,10 +1055,10 @@ function InlineAddRow({
     setLoading(true);
     const result = await createTeamTask({ teamId, title: title.trim() });
     setLoading(false);
-    if (result.success) {
+    if (result.success && result.data) {
       setTitle("");
       setIsAdding(false);
-      onCreated();
+      onCreated(result.data as TeamTaskData);
     }
   }
 

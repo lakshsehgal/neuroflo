@@ -21,7 +21,22 @@ const teamTaskSchema = z.object({
 
 export async function createTeamTask(
   input: z.infer<typeof teamTaskSchema>
-): Promise<ActionResponse<{ id: string }>> {
+): Promise<ActionResponse<{
+  id: string;
+  title: string;
+  description: string | null;
+  status: string;
+  priority: string;
+  teamId: string;
+  teamName: string;
+  departmentName: string;
+  dueDate: string | null;
+  assigneeId: string | null;
+  assigneeName: string | null;
+  assigneeInitials: string | null;
+  createdByName: string | null;
+  commentCount: number;
+}>> {
   const user = await requireRole("MEMBER");
 
   const parsed = teamTaskSchema.safeParse(input);
@@ -45,6 +60,12 @@ export async function createTeamTask(
         : undefined,
       order: (maxOrder?.order ?? -1) + 1,
     },
+    include: {
+      team: { include: { department: true } },
+      assignee: { select: { id: true, name: true } },
+      createdBy: { select: { name: true } },
+      _count: { select: { comments: true } },
+    },
   });
 
   await db.activityLog.create({
@@ -58,7 +79,27 @@ export async function createTeamTask(
   });
 
   revalidatePath("/team-tasks");
-  return { success: true, data: { id: task.id } };
+  return {
+    success: true,
+    data: {
+      id: task.id,
+      title: task.title,
+      description: task.description,
+      status: task.status,
+      priority: task.priority,
+      teamId: task.teamId,
+      teamName: task.team.name,
+      departmentName: task.team.department.name,
+      dueDate: task.dueDate ? task.dueDate.toISOString() : null,
+      assigneeId: task.assignee?.id || null,
+      assigneeName: task.assignee?.name || null,
+      assigneeInitials: task.assignee
+        ? task.assignee.name.split(" ").map((n: string) => n[0]).join("")
+        : null,
+      createdByName: task.createdBy?.name || null,
+      commentCount: task._count.comments,
+    },
+  };
 }
 
 export async function updateTeamTask(
