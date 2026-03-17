@@ -21,16 +21,16 @@ export default async function TeamTasksPage({
     getCurrentUserTeamIds(),
   ]);
 
-  // Exclude "Design" team — their tasks are managed in Creative Tickets
-  const excludedTeamNames = new Set(["Design"]);
-  const excludedTeamIds = new Set(
-    teams.filter((t) => excludedTeamNames.has(t.name)).map((t) => t.id)
+  // Only these teams use Team Tasks (others use project-based tracking)
+  const allowedTeamNames = new Set(["Creative Strategy", "Team Flame", "Team Fire"]);
+  const allowedTeamIds = new Set(
+    teams.filter((t) => allowedTeamNames.has(t.name)).map((t) => t.id)
   );
 
   return (
     <TeamTasksContent
       tasks={tasks
-        .filter((t) => !excludedTeamIds.has(t.teamId))
+        .filter((t) => allowedTeamIds.has(t.teamId))
         .map((t) => ({
           id: t.id,
           title: t.title,
@@ -54,16 +54,16 @@ export default async function TeamTasksPage({
         }))}
       users={users}
       teams={teams
-        .filter((t) => !excludedTeamIds.has(t.id))
+        .filter((t) => allowedTeamIds.has(t.id))
         .map((t) => ({
           id: t.id,
           name: t.name,
           department: t.department,
         }))}
-      userTeamIds={userTeamIds.filter((id) => !excludedTeamIds.has(id))}
+      userTeamIds={userTeamIds.filter((id) => allowedTeamIds.has(id))}
       initialTeamFilter={params.team || null}
       workloadTasks={workloadTasks
-        .filter((t) => !excludedTeamIds.has(t.teamId))
+        .filter((t) => allowedTeamIds.has(t.teamId))
         .map((t) => ({
           id: t.id,
           status: t.status,

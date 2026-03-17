@@ -7,21 +7,21 @@ export default async function TeamTaskDashboardPage() {
     getTeamsWithDepartments(),
   ]);
 
-  // Exclude "Design" team — tasks managed in Creative Tickets
-  const excludedTeamNames = new Set(["Design"]);
-  const excludedTeamSet = new Set(
-    teams.filter((t) => excludedTeamNames.has(t.name)).map((t) => t.name)
+  // Only these teams use Team Tasks
+  const allowedTeamNames = new Set(["Creative Strategy", "Team Flame", "Team Fire"]);
+  const allowedTeamSet = new Set(
+    teams.filter((t) => allowedTeamNames.has(t.name)).map((t) => t.name)
   );
 
   const filteredAnalytics = {
     ...analytics,
-    teamCounts: analytics.teamCounts.filter((t) => !excludedTeamSet.has(t.name)),
+    teamCounts: analytics.teamCounts.filter((t) => allowedTeamSet.has(t.name)),
   };
 
   // Build team name→id map for linking
   const teamIdMap: Record<string, string> = {};
   teams.forEach((t) => {
-    if (!excludedTeamSet.has(t.name)) {
+    if (allowedTeamSet.has(t.name)) {
       teamIdMap[t.name] = t.id;
     }
   });

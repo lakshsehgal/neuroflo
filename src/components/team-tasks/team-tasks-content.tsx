@@ -45,7 +45,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { formatDate, isOverdue } from "@/lib/utils";
-import { updateTeamTask, updateTeamTaskStatus } from "@/actions/team-tasks";
+import { updateTeamTask, updateTeamTaskStatus, createTeamTask } from "@/actions/team-tasks";
 import {
   DndContext,
   DragOverlay,
@@ -440,7 +440,7 @@ export function TeamTasksContent({
             asChild
             className="shadow-sm bg-primary hover:bg-primary/90"
           >
-            <Link href="/team-tasks/new">
+            <Link href={selectedTeamTab !== "all" ? `/team-tasks/new?team=${selectedTeamTab}` : "/team-tasks/new"}>
               <Plus className="mr-1.5 h-4 w-4" />
               New Task
             </Link>
@@ -822,6 +822,11 @@ function TableView({
                     <th className="px-4 py-2.5 text-left font-medium text-muted-foreground text-xs">
                       Title
                     </th>
+                    {isCol("team") && (
+                      <th className="px-3 py-2.5 text-left font-medium text-muted-foreground text-xs">
+                        Team
+                      </th>
+                    )}
                     {isCol("status") && (
                       <th className="px-3 py-2.5 text-left font-medium text-muted-foreground text-xs">
                         Status
@@ -860,6 +865,32 @@ function TableView({
                           {task.title}
                         </span>
                       </td>
+                      {isCol("team") && (
+                        <td className="px-3 py-2.5">
+                          <Select
+                            value={task.teamId}
+                            onValueChange={(v) =>
+                              onUpdate(task.id, "teamId", v)
+                            }
+                          >
+                            <SelectTrigger className="h-7 w-36 text-xs border-0 bg-transparent px-0">
+                              <span className="truncate text-xs">
+                                {task.teamName}
+                              </span>
+                            </SelectTrigger>
+                            <SelectContent>
+                              {teams.map((t) => (
+                                <SelectItem key={t.id} value={t.id}>
+                                  {t.name}
+                                  <span className="ml-1 text-muted-foreground">
+                                    ({t.department.name})
+                                  </span>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </td>
+                      )}
                       {isCol("status") && (
                         <td className="px-3 py-2.5">
                           <Select
@@ -993,11 +1024,83 @@ function TableView({
                 </AnimatedTableBody>
               </table>
             </div>
+            {/* Inline quick-add row */}
+            <InlineAddRow teamId={teamId} onCreated={() => router.refresh()} />
           </Card>
             </div>
           ))}
         </div>
       ))}
+    </div>
+  );
+}
+
+/* ─── Inline Add Row ─── */
+function InlineAddRow({
+  teamId,
+  onCreated,
+}: {
+  teamId: string;
+  onCreated: () => void;
+}) {
+  const [isAdding, setIsAdding] = useState(false);
+  const [title, setTitle] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function handleSubmit() {
+    if (!title.trim()) return;
+    setLoading(true);
+    const result = await createTeamTask({ teamId, title: title.trim() });
+    setLoading(false);
+    if (result.success) {
+      setTitle("");
+      setIsAdding(false);
+      onCreated();
+    }
+  }
+
+  if (!isAdding) {
+    return (
+      <button
+        onClick={() => setIsAdding(true)}
+        className="flex w-full items-center gap-2 px-4 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors border-t"
+      >
+        <Plus className="h-3.5 w-3.5" />
+        Add task
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2 px-4 py-2 border-t bg-muted/20">
+      <Input
+        autoFocus
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") handleSubmit();
+          if (e.key === "Escape") { setIsAdding(false); setTitle(""); }
+        }}
+        placeholder="Task title..."
+        className="h-8 text-xs flex-1"
+        disabled={loading}
+      />
+      <Button
+        size="sm"
+        className="h-8 text-xs px-3"
+        onClick={handleSubmit}
+        disabled={loading || !title.trim()}
+      >
+        {loading ? "Adding..." : "Add"}
+      </Button>
+      <Button
+        size="sm"
+        variant="ghost"
+        className="h-8 text-xs px-2"
+        onClick={() => { setIsAdding(false); setTitle(""); }}
+      >
+        <X className="h-3.5 w-3.5" />
+      </Button>
     </div>
   );
 }

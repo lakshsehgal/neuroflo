@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createTeamTask, getTeamsWithDepartments } from "@/actions/team-tasks";
 import { getTeamUsers } from "@/actions/tickets";
 import { Button } from "@/components/ui/button";
@@ -67,6 +67,8 @@ const PRIORITY_OPTIONS = [
 
 export default function NewTeamTaskPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const preselectedTeam = searchParams.get("team");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [users, setUsers] = useState<User[]>([]);
@@ -74,7 +76,7 @@ export default function NewTeamTaskPage() {
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [teamId, setTeamId] = useState("");
+  const [teamId, setTeamId] = useState(preselectedTeam || "");
   const [assigneeId, setAssigneeId] = useState("");
   const [priority, setPriority] = useState("MEDIUM");
   const [dueDate, setDueDate] = useState("");
@@ -83,16 +85,19 @@ export default function NewTeamTaskPage() {
     Promise.all([getTeamUsers(), getTeamsWithDepartments()]).then(
       ([u, t]) => {
         setUsers(u);
-        setTeams(
-          t.map((team) => ({
-            id: team.id,
-            name: team.name,
-            department: team.department,
-          }))
-        );
+        const mapped = t.map((team) => ({
+          id: team.id,
+          name: team.name,
+          department: team.department,
+        }));
+        setTeams(mapped);
+        // Auto-select team from URL param if not already set
+        if (preselectedTeam && mapped.some((m) => m.id === preselectedTeam)) {
+          setTeamId(preselectedTeam);
+        }
       }
     );
-  }, []);
+  }, [preselectedTeam]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

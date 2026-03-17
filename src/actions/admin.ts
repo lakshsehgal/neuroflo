@@ -50,9 +50,28 @@ export async function getTeamMembers() {
 
   return db.user.findMany({
     where: { isActive: true },
-    include: { department: true },
+    include: {
+      department: true,
+      teamMembers: {
+        include: { team: { include: { department: true } } },
+      },
+    },
     orderBy: { createdAt: "desc" },
   });
+}
+
+export async function updateUserDepartment(
+  userId: string,
+  departmentId: string | null
+): Promise<ActionResponse> {
+  await requireRole("ADMIN");
+
+  await db.user.update({
+    where: { id: userId },
+    data: { departmentId },
+  });
+
+  return { success: true };
 }
 
 export async function getPendingInvites() {

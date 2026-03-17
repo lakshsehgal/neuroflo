@@ -99,7 +99,7 @@ export default async function DashboardPage() {
   const stats = [
     { label: "Projects", value: projectCount, iconName: "FolderKanban", href: "/projects", color: "text-blue-600", bgColor: "bg-blue-500/10" },
     { label: "Open Tickets", value: ticketCount, iconName: "Ticket", href: "/tickets", color: "text-orange-600", bgColor: "bg-orange-500/10" },
-    { label: "Active Tasks", value: taskCount, iconName: "CheckSquare", href: "/projects", color: "text-green-600", bgColor: "bg-green-500/10" },
+    { label: "Active Tasks", value: taskCount, iconName: "CheckSquare", href: "/team-tasks", color: "text-green-600", bgColor: "bg-green-500/10" },
     { label: "My Tasks", value: myTasks.length, iconName: "User", href: "/projects", color: "text-purple-600", bgColor: "bg-purple-500/10" },
   ];
 
