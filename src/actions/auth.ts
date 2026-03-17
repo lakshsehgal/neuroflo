@@ -4,6 +4,7 @@ import * as bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { z } from "zod";
 import { createSessionToken, setSessionCookie, deleteSessionCookie } from "@/lib/auth";
+import { sendPasswordResetEmail } from "@/lib/email";
 import type { ActionResponse } from "@/types";
 
 export async function login(
@@ -125,6 +126,82 @@ export async function changePassword(
     where: { id: userId },
     data: { passwordHash },
   });
+
+  return { success: true };
+}
+
+export async function requestPasswordReset(email: string): Promise<ActionResponse> {
+  const validated = z.string().email().safeParse(email);
+  if (!validated.success) {
+    return { success: false, error: "Invalid email" };
+  }
+
+  const user = await db.user.findUnique({ where: { email } });
+  // Always return success to prevent email enumeration
+  if (!user || !user.isActive) {
+    return { success: true };
+  }
+
+  // Invalidate any existing unused reset tokens for this email
+  await db.passwordReset.updateMany({
+    where: { email, usedAt: null },
+    data: { usedAt: new Date() },
+  });
+
+  const expiresAt = new Date();
+  expiresAt.setHours(expiresAt.getHours() + 1); // 1 hour expiry
+
+  const reset = await db.passwordReset.create({
+    data: { email, expiresAt },
+  });
+
+  try {
+    await sendPasswordResetEmail({ to: email, resetToken: reset.token });
+  } catch {
+    // Still return success to prevent enumeration
+  }
+
+  return { success: true };
+}
+
+export async function resetPassword(
+  token: string,
+  newPassword: string
+): Promise<ActionResponse> {
+  if (newPassword.length < 8) {
+    return { success: false, error: "Password must be at least 8 characters" };
+  }
+
+  const reset = await db.passwordReset.findUnique({ where: { token } });
+  if (!reset) {
+    return { success: false, error: "Invalid or expired reset link" };
+  }
+
+  if (reset.usedAt) {
+    return { success: false, error: "This reset link has already been used" };
+  }
+
+  if (new Date() > reset.expiresAt) {
+    return { success: false, error: "This reset link has expired" };
+  }
+
+  const user = await db.user.findUnique({ where: { email: reset.email } });
+  if (!user) {
+    return { success: false, error: "Invalid or expired reset link" };
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, 12);
+
+  await db.$transaction([
+    db.user.update({
+      where: { id: user.id },
+      data: { passwordHash },
+    }),
+    db.passwordReset.update({
+      where: { id: reset.id },
+      data: { usedAt: new Date() },
+    }),
+  ]);
 
   return { success: true };
 }

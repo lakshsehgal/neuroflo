@@ -245,6 +245,15 @@ model Invite {
   createdAt    DateTime  @default(now())
 }
 
+model PasswordReset {
+  id        String    @id @default(cuid())
+  email     String
+  token     String    @unique @default(cuid())
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+}
+
 model ActivityLog {
   id         String   @id @default(cuid())
   userId     String

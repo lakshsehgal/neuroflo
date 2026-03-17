@@ -6,6 +6,7 @@ import { login } from "@/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Image from "next/image";
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function LoginPage() {
@@ -236,6 +237,9 @@ export default function LoginPage() {
                 <label htmlFor="password" className="block text-xs font-medium text-white/50 uppercase tracking-wider">
                   Password
                 </label>
+                <Link href="/forgot-password" className="text-xs text-amber-400/70 hover:text-amber-400 transition-colors">
+                  Forgot password?
+                </Link>
               </div>
               <Input
                 id="password"
