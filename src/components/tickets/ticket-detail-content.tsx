@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useTransition } from "react";
-import { updateTicket, updateTicketStatus, addTicketComment } from "@/actions/tickets";
+import { updateTicket, updateTicketStatus, addTicketComment, deleteTicket } from "@/actions/tickets";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { MentionTextarea } from "@/components/ui/mention-textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -35,6 +43,7 @@ import {
   Package,
   Layers,
   Pencil,
+  Trash2,
 } from "lucide-react";
 import type { getTicket } from "@/actions/tickets";
 
@@ -119,6 +128,8 @@ export function TicketDetailContent({
   const [titleDraft, setTitleDraft] = useState(ticket.title);
   const [editingDescription, setEditingDescription] = useState(false);
   const [descriptionDraft, setDescriptionDraft] = useState(ticket.description || "");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const router = useRouter();
 
   function handleUpdateField(field: string, value: string) {
     startTransition(async () => {
@@ -183,6 +194,13 @@ export function TicketDetailContent({
       setTicket((prev) => ({ ...prev, description: descriptionDraft || null }));
     }
     setEditingDescription(false);
+  }
+
+  function handleDelete() {
+    startTransition(async () => {
+      await deleteTicket(ticket.id);
+      router.push("/tickets");
+    });
   }
 
   const currentStatus = statusOptions.find((s) => s.value === ticket.status);
@@ -532,6 +550,7 @@ export function TicketDetailContent({
                       value={commentText}
                       onChange={setCommentText}
                       users={users.map((u) => ({ id: u.id, name: u.name }))}
+                      allowChannelMention={false}
                       rows={2}
                       className="text-sm resize-none bg-background border-border/60 focus-visible:ring-1 focus-visible:ring-primary/30"
                       onKeyDown={(e) => {
@@ -815,8 +834,43 @@ export function TicketDetailContent({
               </CardContent>
             </Card>
           )}
+          {/* Delete */}
+          <Separator />
+          <Button
+            variant="outline"
+            className="w-full text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+            onClick={() => setShowDeleteConfirm(true)}
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            Delete Ticket
+          </Button>
         </div>
       </div>
+
+      {/* Delete confirmation dialog */}
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete Ticket</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete &quot;{ticket.title}&quot;? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" size="sm" onClick={() => setShowDeleteConfirm(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleDelete}
+              disabled={isPending}
+            >
+              {isPending ? "Deleting..." : "Delete"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

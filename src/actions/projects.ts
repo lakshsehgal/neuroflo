@@ -117,6 +117,19 @@ export async function deleteProject(id: string): Promise<ActionResponse> {
   return { success: true };
 }
 
+export async function updateProjectStatus(
+  id: string,
+  status: "ACTIVE" | "CLOSED"
+): Promise<ActionResponse> {
+  await requireRole("MEMBER");
+
+  await db.project.update({ where: { id }, data: { status } });
+
+  revalidatePath(`/projects/${id}`);
+  revalidatePath("/projects");
+  return { success: true };
+}
+
 // ─── Project Member Management ──────────────────────────
 
 export async function addProjectMember(

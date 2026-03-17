@@ -6,6 +6,7 @@ import {
   removeProjectMember,
   updateProjectMemberRole,
   updateProject,
+  updateProjectStatus,
   getAvailableUsersForProject,
 } from "@/actions/projects";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -56,6 +57,7 @@ interface ProjectSettingsProps {
   projectId: string;
   projectName: string;
   projectDescription: string | null;
+  projectStatus: string;
   projectClientId: string | null;
   projectDepartmentId: string | null;
   projectStartDate: string | null;
@@ -76,6 +78,7 @@ export function ProjectSettings({
   projectId,
   projectName,
   projectDescription,
+  projectStatus,
   projectClientId,
   projectDepartmentId,
   projectStartDate,
@@ -94,6 +97,8 @@ export function ProjectSettings({
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [addingUser, setAddingUser] = useState<string | null>(null);
   const [removingUser, setRemovingUser] = useState<string | null>(null);
+  const [status, setStatus] = useState(projectStatus);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
 
   const isLead = members.some(
     (m) => m.userId === currentUserId && m.role === "LEAD"
@@ -154,6 +159,15 @@ export function ProjectSettings({
     await updateProjectMemberRole(projectId, userId, newRole);
   }
 
+  async function handleStatusChange(newStatus: "ACTIVE" | "CLOSED") {
+    setUpdatingStatus(true);
+    const result = await updateProjectStatus(projectId, newStatus);
+    if (result.success) {
+      setStatus(newStatus);
+    }
+    setUpdatingStatus(false);
+  }
+
   const initials = (name: string) =>
     name
       .split(" ")
@@ -164,6 +178,50 @@ export function ProjectSettings({
 
   return (
     <div className="space-y-6">
+      {/* Project Status */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Settings className="h-4 w-4" />
+            Project Status
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <p className="text-sm font-medium">
+                This project is currently{" "}
+                <Badge
+                  variant="secondary"
+                  className={status === "ACTIVE"
+                    ? "bg-green-100 text-green-800"
+                    : "bg-slate-100 text-slate-800"
+                  }
+                >
+                  {status === "ACTIVE" ? "Active" : "Closed"}
+                </Badge>
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {status === "ACTIVE"
+                  ? "Team members can create tasks and make changes."
+                  : "This project is closed. Reopen it to resume work."}
+              </p>
+            </div>
+            <Button
+              variant={status === "ACTIVE" ? "outline" : "default"}
+              size="sm"
+              onClick={() => handleStatusChange(status === "ACTIVE" ? "CLOSED" : "ACTIVE")}
+              disabled={updatingStatus}
+            >
+              {updatingStatus ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
+              ) : null}
+              {status === "ACTIVE" ? "Close Project" : "Reopen Project"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Project Details */}
       <Card>
         <CardHeader>

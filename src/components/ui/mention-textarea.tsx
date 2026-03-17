@@ -22,6 +22,7 @@ interface MentionTextareaProps {
   className?: string;
   onKeyDown?: (e: KeyboardEvent<HTMLTextAreaElement>) => void;
   disabled?: boolean;
+  allowChannelMention?: boolean;
 }
 
 export function MentionTextarea({
@@ -33,6 +34,7 @@ export function MentionTextarea({
   className = "",
   onKeyDown,
   disabled,
+  allowChannelMention = true,
 }: MentionTextareaProps) {
   const [showDropdown, setShowDropdown] = useState(false);
   const [query, setQuery] = useState("");
@@ -49,7 +51,7 @@ export function MentionTextarea({
       )
     : users;
   const options = [
-    ...(query === "" || "channel".includes(query.toLowerCase()) ? [channelOption] : []),
+    ...(allowChannelMention && (query === "" || "channel".includes(query.toLowerCase())) ? [channelOption] : []),
     ...filteredUsers,
   ].slice(0, 8);
 

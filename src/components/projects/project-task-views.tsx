@@ -151,6 +151,7 @@ export function ProjectTaskViews({
         labels={labels}
         open={modalOpen}
         onOpenChange={setModalOpen}
+        onTaskDeleted={() => window.location.reload()}
       />
     </>
   );

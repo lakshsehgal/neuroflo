@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useTransition } from "react";
-import { getTaskDetail, updateTask, addComment } from "@/actions/tasks";
+import { getTaskDetail, updateTask, addComment, deleteTask } from "@/actions/tasks";
 import {
   Dialog,
   DialogContent,
@@ -24,7 +24,7 @@ import { Separator } from "@/components/ui/separator";
 import { TaskChecklist } from "./task-checklist";
 import { TaskSubtasks } from "./task-subtasks";
 import { formatRelativeTime } from "@/lib/utils";
-import { Calendar, User, Flag, Tag } from "lucide-react";
+import { Calendar, User, Flag, Tag, Trash2 } from "lucide-react";
 
 type Member = {
   userId: string;
@@ -44,6 +44,7 @@ interface TaskDetailModalProps {
   labels: Label[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onTaskDeleted?: () => void;
 }
 
 type TaskDetail = NonNullable<Awaited<ReturnType<typeof getTaskDetail>>>;
@@ -75,6 +76,7 @@ export function TaskDetailModal({
   labels,
   open,
   onOpenChange,
+  onTaskDeleted,
 }: TaskDetailModalProps) {
   const [task, setTask] = useState<TaskDetail | null>(null);
   const [loading, setLoading] = useState(false);
@@ -84,6 +86,7 @@ export function TaskDetailModal({
   const [description, setDescription] = useState("");
   const [editingDesc, setEditingDesc] = useState(false);
   const [commentText, setCommentText] = useState("");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     if (taskId && open) {
@@ -129,6 +132,15 @@ export function TaskDetailModal({
       setCommentText("");
       const updated = await getTaskDetail(task.id);
       if (updated) setTask(updated);
+    });
+  }
+
+  function handleDeleteTask() {
+    if (!task) return;
+    startTransition(async () => {
+      await deleteTask(task.id);
+      onOpenChange(false);
+      onTaskDeleted?.();
     });
   }
 
@@ -408,6 +420,43 @@ export function TaskDetailModal({
                     </div>
                   )}
                 </div>
+
+                  {/* Delete */}
+                  <Separator className="my-3" />
+                  {!showDeleteConfirm ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                      onClick={() => setShowDeleteConfirm(true)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                      Delete Task
+                    </Button>
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="text-xs text-red-600 font-medium">Delete this task? This cannot be undone.</p>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 h-7 text-xs"
+                          onClick={() => setShowDeleteConfirm(false)}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          className="flex-1 h-7 text-xs"
+                          onClick={handleDeleteTask}
+                          disabled={isPending}
+                        >
+                          {isPending ? "Deleting..." : "Delete"}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
               </div>
             </div>
           </>

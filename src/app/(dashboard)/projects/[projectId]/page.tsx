@@ -6,6 +6,7 @@ import { formatDate } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ProjectTaskViews } from "@/components/projects/project-task-views";
 import { ProjectSettings } from "@/components/projects/project-settings";
+import { Badge } from "@/components/ui/badge";
 import { Settings } from "lucide-react";
 
 interface Props {
@@ -23,7 +24,18 @@ export default async function ProjectDetailPage({ params }: Props) {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">{project.name}</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold">{project.name}</h1>
+          <Badge
+            variant="secondary"
+            className={project.status === "CLOSED"
+              ? "bg-slate-100 text-slate-600"
+              : "bg-green-100 text-green-700"
+            }
+          >
+            {project.status === "CLOSED" ? "Closed" : "Active"}
+          </Badge>
+        </div>
         {project.description && (
           <p className="mt-1 text-muted-foreground">{project.description}</p>
         )}
@@ -73,6 +85,7 @@ export default async function ProjectDetailPage({ params }: Props) {
             projectId={project.id}
             projectName={project.name}
             projectDescription={project.description}
+            projectStatus={project.status ?? "ACTIVE"}
             projectClientId={project.clientId}
             projectDepartmentId={project.departmentId}
             projectStartDate={project.startDate?.toISOString() || null}
