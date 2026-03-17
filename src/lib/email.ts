@@ -2,7 +2,7 @@ import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-const FROM = process.env.EMAIL_FROM || "noreply@neuroflo.com";
+const FROM = process.env.EMAIL_FROM || "noreply@neuroid.com";
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
 export async function sendInviteEmail({
@@ -18,16 +18,16 @@ export async function sendInviteEmail({
   const roleLabel = role.charAt(0) + role.slice(1).toLowerCase();
 
   const { error } = await resend.emails.send({
-    from: `NeuroFlo <${FROM}>`,
+    from: `Neuroid OS <${FROM}>`,
     to,
-    subject: "You've been invited to NeuroFlo",
+    subject: "You've been invited to Neuroid OS",
     html: `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 20px;">
         <h1 style="font-size: 24px; font-weight: 600; color: #111; margin-bottom: 8px;">
-          You're invited to NeuroFlo
+          You're invited to Neuroid OS
         </h1>
         <p style="font-size: 15px; color: #555; line-height: 1.6; margin-bottom: 24px;">
-          You've been invited to join NeuroFlo as a <strong>${roleLabel}</strong>.
+          You've been invited to join Neuroid OS as a <strong>${roleLabel}</strong>.
           Click the button below to set up your account.
         </p>
         <a href="${inviteUrl}"

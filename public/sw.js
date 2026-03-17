@@ -12,7 +12,7 @@ self.addEventListener("push", (event) => {
     data: {
       url: data.url || "/",
     },
-    tag: data.tag || "neuroflo-notification",
+    tag: data.tag || "neuroid-notification",
     renotify: true,
   };
 
