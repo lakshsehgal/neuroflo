@@ -11,9 +11,20 @@ export async function login(
   email: string,
   password: string
 ): Promise<{ error?: string }> {
+  console.log("[login] Attempting login for:", email);
   try {
     const normalizedEmail = email.trim().toLowerCase();
-    const user = await db.user.findUnique({ where: { email: normalizedEmail } });
+
+    let user;
+    try {
+      user = await db.user.findUnique({ where: { email: normalizedEmail } });
+    } catch (dbErr) {
+      console.error("[login] DB query failed:", dbErr);
+      return { error: "Something went wrong. Please try again." };
+    }
+
+    console.log("[login] User found:", !!user, user ? { id: user.id, hasHash: !!user.passwordHash, role: user.role, isActive: user.isActive } : null);
+
     if (!user || !user.isActive) {
       return { error: "Invalid email or password" };
     }
@@ -23,7 +34,14 @@ export async function login(
       return { error: "Invalid email or password. Please reset your password." };
     }
 
-    const isValid = await bcrypt.compare(password, user.passwordHash);
+    let isValid;
+    try {
+      isValid = await bcrypt.compare(password, user.passwordHash);
+    } catch (bcryptErr) {
+      console.error("[login] bcrypt.compare failed:", bcryptErr, "hash prefix:", user.passwordHash.substring(0, 7));
+      return { error: "Something went wrong. Please reset your password." };
+    }
+
     if (!isValid) {
       return { error: "Invalid email or password" };
     }
@@ -37,6 +55,7 @@ export async function login(
     });
 
     await setSessionCookie(token);
+    console.log("[login] Success for user:", user.id);
     return {};
   } catch (err) {
     console.error("[login] Unexpected error:", err);
