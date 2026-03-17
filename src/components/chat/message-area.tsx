@@ -192,8 +192,11 @@ export function MessageArea({
 
   const scrollToBottom = useCallback((instant?: boolean) => {
     if (instant) {
-      // Use instant scroll for initial load to avoid showing top of chat
-      messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+      // Use scrollTop for instant scroll — more reliable than scrollIntoView
+      const container = scrollContainerRef.current;
+      if (container) {
+        container.scrollTop = container.scrollHeight;
+      }
     } else {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
@@ -811,7 +814,7 @@ export function MessageArea({
       {/* Messages */}
       <div
         ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto px-4 py-3 space-y-1 scroll-smooth"
+        className="flex-1 overflow-y-auto px-4 py-3 space-y-1"
       >
         <AnimatePresence mode="wait">
           {loading ? (

@@ -144,7 +144,12 @@ export default async function DashboardPage() {
       const channels = [];
       for (const m of memberships) {
         const unreadCount = await db.message.count({
-          where: { channelId: m.channelId, createdAt: { gt: m.lastReadAt } },
+          where: {
+            channelId: m.channelId,
+            parentId: null,
+            createdAt: { gt: m.lastReadAt },
+            authorId: { not: user.id },
+          },
         });
         if (unreadCount > 0) {
           const lastMsg = m.channel.messages[0];
