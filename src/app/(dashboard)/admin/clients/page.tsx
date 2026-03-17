@@ -17,6 +17,7 @@ export default async function AdminClientsPage() {
   let thisMonthRevenue = 0;
   let nextMonthRevenue = 0;
 
+  // Revenue forecasting already excludes churned clients from the query
   for (const client of revenueData) {
     const monthlyAmount = client.avgBillingAmount || 0;
     const oneTimeAmount = client.oneTimeProjectAmount || 0;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -170,9 +171,23 @@ export function DashboardContent({
   unreadMessages,
   calendarConnected,
 }: DashboardContentProps) {
+  const searchParams = useSearchParams();
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [isCalendarConnected, setIsCalendarConnected] = useState(calendarConnected);
+  const [calendarError, setCalendarError] = useState<string | null>(null);
+
+  // Handle URL params for calendar connection feedback
+  useEffect(() => {
+    const error = searchParams.get("calendar_error");
+    if (error === "not_configured") {
+      setCalendarError("Google Calendar is not configured. Please ask your admin to add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables.");
+    } else if (error === "auth_failed") {
+      setCalendarError("Failed to connect Google Calendar. Please try again.");
+    } else if (error === "no_code") {
+      setCalendarError("Google Calendar authorization was cancelled.");
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (isCalendarConnected) {
@@ -540,6 +555,11 @@ export function DashboardContent({
                       <p className="text-xs text-muted-foreground mb-3">
                         See your upcoming meetings right here on your dashboard.
                       </p>
+                      {calendarError && (
+                        <div className="mb-3 rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                          {calendarError}
+                        </div>
+                      )}
                       <a href="/api/google-calendar/connect">
                         <Button size="sm" variant="outline" className="gap-2">
                           <svg className="h-4 w-4" viewBox="0 0 24 24">

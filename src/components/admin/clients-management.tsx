@@ -168,7 +168,7 @@ export function ClientsManagement({ clients: initialClients, reminders, thisMont
   const router = useRouter();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
-  const [activeTab, setActiveTab] = useState<"clients" | "dashboard">("clients");
+  const [activeTab, setActiveTab] = useState<"clients" | "churned" | "dashboard">("clients");
   const [clients, setClients] = useState(initialClients);
 
   // Column visibility
@@ -360,7 +360,20 @@ export function ClientsManagement({ clients: initialClients, reminders, thisMont
               className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${activeTab === "clients" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
             >
               <Users className="h-3.5 w-3.5" />
-              Clients
+              Active Clients
+              <Badge variant="secondary" className="ml-0.5 h-4 px-1.5 text-[10px]">
+                {clients.filter((c) => c.status !== "CHURNED").length}
+              </Badge>
+            </button>
+            <button
+              onClick={() => setActiveTab("churned")}
+              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${activeTab === "churned" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              <XCircle className="h-3.5 w-3.5" />
+              Churned
+              <Badge variant="secondary" className="ml-0.5 h-4 px-1.5 text-[10px]">
+                {clients.filter((c) => c.status === "CHURNED").length}
+              </Badge>
             </button>
             <button
               onClick={() => setActiveTab("dashboard")}
@@ -374,7 +387,7 @@ export function ClientsManagement({ clients: initialClients, reminders, thisMont
 
         {activeTab === "clients" ? (
           <ClientsTab
-            clients={clients}
+            clients={clients.filter((c) => c.status !== "CHURNED")}
             reminders={reminders}
             thisMonthRevenue={thisMonthRevenue}
             nextMonthRevenue={nextMonthRevenue}
@@ -385,6 +398,14 @@ export function ClientsManagement({ clients: initialClients, reminders, thisMont
             handleInlineUpdate={handleInlineUpdate}
             handleDelete={handleDelete}
             router={router}
+          />
+        ) : activeTab === "churned" ? (
+          <ChurnedTab
+            clients={clients.filter((c) => c.status === "CHURNED")}
+            handleInlineUpdate={handleInlineUpdate}
+            handleDelete={handleDelete}
+            router={router}
+            fmt={fmt}
           />
         ) : (
           <DashboardTab dashboardData={dashboardData} fmt={fmt} />
@@ -437,7 +458,7 @@ function ClientsTab({
           <CardContent className="pt-6">
             <p className="text-xs font-medium text-muted-foreground">Active Clients</p>
             <p className="mt-2 text-2xl font-bold">
-              <AnimatedNumber value={clients.filter((c) => c.sentimentStatus !== "CHURNED").length} />
+              <AnimatedNumber value={clients.length} />
             </p>
           </CardContent>
         </Card>
@@ -694,6 +715,114 @@ function InlineTextEdit({ value, onSave }: { value: string | null; onSave: (v: s
     >
       {value || "—"}
     </span>
+  );
+}
+
+/* ─── Churned Tab ─── */
+function ChurnedTab({
+  clients, handleInlineUpdate, handleDelete, router, fmt,
+}: {
+  clients: ClientData[];
+  handleInlineUpdate: (id: string, field: string, value: string | number | null) => void;
+  handleDelete: (id: string) => void;
+  router: ReturnType<typeof useRouter>;
+  fmt: (n: number) => string;
+}) {
+  return (
+    <>
+      {/* Churned summary */}
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-xs font-medium text-muted-foreground">Churned Clients</p>
+            <p className="mt-2 text-2xl font-bold text-red-600">
+              <AnimatedNumber value={clients.length} />
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-xs font-medium text-muted-foreground">Lost Monthly Revenue</p>
+            <p className="mt-2 text-2xl font-bold text-red-600">
+              {fmt(clients.reduce((sum, c) => sum + (c.avgBillingAmount || 0), 0))}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-xs font-medium text-muted-foreground">Lost One-Time Revenue</p>
+            <p className="mt-2 text-2xl font-bold text-muted-foreground">
+              {fmt(clients.reduce((sum, c) => sum + (c.oneTimeProjectAmount || 0), 0))}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {clients.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <XCircle className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
+            <p className="text-sm text-muted-foreground">No churned clients</p>
+            <p className="text-xs text-muted-foreground mt-1">Clients marked as churned will appear here and be excluded from billing.</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="rounded-md border overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b bg-muted/50">
+                <th className="px-4 py-3 text-left text-xs font-medium">Client</th>
+                <th className="px-3 py-3 text-left text-xs font-medium">Sentiment</th>
+                <th className="px-3 py-3 text-left text-xs font-medium">Last Billing</th>
+                <th className="px-3 py-3 text-left text-xs font-medium">SOW</th>
+                <th className="px-3 py-3 text-left text-xs font-medium">Status</th>
+                <th className="px-3 py-3 text-left text-xs font-medium w-10"></th>
+              </tr>
+            </thead>
+            <AnimatedTableBody>
+              {clients.map((client) => {
+                const sentiment = sentimentConfig[client.sentimentStatus] || sentimentConfig.NEUTRAL;
+                return (
+                  <AnimatedRow key={client.id} className="border-b hover:bg-muted/30">
+                    <td className="px-4 py-2.5 cursor-pointer" onClick={() => router.push(`/admin/clients/${client.id}`)}>
+                      <p className="text-sm font-medium hover:text-primary transition-colors">{client.name}</p>
+                      {client.contactName && <p className="text-xs text-muted-foreground">{client.contactName}</p>}
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <Badge className={`${sentiment.color} text-[10px] gap-1`} variant="secondary">
+                        {sentiment.icon}{sentiment.label}
+                      </Badge>
+                    </td>
+                    <td className="px-3 py-2.5 text-sm text-muted-foreground">
+                      {client.avgBillingAmount ? fmt(client.avgBillingAmount) : "—"}
+                    </td>
+                    <td className="px-3 py-2.5 text-xs text-muted-foreground max-w-[150px] truncate">{client.sow || "—"}</td>
+                    <td className="px-3 py-2.5">
+                      <Select value={client.status} onValueChange={(v) => handleInlineUpdate(client.id, "status", v)}>
+                        <SelectTrigger className="h-7 w-[100px] text-[10px] border-0 bg-transparent hover:bg-muted/40 px-1 focus:ring-0 focus:ring-offset-0">
+                          <Badge className={`${clientStatusConfig[client.status]?.color || ""} text-[11px]`} variant="secondary">
+                            {clientStatusConfig[client.status]?.label || client.status}
+                          </Badge>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="ACTIVE">Active</SelectItem>
+                          <SelectItem value="CHURNED">Churned</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <button onClick={() => handleDelete(client.id)} className="rounded p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors" title="Delete client">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </td>
+                  </AnimatedRow>
+                );
+              })}
+            </AnimatedTableBody>
+          </table>
+        </div>
+      )}
+    </>
   );
 }
 

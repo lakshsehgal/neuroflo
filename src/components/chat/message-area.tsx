@@ -190,8 +190,13 @@ export function MessageArea({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  const scrollToBottom = useCallback((instant?: boolean) => {
+    if (instant) {
+      // Use instant scroll for initial load to avoid showing top of chat
+      messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+    } else {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, []);
 
   // Load messages on channel change
@@ -204,7 +209,10 @@ export function MessageArea({
       if (cancelled) return;
       setMessages(data.messages as MessageData[]);
       setLoading(false);
-      setTimeout(scrollToBottom, 100);
+      // Use requestAnimationFrame + short delay to ensure DOM has rendered
+      requestAnimationFrame(() => {
+        setTimeout(() => scrollToBottom(true), 50);
+      });
       // Mark channel as read
       markChannelRead(channelId).catch(() => {});
     });

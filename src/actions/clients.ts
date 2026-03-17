@@ -198,7 +198,10 @@ export async function getRevenueForecasting() {
   await requireRole("OPERATOR");
 
   const clients = await db.client.findMany({
-    where: { sentimentStatus: { not: "CHURNED" } },
+    where: {
+      status: "ACTIVE",
+      sentimentStatus: { not: "CHURNED" },
+    },
     select: {
       id: true,
       name: true,
@@ -269,6 +272,7 @@ export async function getUpcomingReminders() {
     where: {
       dueDate: { gte: now, lte: thirtyDaysFromNow },
       status: { in: ["PENDING", "SENT"] },
+      client: { status: "ACTIVE" },
     },
     include: {
       client: { select: { name: true, reminderDaysBefore: true } },
