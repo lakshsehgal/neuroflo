@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { createTicket, getTeamUsers, getClientNames } from "@/actions/tickets";
+import { createTicket, getCreativeDesignTeamUsers, getClientNames } from "@/actions/tickets";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -76,7 +76,7 @@ export default function NewTicketPage() {
   const [deliveryLink, setDeliveryLink] = useState("");
 
   useEffect(() => {
-    Promise.all([getTeamUsers(), getClientNames()]).then(([u, c]) => {
+    Promise.all([getCreativeDesignTeamUsers(), getClientNames()]).then(([u, c]) => {
       setUsers(u);
       setClients(c);
     });

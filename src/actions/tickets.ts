@@ -251,6 +251,25 @@ export async function getTeamUsers() {
   });
 }
 
+export async function getCreativeDesignTeamUsers() {
+  await requireAuth();
+  return db.user.findMany({
+    where: {
+      isActive: true,
+      teamMembers: {
+        some: {
+          team: {
+            name: "Design",
+            department: { name: "Creative" },
+          },
+        },
+      },
+    },
+    select: { id: true, name: true, avatar: true },
+    orderBy: { name: "asc" },
+  });
+}
+
 export async function getClientNames() {
   await requireAuth();
   return db.client.findMany({

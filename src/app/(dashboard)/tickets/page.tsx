@@ -1,10 +1,10 @@
-import { getTickets, getTeamUsers, getClientNames, getTicketWorkloadData } from "@/actions/tickets";
+import { getTickets, getCreativeDesignTeamUsers, getClientNames, getTicketWorkloadData } from "@/actions/tickets";
 import { TicketsContent } from "@/components/tickets/tickets-content";
 
 export default async function TicketsPage() {
   const [tickets, users, clients, workloadTickets] = await Promise.all([
     getTickets(),
-    getTeamUsers(),
+    getCreativeDesignTeamUsers(),
     getClientNames(),
     getTicketWorkloadData(),
   ]);
