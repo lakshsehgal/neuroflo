@@ -19,6 +19,11 @@ const taskSchema = z.object({
   priority: z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]).optional(),
   assigneeId: z.string().optional(),
   dueDate: z.string().optional(),
+  creatorName: z.string().optional(),
+  creatorHandle: z.string().optional(),
+  shootDate: z.string().optional(),
+  videoUrl: z.string().optional(),
+  thumbnailUrl: z.string().optional(),
 });
 
 export async function createTask(
@@ -39,6 +44,7 @@ export async function createTask(
     data: {
       ...parsed.data,
       dueDate: parsed.data.dueDate ? new Date(parsed.data.dueDate) : undefined,
+      shootDate: parsed.data.shootDate ? new Date(parsed.data.shootDate) : undefined,
       order: (maxOrder?.order ?? -1) + 1,
     },
   });
@@ -78,6 +84,7 @@ export async function updateTask(
     data: {
       ...input,
       dueDate: input.dueDate ? new Date(input.dueDate) : undefined,
+      shootDate: input.shootDate ? new Date(input.shootDate) : undefined,
     },
   });
 
@@ -151,6 +158,7 @@ export async function getTaskDetail(taskId: string) {
       checklistItems: {
         orderBy: { order: "asc" },
       },
+      project: { select: { id: true, name: true } },
     },
   });
 }

@@ -24,7 +24,7 @@ import { Separator } from "@/components/ui/separator";
 import { TaskChecklist } from "./task-checklist";
 import { TaskSubtasks } from "./task-subtasks";
 import { formatRelativeTime } from "@/lib/utils";
-import { Calendar, User, Flag, Tag, Trash2 } from "lucide-react";
+import { Calendar, User, Flag, Tag, Trash2, AtSign, Video, Link2 } from "lucide-react";
 
 type Member = {
   userId: string;
@@ -390,6 +390,74 @@ export function TaskDetailModal({
                       }
                       onChange={(e) =>
                         handleUpdateField("dueDate", e.target.value)
+                      }
+                      className="h-8 text-sm"
+                    />
+                  </div>
+
+                  {/* Creator Name */}
+                  <div>
+                    <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                      <AtSign className="h-3 w-3" />
+                      Creator
+                    </label>
+                    <Input
+                      placeholder="Creator name..."
+                      value={task.creatorName || ""}
+                      onChange={(e) =>
+                        handleUpdateField("creatorName", e.target.value)
+                      }
+                      className="h-8 text-sm"
+                    />
+                  </div>
+
+                  {/* Creator Handle */}
+                  <div>
+                    <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                      <AtSign className="h-3 w-3" />
+                      Creator Handle
+                    </label>
+                    <Input
+                      placeholder="@handle"
+                      value={task.creatorHandle || ""}
+                      onChange={(e) =>
+                        handleUpdateField("creatorHandle", e.target.value)
+                      }
+                      className="h-8 text-sm"
+                    />
+                  </div>
+
+                  {/* Shoot Date */}
+                  <div>
+                    <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                      <Video className="h-3 w-3" />
+                      Shoot Date
+                    </label>
+                    <Input
+                      type="date"
+                      value={
+                        task.shootDate
+                          ? new Date(task.shootDate).toISOString().split("T")[0]
+                          : ""
+                      }
+                      onChange={(e) =>
+                        handleUpdateField("shootDate", e.target.value)
+                      }
+                      className="h-8 text-sm"
+                    />
+                  </div>
+
+                  {/* Video URL */}
+                  <div>
+                    <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                      <Link2 className="h-3 w-3" />
+                      Video URL
+                    </label>
+                    <Input
+                      placeholder="https://..."
+                      value={task.videoUrl || ""}
+                      onChange={(e) =>
+                        handleUpdateField("videoUrl", e.target.value)
                       }
                       className="h-8 text-sm"
                     />

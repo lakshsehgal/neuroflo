@@ -39,7 +39,7 @@ export const navConfig: NavSection[] = [
   {
     label: "Work",
     items: [
-      { title: "Projects", href: "/projects", icon: FolderKanban },
+      { title: "UGC Projects", href: "/projects", icon: FolderKanban },
       { title: "Team Tasks", href: "/team-tasks", icon: ListTodo },
       { title: "Creative Tickets", href: "/tickets", icon: Ticket },
       { title: "Client Mandates", href: "/client-mandates", icon: ClipboardList },

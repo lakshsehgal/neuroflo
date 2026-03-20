@@ -281,10 +281,11 @@ model Project {
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
-  members ProjectMember[]
-  tasks   Task[]
-  tickets Ticket[]
-  labels  TaskLabel[]
+  members      ProjectMember[]
+  tasks        Task[]
+  tickets      Ticket[]
+  labels       TaskLabel[]
+  guestAccess  GuestAccess[]
 }
 
 model ProjectMember {
@@ -314,6 +315,13 @@ model Task {
   parent      Task?      @relation("Subtasks", fields: [parentId], references: [id], onDelete: Cascade)
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
+
+  // UGC-specific fields
+  creatorName   String?
+  creatorHandle String?
+  shootDate     DateTime?
+  videoUrl      String?
+  thumbnailUrl  String?
 
   subtasks       Task[]          @relation("Subtasks")
   comments       Comment[]
@@ -503,10 +511,11 @@ model Client {
   creativeStrategyOwnerId      String?
   creativeStrategyOwner        User?   @relation("ClientCreativeStrategy", fields: [creativeStrategyOwnerId], references: [id])
 
-  campaigns  Campaign[]
-  projects   Project[]
-  invoices   Invoice[]
-  onboarding ClientOnboarding?
+  campaigns   Campaign[]
+  projects    Project[]
+  invoices    Invoice[]
+  onboarding  ClientOnboarding?
+  guestAccess GuestAccess[]
 }
 
 model ClientOnboarding {
@@ -749,6 +758,25 @@ model PushSubscription {
   createdAt  DateTime @default(now())
 
   @@index([userId])
+}
+
+// ─── Guest Access ─────────────────────────────────────
+
+model GuestAccess {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  clientId  String?
+  client    Client?  @relation(fields: [clientId], references: [id])
+  token     String   @unique @default(cuid())
+  email     String?
+  name      String?
+  expiresAt DateTime?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@index([projectId])
+  @@index([token])
 }
 
 // ─── Founder's Hub ────────────────────────────────────

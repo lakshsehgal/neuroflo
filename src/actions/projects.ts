@@ -54,9 +54,17 @@ export async function getProjects() {
 
   return db.project.findMany({
     include: {
-      client: { select: { name: true } },
+      client: { select: { id: true, name: true } },
       department: { select: { name: true } },
       members: { include: { user: { select: { id: true, name: true, avatar: true } } } },
+      tasks: {
+        select: {
+          id: true,
+          status: true,
+          creatorName: true,
+          shootDate: true,
+        },
+      },
       _count: { select: { tasks: true, tickets: true } },
     },
     orderBy: { updatedAt: "desc" },
@@ -82,6 +90,10 @@ export async function getProject(id: string) {
           subtasks: { select: { id: true, status: true } },
         },
         orderBy: { order: "asc" },
+      },
+      guestAccess: {
+        where: { isActive: true },
+        select: { id: true, token: true, email: true, name: true, expiresAt: true, createdAt: true },
       },
       labels: true,
     },
@@ -249,6 +261,16 @@ export async function updateProjectMemberRole(
 
   revalidatePath(`/projects/${projectId}`);
   return { success: true };
+}
+
+export async function getClientsForProject() {
+  await requireAuth();
+
+  return db.client.findMany({
+    where: { status: "ACTIVE" },
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  });
 }
 
 export async function getAvailableUsersForProject(projectId: string) {

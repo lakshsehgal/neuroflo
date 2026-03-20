@@ -33,7 +33,8 @@ export async function middleware(req: NextRequest) {
   // These routes should always be accessible (even when logged in)
   const isAlwaysPublic =
     pathname.startsWith("/reset-password") ||
-    pathname.startsWith("/onboarding");
+    pathname.startsWith("/onboarding") ||
+    pathname.startsWith("/guest");
 
   if (isAlwaysPublic) {
     return NextResponse.next();
