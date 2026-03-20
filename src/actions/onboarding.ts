@@ -28,9 +28,9 @@ export async function generateOnboardingToken(
   return { success: true, data: { token } };
 }
 
-// Get onboarding data for a client (admin view)
+// Get onboarding data for a client (admin/operator view)
 export async function getClientOnboarding(clientId: string) {
-  await requireRole("ADMIN");
+  await requireRole("OPERATOR");
 
   return db.clientOnboarding.findUnique({
     where: { clientId },
