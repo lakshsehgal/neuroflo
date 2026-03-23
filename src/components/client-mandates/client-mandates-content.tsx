@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { AnimatedTableBody, AnimatedRow } from "@/components/motion";
-import { Search, FileText, X, BarChart3, Palette } from "lucide-react";
+import { Search, FileText, X, BarChart3, Palette, Pencil, Check, ExternalLink } from "lucide-react";
+import { updateClientField } from "@/actions/clients";
 
 type ClientMandate = {
   id: string;
@@ -35,14 +36,92 @@ const MANDATE_COLORS: Record<string, string> = {
   "Statics Only": "bg-slate-100 text-slate-800",
 };
 
+function InlineLinkEdit({
+  clientId,
+  field,
+  value,
+  icon: Icon,
+  onUpdate,
+}: {
+  clientId: string;
+  field: "performanceMisLink" | "creativeMisLink";
+  value: string | null;
+  icon: typeof BarChart3;
+  onUpdate: (clientId: string, field: string, value: string | null) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState(value || "");
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-1">
+        <Input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onBlur={() => {
+            setEditing(false);
+            if (text !== (value || "")) {
+              onUpdate(clientId, field, text || null);
+            }
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+            if (e.key === "Escape") { setText(value || ""); setEditing(false); }
+          }}
+          placeholder="https://..."
+          autoFocus
+          className="h-7 w-[160px] text-xs"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-1.5">
+      {value ? (
+        <a
+          href={value}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1 text-xs text-primary hover:underline"
+        >
+          <Icon className="h-3.5 w-3.5" />
+          View MIS
+        </a>
+      ) : (
+        <span className="text-xs text-muted-foreground">—</span>
+      )}
+      <button
+        onClick={() => { setText(value || ""); setEditing(true); }}
+        className="p-0.5 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+        title="Edit link"
+      >
+        <Pencil className="h-3 w-3" />
+      </button>
+    </div>
+  );
+}
+
 export function ClientMandatesContent({
-  clients,
+  clients: initialClients,
 }: {
   clients: ClientMandate[];
 }) {
   const [search, setSearch] = useState("");
   const [filterMandate, setFilterMandate] = useState<string | null>(null);
   const [sowClient, setSowClient] = useState<ClientMandate | null>(null);
+  const [clients, setClients] = useState(initialClients);
+  const [, startTransition] = useTransition();
+
+  const handleLinkUpdate = (clientId: string, field: string, value: string | null) => {
+    // Optimistic update
+    setClients((prev) =>
+      prev.map((c) => c.id === clientId ? { ...c, [field]: value } : c)
+    );
+    startTransition(async () => {
+      await updateClientField(clientId, field, value);
+    });
+  };
 
   const filtered = clients.filter((c) => {
     const matchesSearch = c.name.toLowerCase().includes(search.toLowerCase());
@@ -178,34 +257,22 @@ export function ClientMandatesContent({
                         {client.creativeStrategyOwner?.name || "—"}
                       </td>
                       <td className="px-4 py-3">
-                        {client.performanceMisLink ? (
-                          <a
-                            href={client.performanceMisLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-1.5 text-xs text-primary hover:underline"
-                          >
-                            <BarChart3 className="h-3.5 w-3.5" />
-                            View MIS
-                          </a>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">—</span>
-                        )}
+                        <InlineLinkEdit
+                          clientId={client.id}
+                          field="performanceMisLink"
+                          value={client.performanceMisLink}
+                          icon={BarChart3}
+                          onUpdate={handleLinkUpdate}
+                        />
                       </td>
                       <td className="px-4 py-3">
-                        {client.creativeMisLink ? (
-                          <a
-                            href={client.creativeMisLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-1.5 text-xs text-primary hover:underline"
-                          >
-                            <Palette className="h-3.5 w-3.5" />
-                            View MIS
-                          </a>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">—</span>
-                        )}
+                        <InlineLinkEdit
+                          clientId={client.id}
+                          field="creativeMisLink"
+                          value={client.creativeMisLink}
+                          icon={Palette}
+                          onUpdate={handleLinkUpdate}
+                        />
                       </td>
                       <td className="px-4 py-3">
                         {client.sow ? (

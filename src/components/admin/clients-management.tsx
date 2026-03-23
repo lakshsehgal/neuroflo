@@ -52,6 +52,7 @@ import {
   Eye,
   EyeOff,
   Check,
+  Search,
 } from "lucide-react";
 import {
   BarChart,
@@ -235,6 +236,7 @@ export function ClientsManagement({ clients: initialClients, reminders, thisMont
   const [activeTab, setActiveTab] = useState<"clients" | "churned" | "dashboard">("clients");
   const [clients, setClients] = useState(initialClients);
   const [myClientsOnly, setMyClientsOnly] = useState(false);
+  const [clientSearch, setClientSearch] = useState("");
 
   // Column visibility
   const [visibleColumns, setVisibleColumns] = useState<string[]>(() => {
@@ -524,15 +526,28 @@ export function ClientsManagement({ clients: initialClients, reminders, thisMont
           )}
         </div>
 
+        {activeTab !== "dashboard" && (
+          <div className="relative max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={clientSearch}
+              onChange={(e) => setClientSearch(e.target.value)}
+              placeholder="Search clients..."
+              className="pl-9 h-9 text-sm"
+            />
+          </div>
+        )}
+
         {activeTab === "clients" ? (
           <ClientsTab
             clients={clients.filter((c) => {
               if (c.status === "CHURNED") return false;
               if (myClientsOnly) {
-                return c.primaryPerformanceOwnerId === currentUserId
-                  || c.secondaryPerformanceOwnerId === currentUserId
-                  || c.creativeStrategyOwnerId === currentUserId;
+                if (c.primaryPerformanceOwnerId !== currentUserId
+                  && c.secondaryPerformanceOwnerId !== currentUserId
+                  && c.creativeStrategyOwnerId !== currentUserId) return false;
               }
+              if (clientSearch && !c.name.toLowerCase().includes(clientSearch.toLowerCase())) return false;
               return true;
             })}
             reminders={reminders}
@@ -552,10 +567,11 @@ export function ClientsManagement({ clients: initialClients, reminders, thisMont
             clients={clients.filter((c) => {
               if (c.status !== "CHURNED") return false;
               if (myClientsOnly) {
-                return c.primaryPerformanceOwnerId === currentUserId
-                  || c.secondaryPerformanceOwnerId === currentUserId
-                  || c.creativeStrategyOwnerId === currentUserId;
+                if (c.primaryPerformanceOwnerId !== currentUserId
+                  && c.secondaryPerformanceOwnerId !== currentUserId
+                  && c.creativeStrategyOwnerId !== currentUserId) return false;
               }
+              if (clientSearch && !c.name.toLowerCase().includes(clientSearch.toLowerCase())) return false;
               return true;
             })}
             handleInlineUpdate={handleInlineUpdate}
