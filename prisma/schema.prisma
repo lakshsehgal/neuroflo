@@ -13,6 +13,7 @@ enum Role {
   OPERATOR
   MEMBER
   VIEWER
+  CONTRACTOR
 }
 
 enum TaskStatus {

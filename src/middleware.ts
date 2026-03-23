@@ -14,21 +14,25 @@ function getSecret(): Uint8Array | null {
   return _secret;
 }
 
-async function verifyToken(token: string): Promise<boolean> {
+async function verifyToken(token: string): Promise<{ valid: boolean; role?: string }> {
   try {
     const secret = getSecret();
-    if (!secret) return false;
-    await jwtVerify(token, secret);
-    return true;
+    if (!secret) return { valid: false };
+    const { payload } = await jwtVerify(token, secret);
+    return { valid: true, role: payload.role as string | undefined };
   } catch {
-    return false;
+    return { valid: false };
   }
 }
+
+// Routes that CONTRACTOR role is allowed to access (dashboard routes only)
+const CONTRACTOR_ALLOWED_PREFIXES = ["/tickets", "/settings/profile", "/settings/notifications"];
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const token = req.cookies.get(SESSION_COOKIE)?.value;
-  const isLoggedIn = token ? await verifyToken(token) : false;
+  const result = token ? await verifyToken(token) : { valid: false };
+  const isLoggedIn = result.valid;
 
   // These routes should always be accessible (even when logged in)
   const isAlwaysPublic =
@@ -54,6 +58,16 @@ export async function middleware(req: NextRequest) {
 
   if (!isLoggedIn) {
     return NextResponse.redirect(new URL("/login", req.nextUrl));
+  }
+
+  // CONTRACTOR route restriction: only allow Creative Tickets and Account pages
+  if (result.role === "CONTRACTOR") {
+    const isAllowed = CONTRACTOR_ALLOWED_PREFIXES.some(
+      (prefix) => pathname === prefix || pathname.startsWith(prefix + "/")
+    );
+    if (!isAllowed) {
+      return NextResponse.redirect(new URL("/tickets", req.nextUrl));
+    }
   }
 
   return NextResponse.next();

@@ -83,6 +83,22 @@ const roles = [
       "View Dashboard": true,
     },
   },
+  {
+    name: "Contractor",
+    color: "bg-amber-100 text-amber-800",
+    description: "External contractor with access limited to Creative Tickets only",
+    permissions: {
+      "Manage Team & Invites": false,
+      "Manage Departments": false,
+      "Manage Clients & Billing": false,
+      "Delete Projects": false,
+      "Approve Tickets": true,
+      "Manage Project Members": false,
+      "Create Projects & Tasks": false,
+      "Create Tickets": true,
+      "View Dashboard": false,
+    },
+  },
 ];
 
 export default function RolesPage() {

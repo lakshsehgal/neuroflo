@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { navConfig, type NavItem } from "@/config/nav";
-import { hasMinRole, type UserRole } from "@/lib/roles";
+import { hasMinRole, isContractor, type UserRole } from "@/lib/roles";
 import { ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -20,8 +20,17 @@ export function Sidebar({ userRole }: SidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
 
+  // Allowed paths for CONTRACTOR role
+  const contractorAllowedPaths = ["/tickets", "/settings/profile", "/settings/notifications"];
+
   function filterItems(items: NavItem[]): NavItem[] {
     return items.filter((item) => {
+      // CONTRACTOR can only access Creative Tickets and Account items
+      if (isContractor(userRole)) {
+        return contractorAllowedPaths.some(
+          (path) => item.href === path || item.href.startsWith(path + "/")
+        );
+      }
       if (item.minRole && !hasMinRole(userRole, item.minRole)) return false;
       return true;
     });

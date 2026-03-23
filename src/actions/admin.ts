@@ -9,7 +9,7 @@ import { sendInviteEmail } from "@/lib/email";
 
 const inviteSchema = z.object({
   email: z.string().email(),
-  role: z.enum(["ADMIN", "MANAGER", "OPERATOR", "MEMBER", "VIEWER"]),
+  role: z.enum(["ADMIN", "MANAGER", "OPERATOR", "MEMBER", "VIEWER", "CONTRACTOR"]),
   departmentId: z.string().optional(),
 });
 

@@ -1,8 +1,8 @@
 import { getSession } from "@/lib/auth";
-import { hasMinRole, type UserRole } from "@/lib/roles";
+import { hasMinRole, isContractor, type UserRole } from "@/lib/roles";
 
 // Re-export for convenience
-export { hasMinRole, type UserRole } from "@/lib/roles";
+export { hasMinRole, isContractor, type UserRole } from "@/lib/roles";
 
 export async function getCurrentUser() {
   const session = await getSession();
@@ -42,9 +42,10 @@ export const permissions = {
   editTask: (role: UserRole) => hasMinRole(role, "MEMBER"),
   deleteTask: (role: UserRole) => hasMinRole(role, "MEMBER"),
 
-  // Tickets
-  createTicket: (role: UserRole) => hasMinRole(role, "MEMBER"),
+  // Tickets — CONTRACTOR can also access these
+  createTicket: (role: UserRole) => isContractor(role) || hasMinRole(role, "MEMBER"),
   approveTicket: (role: UserRole) => hasMinRole(role, "MEMBER"),
+  viewTickets: (role: UserRole) => isContractor(role) || hasMinRole(role, "VIEWER"),
 
   // Assets
   uploadAsset: (role: UserRole) => hasMinRole(role, "MEMBER"),

@@ -67,7 +67,7 @@ export default function TeamPage() {
     e.preventDefault();
     setLoading(true);
     setError("");
-    const result = await inviteUser({ email, role: role as "ADMIN" | "MANAGER" | "OPERATOR" | "MEMBER" | "VIEWER", departmentId: deptId || undefined });
+    const result = await inviteUser({ email, role: role as "ADMIN" | "MANAGER" | "OPERATOR" | "MEMBER" | "VIEWER" | "CONTRACTOR", departmentId: deptId || undefined });
     if (result.success) {
       setEmail(""); setRole("MEMBER"); setDeptId(""); setDialogOpen(false); loadData();
       if (result.error) {
@@ -81,7 +81,7 @@ export default function TeamPage() {
 
   function handleRoleChange(userId: string, newRole: string) {
     startTransition(async () => {
-      await updateUserRole(userId, newRole as "ADMIN" | "MANAGER" | "OPERATOR" | "MEMBER" | "VIEWER");
+      await updateUserRole(userId, newRole as "ADMIN" | "MANAGER" | "OPERATOR" | "MEMBER" | "VIEWER" | "CONTRACTOR");
       loadData();
     });
   }
@@ -139,6 +139,7 @@ export default function TeamPage() {
   const roleColors: Record<string, string> = {
     ADMIN: "bg-red-100 text-red-800", MANAGER: "bg-blue-100 text-blue-800",
     OPERATOR: "bg-purple-100 text-purple-800", MEMBER: "bg-green-100 text-green-800", VIEWER: "bg-gray-100 text-gray-800",
+    CONTRACTOR: "bg-amber-100 text-amber-800",
   };
 
   return (
@@ -169,6 +170,7 @@ export default function TeamPage() {
                       <SelectItem value="OPERATOR">Operator</SelectItem>
                       <SelectItem value="MANAGER">Manager</SelectItem>
                       <SelectItem value="ADMIN">Admin</SelectItem>
+                      <SelectItem value="CONTRACTOR">Contractor</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -236,6 +238,7 @@ export default function TeamPage() {
                           <SelectItem value="OPERATOR">Operator</SelectItem>
                           <SelectItem value="MANAGER">Manager</SelectItem>
                           <SelectItem value="ADMIN">Admin</SelectItem>
+                          <SelectItem value="CONTRACTOR">Contractor</SelectItem>
                         </SelectContent>
                       </Select>
                       {/* Expand teams */}

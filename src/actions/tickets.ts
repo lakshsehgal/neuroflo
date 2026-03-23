@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { requireRole, requireAuth } from "@/lib/permissions";
+import { requireRole, requireAuth, isContractor } from "@/lib/permissions";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import type { ActionResponse } from "@/types";
@@ -11,6 +11,16 @@ import {
   notifyTicketComment,
   notifyTicketStatusChanged,
 } from "@/actions/notifications";
+
+/** Require MEMBER+ or CONTRACTOR role (contractors can access tickets) */
+async function requireTicketAccess() {
+  const user = await requireAuth();
+  if (!isContractor(user.role)) {
+    // For non-contractors, enforce MEMBER minimum
+    await requireRole("MEMBER");
+  }
+  return user;
+}
 
 const ticketSchema = z.object({
   title: z.string().min(1),
@@ -28,7 +38,7 @@ const ticketSchema = z.object({
 export async function createTicket(
   input: z.infer<typeof ticketSchema>
 ): Promise<ActionResponse<{ id: string }>> {
-  const user = await requireRole("MEMBER");
+  const user = await requireTicketAccess();
 
   const parsed = ticketSchema.safeParse(input);
   if (!parsed.success) return { success: false, error: "Invalid input" };
@@ -65,7 +75,7 @@ export async function updateTicket(
   id: string,
   input: Record<string, unknown>
 ): Promise<ActionResponse> {
-  const user = await requireRole("MEMBER");
+  const user = await requireTicketAccess();
 
   // Check if assignee is changing
   const oldTicket = await db.ticket.findUnique({
@@ -283,7 +293,7 @@ export async function approveTicket(
   status: "APPROVED" | "REJECTED",
   comment?: string
 ): Promise<ActionResponse> {
-  const user = await requireRole("MEMBER");
+  const user = await requireTicketAccess();
 
   const ticket = await db.ticket.findUnique({
     where: { id: ticketId },
@@ -332,7 +342,7 @@ export async function approveTicket(
 }
 
 export async function deleteTicket(id: string): Promise<ActionResponse> {
-  await requireRole("MEMBER");
+  await requireTicketAccess();
 
   await db.ticket.delete({ where: { id } });
   revalidatePath("/tickets");
