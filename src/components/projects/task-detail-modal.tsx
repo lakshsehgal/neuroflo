@@ -24,7 +24,7 @@ import { Separator } from "@/components/ui/separator";
 import { TaskChecklist } from "./task-checklist";
 import { TaskSubtasks } from "./task-subtasks";
 import { formatRelativeTime } from "@/lib/utils";
-import { Calendar, User, Flag, Tag, Trash2, AtSign, Video, Link2, ExternalLink, Package, MessageSquare, CheckCircle2, Plus } from "lucide-react";
+import { Calendar, User, Flag, Tag, Trash2, AtSign, Video, Link2, ExternalLink, Package, MessageSquare, CheckCircle2, Plus, Maximize2, Minimize2 } from "lucide-react";
 
 type Member = {
   userId: string;
@@ -96,6 +96,7 @@ export function TaskDetailModal({
   const [creatorName, setCreatorName] = useState("");
   const [portfolioLink, setPortfolioLink] = useState("");
   const [deliveryLink, setDeliveryLink] = useState("");
+  const [isExpanded, setIsExpanded] = useState(false);
 
   useEffect(() => {
     if (taskId && open) {
@@ -192,7 +193,7 @@ export function TaskDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col p-0">
+      <DialogContent className={`${isExpanded ? "max-w-[95vw] max-h-[95vh]" : "max-w-2xl max-h-[85vh]"} overflow-hidden flex flex-col p-0 transition-all duration-200`}>
         {loading || !task ? (
           <div className="flex h-64 items-center justify-center">
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -200,29 +201,40 @@ export function TaskDetailModal({
         ) : (
           <>
             <DialogHeader className="px-6 pt-6 pb-0">
-              {editingTitle ? (
-                <Input
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  onBlur={handleSaveTitle}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleSaveTitle();
-                    if (e.key === "Escape") {
-                      setTitle(task.title);
-                      setEditingTitle(false);
-                    }
-                  }}
-                  autoFocus
-                  className="text-lg font-semibold"
-                />
-              ) : (
-                <DialogTitle
-                  className="cursor-pointer text-lg hover:text-primary"
-                  onClick={() => setEditingTitle(true)}
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  {editingTitle ? (
+                    <Input
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      onBlur={handleSaveTitle}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleSaveTitle();
+                        if (e.key === "Escape") {
+                          setTitle(task.title);
+                          setEditingTitle(false);
+                        }
+                      }}
+                      autoFocus
+                      className="text-lg font-semibold"
+                    />
+                  ) : (
+                    <DialogTitle
+                      className="cursor-pointer text-lg hover:text-primary"
+                      onClick={() => setEditingTitle(true)}
+                    >
+                      {task.title}
+                    </DialogTitle>
+                  )}
+                </div>
+                <button
+                  onClick={() => setIsExpanded(!isExpanded)}
+                  className="shrink-0 rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                  title={isExpanded ? "Minimize" : "Open full screen"}
                 >
-                  {task.title}
-                </DialogTitle>
-              )}
+                  {isExpanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                </button>
+              </div>
             </DialogHeader>
 
             <div className="flex-1 overflow-y-auto px-6 pb-6">

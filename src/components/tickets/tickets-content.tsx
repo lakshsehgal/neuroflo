@@ -48,6 +48,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { formatDate, isOverdue } from "@/lib/utils";
 import { updateTicket, updateTicketStatus } from "@/actions/tickets";
+import { TicketDetailModal } from "@/components/tickets/ticket-detail-modal";
 import {
   DndContext,
   DragOverlay,
@@ -203,6 +204,15 @@ export function TicketsContent({ tickets: initialTickets, users, clients, worklo
   const [filterDueDateFrom, setFilterDueDateFrom] = useState("");
   const [filterDueDateTo, setFilterDueDateTo] = useState("");
   const [showFilters, setShowFilters] = useState(false);
+
+  // Ticket detail modal
+  const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
+  const [ticketModalOpen, setTicketModalOpen] = useState(false);
+
+  function handleTicketClick(ticketId: string) {
+    setSelectedTicketId(ticketId);
+    setTicketModalOpen(true);
+  }
 
   // Column visibility
   const [visibleColumns, setVisibleColumns] = useState<string[]>(() => {
@@ -514,10 +524,19 @@ export function TicketsContent({ tickets: initialTickets, users, clients, worklo
         </AnimatePresence>
 
         {/* Content */}
-        {view === "table" && <TableView tickets={filtered} users={users} clients={clients} onUpdate={handleInlineUpdate} visibleColumns={visibleColumns} />}
-        {view === "kanban" && <KanbanView tickets={filtered} onStatusChange={handleInlineUpdate} />}
+        {view === "table" && <TableView tickets={filtered} users={users} clients={clients} onUpdate={handleInlineUpdate} visibleColumns={visibleColumns} onTicketClick={handleTicketClick} />}
+        {view === "kanban" && <KanbanView tickets={filtered} onStatusChange={handleInlineUpdate} onTicketClick={handleTicketClick} />}
         {view === "workload" && <WorkloadView tickets={workloadTickets} />}
       </div>
+
+      <TicketDetailModal
+        ticketId={selectedTicketId}
+        users={users}
+        clients={clients}
+        open={ticketModalOpen}
+        onOpenChange={setTicketModalOpen}
+        onTicketUpdated={() => window.location.reload()}
+      />
     </PageTransition>
   );
 }
@@ -529,12 +548,14 @@ function TableView({
   clients,
   onUpdate,
   visibleColumns,
+  onTicketClick,
 }: {
   tickets: TicketData[];
   users: User[];
   clients: Client[];
   onUpdate: (id: string, field: string, value: string) => void;
   visibleColumns: string[];
+  onTicketClick: (id: string) => void;
 }) {
   const router = useRouter();
   const [editingTitle, setEditingTitle] = useState<string | null>(null);
@@ -558,7 +579,7 @@ function TableView({
     // Don't navigate if clicking on interactive elements
     const target = e.target as HTMLElement;
     if (target.closest("select, button, input, [role='listbox'], [role='option'], [data-radix-collection-item], a")) return;
-    router.push(`/tickets/${ticketId}`);
+    onTicketClick(ticketId);
   }
 
   return (
@@ -786,7 +807,7 @@ function DroppableKanbanColumn({ id, children }: { id: string; children: React.R
   );
 }
 
-function SortableKanbanCard({ ticket, onStatusChange }: { ticket: TicketData; onStatusChange: (id: string, field: string, value: string) => void }) {
+function SortableKanbanCard({ ticket, onStatusChange, onTicketClick }: { ticket: TicketData; onStatusChange: (id: string, field: string, value: string) => void; onTicketClick?: (id: string) => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: ticket.id,
     data: { ticket },
@@ -800,14 +821,14 @@ function SortableKanbanCard({ ticket, onStatusChange }: { ticket: TicketData; on
 
   return (
     <div ref={setNodeRef} style={style}>
-      <KanbanCard ticket={ticket} dragHandleProps={{ ...attributes, ...listeners }} />
+      <KanbanCard ticket={ticket} dragHandleProps={{ ...attributes, ...listeners }} onTicketClick={onTicketClick} />
     </div>
   );
 }
 
-function KanbanCard({ ticket, dragHandleProps, isOverlay }: { ticket: TicketData; dragHandleProps?: Record<string, unknown>; isOverlay?: boolean }) {
+function KanbanCard({ ticket, dragHandleProps, isOverlay, onTicketClick }: { ticket: TicketData; dragHandleProps?: Record<string, unknown>; isOverlay?: boolean; onTicketClick?: (id: string) => void }) {
   return (
-    <Card className={`transition-all hover:shadow-md cursor-pointer border-l-[3px] ${isOverlay ? "shadow-xl rotate-2" : ""}`} style={{ borderLeftColor: getBorderColor(ticket.priority) }}>
+    <Card className={`transition-all hover:shadow-md cursor-pointer border-l-[3px] ${isOverlay ? "shadow-xl rotate-2" : ""}`} style={{ borderLeftColor: getBorderColor(ticket.priority) }} onClick={() => onTicketClick?.(ticket.id)}>
       <CardContent className="p-3">
         <div className="flex items-start gap-1.5">
           <div
@@ -818,9 +839,9 @@ function KanbanCard({ ticket, dragHandleProps, isOverlay }: { ticket: TicketData
             <GripVertical className="h-3.5 w-3.5" />
           </div>
           <div className="flex-1 min-w-0">
-            <Link href={`/tickets/${ticket.id}`} className="hover:text-primary">
+            <button onClick={(e) => { e.stopPropagation(); onTicketClick?.(ticket.id); }} className="hover:text-primary text-left">
               <p className="text-sm font-medium leading-snug line-clamp-2">{ticket.title}</p>
-            </Link>
+            </button>
             {ticket.clientName && (
               <p className="text-[10px] text-muted-foreground mt-1">{ticket.clientName}</p>
             )}
@@ -856,7 +877,7 @@ function KanbanCard({ ticket, dragHandleProps, isOverlay }: { ticket: TicketData
   );
 }
 
-function KanbanView({ tickets, onStatusChange }: { tickets: TicketData[]; onStatusChange: (id: string, field: string, value: string) => void }) {
+function KanbanView({ tickets, onStatusChange, onTicketClick }: { tickets: TicketData[]; onStatusChange: (id: string, field: string, value: string) => void; onTicketClick: (id: string) => void }) {
   const [activeTicket, setActiveTicket] = useState<TicketData | null>(null);
   const [localTickets, setLocalTickets] = useState<TicketData[] | null>(null);
 
@@ -981,7 +1002,7 @@ function KanbanView({ tickets, onStatusChange }: { tickets: TicketData[]; onStat
                         exit={{ opacity: 0, scale: 0.96 }}
                         transition={{ duration: 0.15 }}
                       >
-                        <SortableKanbanCard ticket={ticket} onStatusChange={onStatusChange} />
+                        <SortableKanbanCard ticket={ticket} onStatusChange={onStatusChange} onTicketClick={onTicketClick} />
                       </motion.div>
                     ))}
                   </AnimatePresence>

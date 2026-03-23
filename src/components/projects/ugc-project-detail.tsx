@@ -20,7 +20,9 @@ import {
   Video,
   CheckCircle2,
   Users,
+  ArrowLeft,
 } from "lucide-react";
+import Link from "next/link";
 
 type VideoItem = {
   id: string;
@@ -173,6 +175,12 @@ export function UGCProjectDetail({
       {/* Project Header */}
       <div>
         <div className="flex items-center gap-3">
+          <Link
+            href="/projects"
+            className="flex h-9 w-9 items-center justify-center rounded-full border bg-background hover:bg-muted transition-colors shrink-0"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
           <div className="rounded-lg bg-primary/10 p-2">
             <Film className="h-5 w-5 text-primary" />
           </div>

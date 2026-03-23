@@ -47,7 +47,9 @@ import {
   Plus,
   Upload,
   Globe,
+  ArrowLeft,
 } from "lucide-react";
+import Link from "next/link";
 import type { getTicket } from "@/actions/tickets";
 
 type TicketData = NonNullable<Awaited<ReturnType<typeof getTicket>>>;
@@ -236,6 +238,14 @@ export function TicketDetailContent({
     <div className="space-y-6">
       {/* ── Hero header ── */}
       <div className="rounded-xl border bg-card p-6 shadow-sm">
+        <div className="flex items-center gap-3 mb-4">
+          <Link
+            href="/tickets"
+            className="flex h-9 w-9 items-center justify-center rounded-full border bg-background hover:bg-muted transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
+        </div>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2.5 mb-2">
