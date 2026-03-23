@@ -521,6 +521,8 @@ model Client {
   notes               String?
   sow                 String?
   mandates            String[]        @default([])
+  performanceMisLink  String?
+  creativeMisLink     String?
   status              ClientStatus    @default(ACTIVE)
   sentimentStatus          SentimentStatus @default(NEUTRAL)
   performanceSentiment     SentimentStatus @default(NEUTRAL)

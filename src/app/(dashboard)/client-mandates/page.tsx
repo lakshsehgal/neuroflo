@@ -15,6 +15,8 @@ export default async function ClientMandatesPage() {
     name: c.name,
     mandates: c.mandates,
     sow: c.sow,
+    performanceMisLink: c.performanceMisLink,
+    creativeMisLink: c.creativeMisLink,
     primaryPerformanceOwner: c.primaryPerformanceOwner,
     secondaryPerformanceOwner: c.secondaryPerformanceOwner,
     creativeStrategyOwner: c.creativeStrategyOwner,

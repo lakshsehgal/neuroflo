@@ -11,13 +11,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { AnimatedTableBody, AnimatedRow } from "@/components/motion";
-import { Search, FileText, X } from "lucide-react";
+import { Search, FileText, X, BarChart3, Palette } from "lucide-react";
 
 type ClientMandate = {
   id: string;
   name: string;
   mandates: string[];
   sow: string | null;
+  performanceMisLink: string | null;
+  creativeMisLink: string | null;
   primaryPerformanceOwner: { id: string; name: string } | null;
   secondaryPerformanceOwner: { id: string; name: string } | null;
   creativeStrategyOwner: { id: string; name: string } | null;
@@ -116,6 +118,12 @@ export function ClientMandatesContent({
                     Creative Strategy Owner
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
+                    Performance MIS
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
+                    Creative MIS
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
                     Scope of Work
                   </th>
                 </tr>
@@ -123,7 +131,7 @@ export function ClientMandatesContent({
               <AnimatedTableBody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-12 text-center text-muted-foreground">
+                    <td colSpan={8} className="px-4 py-12 text-center text-muted-foreground">
                       No clients found
                     </td>
                   </tr>
@@ -168,6 +176,36 @@ export function ClientMandatesContent({
                       </td>
                       <td className="px-4 py-3 text-xs text-muted-foreground">
                         {client.creativeStrategyOwner?.name || "—"}
+                      </td>
+                      <td className="px-4 py-3">
+                        {client.performanceMisLink ? (
+                          <a
+                            href={client.performanceMisLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 text-xs text-primary hover:underline"
+                          >
+                            <BarChart3 className="h-3.5 w-3.5" />
+                            View MIS
+                          </a>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {client.creativeMisLink ? (
+                          <a
+                            href={client.creativeMisLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 text-xs text-primary hover:underline"
+                          >
+                            <Palette className="h-3.5 w-3.5" />
+                            View MIS
+                          </a>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         {client.sow ? (

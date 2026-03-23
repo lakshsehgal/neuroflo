@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { formatDate } from "@/lib/utils";
 import { AnimatedTableBody, AnimatedRow } from "@/components/motion";
-import { Plus, ArrowLeft, Link2, Copy, CheckCircle2, UserPlus, Pencil, Trash2, ChevronDown, ChevronUp, IndianRupee } from "lucide-react";
+import { Plus, ArrowLeft, Link2, Copy, CheckCircle2, UserPlus, Pencil, Trash2, ChevronDown, ChevronUp, IndianRupee, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { generateOnboardingToken } from "@/actions/onboarding";
@@ -535,6 +535,72 @@ export function ClientDetailContent({ client: initial, onboarding: initialOnboar
                       </button>
                     );
                   })}
+                </div>
+              </div>
+
+              {/* MIS Links */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Performance MIS Link</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="url"
+                      placeholder="https://..."
+                      className="h-8 text-xs"
+                      defaultValue={client.performanceMisLink || ""}
+                      onBlur={(e) => {
+                        const val = e.target.value.trim();
+                        if (val !== (client.performanceMisLink || "")) {
+                          startTransition(async () => {
+                            await updateClientField(client.id, "performanceMisLink", val || null);
+                            window.location.reload();
+                          });
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          (e.target as HTMLInputElement).blur();
+                        }
+                      }}
+                    />
+                    {client.performanceMisLink && (
+                      <a href={client.performanceMisLink} target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80">
+                        <ExternalLink className="h-4 w-4" />
+                      </a>
+                    )}
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Creative MIS Link</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="url"
+                      placeholder="https://..."
+                      className="h-8 text-xs"
+                      defaultValue={client.creativeMisLink || ""}
+                      onBlur={(e) => {
+                        const val = e.target.value.trim();
+                        if (val !== (client.creativeMisLink || "")) {
+                          startTransition(async () => {
+                            await updateClientField(client.id, "creativeMisLink", val || null);
+                            window.location.reload();
+                          });
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          (e.target as HTMLInputElement).blur();
+                        }
+                      }}
+                    />
+                    {client.creativeMisLink && (
+                      <a href={client.creativeMisLink} target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80">
+                        <ExternalLink className="h-4 w-4" />
+                      </a>
+                    )}
+                  </div>
                 </div>
               </div>
             </CardContent>
