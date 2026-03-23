@@ -24,6 +24,8 @@ const taskSchema = z.object({
   shootDate: z.string().optional(),
   videoUrl: z.string().optional(),
   thumbnailUrl: z.string().optional(),
+  deliveryLink: z.string().optional(),
+  estimatedDeliveryDate: z.string().optional(),
 });
 
 export async function createTask(
@@ -45,6 +47,7 @@ export async function createTask(
       ...parsed.data,
       dueDate: parsed.data.dueDate ? new Date(parsed.data.dueDate) : undefined,
       shootDate: parsed.data.shootDate ? new Date(parsed.data.shootDate) : undefined,
+      estimatedDeliveryDate: parsed.data.estimatedDeliveryDate ? new Date(parsed.data.estimatedDeliveryDate) : undefined,
       order: (maxOrder?.order ?? -1) + 1,
     },
   });
@@ -85,6 +88,7 @@ export async function updateTask(
       ...input,
       dueDate: input.dueDate ? new Date(input.dueDate) : undefined,
       shootDate: input.shootDate ? new Date(input.shootDate) : undefined,
+      estimatedDeliveryDate: input.estimatedDeliveryDate ? new Date(input.estimatedDeliveryDate) : undefined,
     },
   });
 
@@ -157,6 +161,13 @@ export async function getTaskDetail(taskId: string) {
       },
       checklistItems: {
         orderBy: { order: "asc" },
+      },
+      revisions: {
+        include: { feedbacks: { orderBy: { createdAt: "asc" } } },
+        orderBy: { version: "desc" },
+      },
+      feedbacks: {
+        orderBy: { createdAt: "desc" },
       },
       project: { select: { id: true, name: true } },
     },
@@ -276,4 +287,100 @@ export async function addComment(
   }
 
   return { success: true };
+}
+
+// ─── Task Revision & Feedback ────────────────────────
+
+export async function createTaskRevision(
+  taskId: string,
+  videoUrl: string,
+  note?: string
+): Promise<ActionResponse<{ id: string }>> {
+  await requireRole("MEMBER");
+
+  const maxVersion = await db.taskRevision.findFirst({
+    where: { taskId },
+    orderBy: { version: "desc" },
+    select: { version: true },
+  });
+
+  const revision = await db.taskRevision.create({
+    data: {
+      taskId,
+      version: (maxVersion?.version ?? 0) + 1,
+      videoUrl,
+      note,
+    },
+  });
+
+  const task = await db.task.findUnique({ where: { id: taskId } });
+  if (task) revalidatePath(`/projects/${task.projectId}`);
+  return { success: true, data: { id: revision.id } };
+}
+
+export async function addTaskFeedback(
+  taskId: string,
+  content: string,
+  authorName: string,
+  isClient: boolean,
+  revisionId?: string
+): Promise<ActionResponse<{ id: string }>> {
+  // No auth required for client feedback (guest portal)
+  const feedback = await db.taskFeedback.create({
+    data: {
+      taskId,
+      revisionId: revisionId || null,
+      content,
+      authorName,
+      isClient,
+    },
+  });
+
+  const task = await db.task.findUnique({ where: { id: taskId } });
+  if (task) revalidatePath(`/projects/${task.projectId}`);
+  return { success: true, data: { id: feedback.id } };
+}
+
+export async function resolveTaskFeedback(id: string): Promise<ActionResponse> {
+  await requireRole("MEMBER");
+
+  await db.taskFeedback.update({
+    where: { id },
+    data: { status: "RESOLVED" },
+  });
+
+  return { success: true };
+}
+
+export async function getTaskRevisions(taskId: string) {
+  return db.taskRevision.findMany({
+    where: { taskId },
+    include: { feedbacks: { orderBy: { createdAt: "asc" } } },
+    orderBy: { version: "desc" },
+  });
+}
+
+// Guest access: get task details for feedback (no auth)
+export async function getGuestTaskDetail(taskId: string, token: string) {
+  const access = await db.guestAccess.findUnique({
+    where: { token },
+    select: { projectId: true, isActive: true, expiresAt: true, name: true },
+  });
+
+  if (!access || !access.isActive) return null;
+  if (access.expiresAt && access.expiresAt < new Date()) return null;
+
+  const task = await db.task.findUnique({
+    where: { id: taskId, projectId: access.projectId },
+    include: {
+      revisions: {
+        include: { feedbacks: { orderBy: { createdAt: "asc" } } },
+        orderBy: { version: "desc" },
+      },
+      feedbacks: { orderBy: { createdAt: "desc" } },
+    },
+  });
+
+  if (!task) return null;
+  return { task, guestName: access.name };
 }

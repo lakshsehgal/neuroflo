@@ -317,16 +317,20 @@ model Task {
   updatedAt   DateTime   @updatedAt
 
   // UGC-specific fields
-  creatorName   String?
-  creatorHandle String?
-  shootDate     DateTime?
-  videoUrl      String?
-  thumbnailUrl  String?
+  creatorName           String?
+  creatorHandle         String?
+  shootDate             DateTime?
+  videoUrl              String?
+  thumbnailUrl          String?
+  deliveryLink          String?
+  estimatedDeliveryDate DateTime?
 
   subtasks       Task[]          @relation("Subtasks")
   comments       Comment[]
   labels         TaskLabel[]
   checklistItems ChecklistItem[]
+  revisions      TaskRevision[]
+  feedbacks      TaskFeedback[]
 }
 
 model ChecklistItem {
@@ -337,6 +341,36 @@ model ChecklistItem {
   completed Boolean  @default(false)
   order     Int      @default(0)
   createdAt DateTime @default(now())
+}
+
+model TaskRevision {
+  id        String   @id @default(cuid())
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  version   Int
+  videoUrl  String
+  note      String?
+  createdAt DateTime @default(now())
+
+  feedbacks TaskFeedback[]
+
+  @@index([taskId])
+}
+
+model TaskFeedback {
+  id         String        @id @default(cuid())
+  taskId     String
+  task       Task          @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  revisionId String?
+  revision   TaskRevision? @relation(fields: [revisionId], references: [id], onDelete: Cascade)
+  content    String
+  authorName String        // Can be guest name or team member name
+  isClient   Boolean       @default(false) // true = client feedback, false = internal
+  status     String        @default("OPEN") // OPEN, RESOLVED
+  createdAt  DateTime      @default(now())
+
+  @@index([taskId])
+  @@index([revisionId])
 }
 
 model TaskLabel {
@@ -554,7 +588,8 @@ model Invoice {
   id           String        @id @default(cuid())
   clientId     String
   client       Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  amount       Float
+  amount       Float         // Pre-GST base amount
+  gstRate      Float         @default(18) // GST percentage (e.g. 18 for 18%)
   status       InvoiceStatus @default(PENDING)
   dueDate      DateTime
   paidDate     DateTime?

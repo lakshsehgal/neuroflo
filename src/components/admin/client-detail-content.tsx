@@ -126,7 +126,7 @@ export function ClientDetailContent({ client: initial, onboarding: initialOnboar
 
   // Invoice form
   const [invoiceForm, setInvoiceForm] = useState({
-    amount: "", dueDate: "", invoiceNumber: "", notes: "",
+    amount: "", gstRate: "18", dueDate: "", invoiceNumber: "", notes: "",
   });
 
   function handleSave() {
@@ -155,12 +155,13 @@ export function ClientDetailContent({ client: initial, onboarding: initialOnboar
       await createInvoice({
         clientId: client.id,
         amount: parseFloat(invoiceForm.amount),
+        gstRate: parseFloat(invoiceForm.gstRate) || 18,
         dueDate: invoiceForm.dueDate,
         invoiceNumber: invoiceForm.invoiceNumber || undefined,
         notes: invoiceForm.notes || undefined,
       });
       setInvoiceDialogOpen(false);
-      setInvoiceForm({ amount: "", dueDate: "", invoiceNumber: "", notes: "" });
+      setInvoiceForm({ amount: "", gstRate: "18", dueDate: "", invoiceNumber: "", notes: "" });
       window.location.reload();
     });
   }
@@ -173,12 +174,13 @@ export function ClientDetailContent({ client: initial, onboarding: initialOnboar
   }
 
   const [editingInvoice, setEditingInvoice] = useState<string | null>(null);
-  const [editInvoiceForm, setEditInvoiceForm] = useState({ amount: "", dueDate: "", invoiceNumber: "", notes: "" });
+  const [editInvoiceForm, setEditInvoiceForm] = useState({ amount: "", gstRate: "18", dueDate: "", invoiceNumber: "", notes: "" });
 
-  function startEditInvoice(inv: { id: string; amount: number; dueDate: string | Date; invoiceNumber?: string | null; notes?: string | null }) {
+  function startEditInvoice(inv: { id: string; amount: number; gstRate: number; dueDate: string | Date; invoiceNumber?: string | null; notes?: string | null }) {
     setEditingInvoice(inv.id);
     setEditInvoiceForm({
       amount: inv.amount.toString(),
+      gstRate: inv.gstRate.toString(),
       dueDate: new Date(inv.dueDate).toISOString().split("T")[0],
       invoiceNumber: inv.invoiceNumber || "",
       notes: inv.notes || "",
@@ -191,6 +193,7 @@ export function ClientDetailContent({ client: initial, onboarding: initialOnboar
     startTransition(async () => {
       await updateInvoice(editingInvoice, {
         amount: parseFloat(editInvoiceForm.amount),
+        gstRate: parseFloat(editInvoiceForm.gstRate) || 18,
         dueDate: editInvoiceForm.dueDate,
         invoiceNumber: editInvoiceForm.invoiceNumber || undefined,
         notes: editInvoiceForm.notes || undefined,
@@ -211,8 +214,11 @@ export function ClientDetailContent({ client: initial, onboarding: initialOnboar
   const fmt = (n: number) =>
     new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n);
 
+  // Revenue = base amount only (excludes GST)
   const totalPaid = client.invoices.filter((i) => i.status === "PAID").reduce((s, i) => s + i.amount, 0);
   const totalPending = client.invoices.filter((i) => ["PENDING", "SENT", "OVERDUE"].includes(i.status)).reduce((s, i) => s + i.amount, 0);
+  const totalGstCollected = client.invoices.filter((i) => i.status === "PAID").reduce((s, i) => s + (i.amount * (i.gstRate || 0)) / 100, 0);
+  const totalGstPending = client.invoices.filter((i) => ["PENDING", "SENT", "OVERDUE"].includes(i.status)).reduce((s, i) => s + (i.amount * (i.gstRate || 0)) / 100, 0);
 
   return (
     <div className="space-y-6">
@@ -512,17 +518,30 @@ export function ClientDetailContent({ client: initial, onboarding: initialOnboar
                   <form onSubmit={handleCreateInvoice} className="space-y-4">
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-2">
-                        <Label>Amount *</Label>
+                        <Label>Base Amount (Pre-GST) *</Label>
                         <Input type="number" step="0.01" value={invoiceForm.amount} onChange={(e) => setInvoiceForm({ ...invoiceForm, amount: e.target.value })} required />
                       </div>
+                      <div className="space-y-2">
+                        <Label>GST Rate (%)</Label>
+                        <Input type="number" step="0.01" min="0" max="100" value={invoiceForm.gstRate} onChange={(e) => setInvoiceForm({ ...invoiceForm, gstRate: e.target.value })} />
+                      </div>
+                    </div>
+                    {invoiceForm.amount && (
+                      <div className="rounded-md bg-muted/50 p-3 text-sm space-y-1">
+                        <div className="flex justify-between"><span className="text-muted-foreground">Base Amount</span><span>{fmt(parseFloat(invoiceForm.amount) || 0)}</span></div>
+                        <div className="flex justify-between"><span className="text-muted-foreground">GST ({invoiceForm.gstRate || 0}%)</span><span>{fmt(((parseFloat(invoiceForm.amount) || 0) * (parseFloat(invoiceForm.gstRate) || 0)) / 100)}</span></div>
+                        <div className="flex justify-between font-semibold border-t pt-1"><span>Total</span><span>{fmt((parseFloat(invoiceForm.amount) || 0) * (1 + (parseFloat(invoiceForm.gstRate) || 0) / 100))}</span></div>
+                      </div>
+                    )}
+                    <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-2">
                         <Label>Due Date *</Label>
                         <Input type="date" value={invoiceForm.dueDate} onChange={(e) => setInvoiceForm({ ...invoiceForm, dueDate: e.target.value })} required />
                       </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Invoice Number</Label>
-                      <Input value={invoiceForm.invoiceNumber} onChange={(e) => setInvoiceForm({ ...invoiceForm, invoiceNumber: e.target.value })} placeholder="INV-001" />
+                      <div className="space-y-2">
+                        <Label>Invoice Number</Label>
+                        <Input value={invoiceForm.invoiceNumber} onChange={(e) => setInvoiceForm({ ...invoiceForm, invoiceNumber: e.target.value })} placeholder="INV-001" />
+                      </div>
                     </div>
                     <div className="space-y-2">
                       <Label>Notes</Label>
@@ -542,20 +561,29 @@ export function ClientDetailContent({ client: initial, onboarding: initialOnboar
                     <thead>
                       <tr className="border-b bg-muted/50">
                         <th className="px-3 py-2 text-left text-xs font-medium">Invoice #</th>
-                        <th className="px-3 py-2 text-left text-xs font-medium">Amount</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium">Base Amt</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium">GST</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium">Total</th>
                         <th className="px-3 py-2 text-left text-xs font-medium">Due Date</th>
-                        <th className="px-3 py-2 text-left text-xs font-medium">Status</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium">Payment</th>
                         <th className="px-3 py-2 text-left text-xs font-medium">Actions</th>
                       </tr>
                     </thead>
                     <AnimatedTableBody>
-                      {client.invoices.map((inv) => (
+                      {client.invoices.map((inv) => {
+                        const gstAmt = (inv.amount * (inv.gstRate || 0)) / 100;
+                        const totalAmt = inv.amount + gstAmt;
+                        const paymentLabel = inv.status === "PAID" ? "Received" : inv.status === "CANCELLED" ? "Cancelled" : "Due";
+                        const paymentColor = inv.status === "PAID" ? "bg-green-100 text-green-800" : inv.status === "CANCELLED" ? "bg-gray-100 text-gray-800" : inv.status === "OVERDUE" ? "bg-red-100 text-red-800" : "bg-amber-100 text-amber-800";
+                        return (
                         <AnimatedRow key={inv.id} className="border-b last:border-0">
                           <td className="px-3 py-2 text-sm">{inv.invoiceNumber || "—"}</td>
                           <td className="px-3 py-2 text-sm font-medium">{fmt(inv.amount)}</td>
+                          <td className="px-3 py-2 text-xs text-muted-foreground">{fmt(gstAmt)} <span className="text-[10px]">({inv.gstRate || 0}%)</span></td>
+                          <td className="px-3 py-2 text-sm font-semibold">{fmt(totalAmt)}</td>
                           <td className="px-3 py-2 text-xs text-muted-foreground">{formatDate(inv.dueDate)}</td>
                           <td className="px-3 py-2">
-                            <Badge className={`${invoiceStatusColors[inv.status]} text-[10px]`} variant="secondary">{inv.status}</Badge>
+                            <Badge className={`${paymentColor} text-[10px]`} variant="secondary">{paymentLabel}</Badge>
                           </td>
                           <td className="px-3 py-2">
                             <div className="flex items-center gap-1">
@@ -578,7 +606,8 @@ export function ClientDetailContent({ client: initial, onboarding: initialOnboar
                             </div>
                           </td>
                         </AnimatedRow>
-                      ))}
+                        );
+                      })}
                     </AnimatedTableBody>
                   </table>
                 </div>
@@ -593,17 +622,23 @@ export function ClientDetailContent({ client: initial, onboarding: initialOnboar
               <form onSubmit={handleEditInvoice} className="space-y-4">
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
-                    <Label>Amount *</Label>
+                    <Label>Base Amount (Pre-GST) *</Label>
                     <Input type="number" step="0.01" value={editInvoiceForm.amount} onChange={(e) => setEditInvoiceForm({ ...editInvoiceForm, amount: e.target.value })} required />
                   </div>
+                  <div className="space-y-2">
+                    <Label>GST Rate (%)</Label>
+                    <Input type="number" step="0.01" min="0" max="100" value={editInvoiceForm.gstRate} onChange={(e) => setEditInvoiceForm({ ...editInvoiceForm, gstRate: e.target.value })} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
                     <Label>Due Date *</Label>
                     <Input type="date" value={editInvoiceForm.dueDate} onChange={(e) => setEditInvoiceForm({ ...editInvoiceForm, dueDate: e.target.value })} required />
                   </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>Invoice Number</Label>
-                  <Input value={editInvoiceForm.invoiceNumber} onChange={(e) => setEditInvoiceForm({ ...editInvoiceForm, invoiceNumber: e.target.value })} placeholder="INV-001" />
+                  <div className="space-y-2">
+                    <Label>Invoice Number</Label>
+                    <Input value={editInvoiceForm.invoiceNumber} onChange={(e) => setEditInvoiceForm({ ...editInvoiceForm, invoiceNumber: e.target.value })} placeholder="INV-001" />
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label>Notes</Label>
@@ -623,13 +658,24 @@ export function ClientDetailContent({ client: initial, onboarding: initialOnboar
           <Card>
             <CardContent className="pt-6 space-y-4">
               <div>
-                <p className="text-xs text-muted-foreground">Total Paid</p>
+                <p className="text-xs text-muted-foreground">Revenue Received</p>
                 <p className="text-lg font-bold text-green-600">{fmt(totalPaid)}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Outstanding</p>
+                <p className="text-xs text-muted-foreground">Payment Due</p>
                 <p className="text-lg font-bold text-orange-600">{fmt(totalPending)}</p>
               </div>
+              <div className="border-t pt-3">
+                <p className="text-xs text-muted-foreground">GST Collected</p>
+                <p className="text-sm font-medium text-blue-600">{fmt(totalGstCollected)}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Not counted as revenue</p>
+              </div>
+              {totalGstPending > 0 && (
+                <div>
+                  <p className="text-xs text-muted-foreground">GST Pending</p>
+                  <p className="text-sm font-medium text-amber-600">{fmt(totalGstPending)}</p>
+                </div>
+              )}
               {client.contactEmail && (
                 <div>
                   <p className="text-xs text-muted-foreground">Contact Email</p>

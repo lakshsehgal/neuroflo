@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useTransition } from "react";
-import { getTaskDetail, updateTask, addComment, deleteTask } from "@/actions/tasks";
+import { getTaskDetail, updateTask, addComment, deleteTask, createTaskRevision, addTaskFeedback, resolveTaskFeedback } from "@/actions/tasks";
 import {
   Dialog,
   DialogContent,
@@ -24,7 +24,7 @@ import { Separator } from "@/components/ui/separator";
 import { TaskChecklist } from "./task-checklist";
 import { TaskSubtasks } from "./task-subtasks";
 import { formatRelativeTime } from "@/lib/utils";
-import { Calendar, User, Flag, Tag, Trash2, AtSign, Video, Link2 } from "lucide-react";
+import { Calendar, User, Flag, Tag, Trash2, AtSign, Video, Link2, ExternalLink, Package, MessageSquare, CheckCircle2, Plus } from "lucide-react";
 
 type Member = {
   userId: string;
@@ -87,6 +87,11 @@ export function TaskDetailModal({
   const [editingDesc, setEditingDesc] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [revisionUrl, setRevisionUrl] = useState("");
+  const [revisionNote, setRevisionNote] = useState("");
+  const [showAddRevision, setShowAddRevision] = useState(false);
+  const [feedbackText, setFeedbackText] = useState("");
+  const [feedbackRevisionId, setFeedbackRevisionId] = useState<string | null>(null);
 
   useEffect(() => {
     if (taskId && open) {
@@ -141,6 +146,38 @@ export function TaskDetailModal({
       await deleteTask(task.id);
       onOpenChange(false);
       onTaskDeleted?.();
+    });
+  }
+
+  function handleAddRevision() {
+    if (!task || !revisionUrl.trim()) return;
+    startTransition(async () => {
+      await createTaskRevision(task.id, revisionUrl.trim(), revisionNote.trim() || undefined);
+      setRevisionUrl("");
+      setRevisionNote("");
+      setShowAddRevision(false);
+      const updated = await getTaskDetail(task.id);
+      if (updated) setTask(updated);
+    });
+  }
+
+  function handleAddFeedback(revId?: string) {
+    if (!task || !feedbackText.trim()) return;
+    startTransition(async () => {
+      await addTaskFeedback(task.id, feedbackText.trim(), "Team", false, revId);
+      setFeedbackText("");
+      setFeedbackRevisionId(null);
+      const updated = await getTaskDetail(task.id);
+      if (updated) setTask(updated);
+    });
+  }
+
+  function handleResolveFeedback(fbId: string) {
+    if (!task) return;
+    startTransition(async () => {
+      await resolveTaskFeedback(fbId);
+      const updated = await getTaskDetail(task.id);
+      if (updated) setTask(updated);
     });
   }
 
@@ -291,6 +328,127 @@ export function TaskDetailModal({
                     >
                       Comment
                     </Button>
+                  </div>
+
+                  <Separator />
+
+                  {/* Revisions & Feedback */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-semibold">
+                        Video Revisions ({task.revisions?.length || 0})
+                      </h4>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        onClick={() => setShowAddRevision(!showAddRevision)}
+                      >
+                        <Plus className="h-3 w-3 mr-1" />
+                        Add Version
+                      </Button>
+                    </div>
+
+                    {showAddRevision && (
+                      <div className="rounded-md border p-3 space-y-2">
+                        <Input
+                          placeholder="Video URL for this version"
+                          value={revisionUrl}
+                          onChange={(e) => setRevisionUrl(e.target.value)}
+                          className="h-8 text-sm"
+                        />
+                        <Input
+                          placeholder="Note (optional)"
+                          value={revisionNote}
+                          onChange={(e) => setRevisionNote(e.target.value)}
+                          className="h-8 text-sm"
+                        />
+                        <div className="flex gap-2">
+                          <Button size="sm" className="h-7 text-xs" onClick={handleAddRevision} disabled={!revisionUrl.trim() || isPending}>
+                            {isPending ? "Saving..." : "Save Version"}
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setShowAddRevision(false)}>
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {(task.revisions || []).map((rev) => (
+                      <div key={rev.id} className="rounded-md border p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700">
+                              V{rev.version}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(rev.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                            </span>
+                          </div>
+                          <a href={rev.videoUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1">
+                            <ExternalLink className="h-3 w-3" /> View
+                          </a>
+                        </div>
+                        {rev.note && <p className="text-xs text-muted-foreground">{rev.note}</p>}
+
+                        {/* Feedback on this revision */}
+                        {rev.feedbacks && rev.feedbacks.length > 0 && (
+                          <div className="space-y-1.5 pl-3 border-l-2 border-muted mt-2">
+                            {rev.feedbacks.map((fb) => (
+                              <div key={fb.id} className="flex items-start gap-2">
+                                <MessageSquare className={`h-3 w-3 mt-0.5 shrink-0 ${fb.isClient ? "text-amber-500" : "text-blue-500"}`} />
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-xs font-medium">{fb.authorName}</span>
+                                    {fb.isClient && <Badge variant="secondary" className="text-[9px] h-4 bg-amber-100 text-amber-700">Client</Badge>}
+                                    {fb.status === "RESOLVED" && <CheckCircle2 className="h-3 w-3 text-green-500" />}
+                                  </div>
+                                  <p className="text-xs text-muted-foreground">{fb.content}</p>
+                                </div>
+                                {fb.status !== "RESOLVED" && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-5 w-5 shrink-0"
+                                    onClick={() => handleResolveFeedback(fb.id)}
+                                  >
+                                    <CheckCircle2 className="h-3 w-3 text-muted-foreground hover:text-green-500" />
+                                  </Button>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Add feedback to this revision */}
+                        {feedbackRevisionId === rev.id ? (
+                          <div className="flex gap-2 mt-2">
+                            <Input
+                              placeholder="Add feedback..."
+                              value={feedbackText}
+                              onChange={(e) => setFeedbackText(e.target.value)}
+                              className="h-7 text-xs"
+                            />
+                            <Button size="sm" className="h-7 text-xs" onClick={() => handleAddFeedback(rev.id)} disabled={!feedbackText.trim() || isPending}>
+                              Send
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 text-xs text-muted-foreground"
+                            onClick={() => { setFeedbackRevisionId(rev.id); setFeedbackText(""); }}
+                          >
+                            <MessageSquare className="h-3 w-3 mr-1" /> Add Feedback
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+
+                    {(!task.revisions || task.revisions.length === 0) && !showAddRevision && (
+                      <p className="text-xs text-muted-foreground">No versions uploaded yet.</p>
+                    )}
                   </div>
                 </div>
 
@@ -458,6 +616,42 @@ export function TaskDetailModal({
                       value={task.videoUrl || ""}
                       onChange={(e) =>
                         handleUpdateField("videoUrl", e.target.value)
+                      }
+                      className="h-8 text-sm"
+                    />
+                  </div>
+
+                  {/* Delivery Link */}
+                  <div>
+                    <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                      <ExternalLink className="h-3 w-3" />
+                      Delivery Link
+                    </label>
+                    <Input
+                      placeholder="https://drive.google.com/..."
+                      value={task.deliveryLink || ""}
+                      onChange={(e) =>
+                        handleUpdateField("deliveryLink", e.target.value)
+                      }
+                      className="h-8 text-sm"
+                    />
+                  </div>
+
+                  {/* Est Delivery Date */}
+                  <div>
+                    <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                      <Package className="h-3 w-3" />
+                      Est. Delivery Date
+                    </label>
+                    <Input
+                      type="date"
+                      value={
+                        task.estimatedDeliveryDate
+                          ? new Date(task.estimatedDeliveryDate).toISOString().split("T")[0]
+                          : ""
+                      }
+                      onChange={(e) =>
+                        handleUpdateField("estimatedDeliveryDate", e.target.value)
                       }
                       className="h-8 text-sm"
                     />

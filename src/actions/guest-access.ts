@@ -67,6 +67,11 @@ export async function getGuestProject(token: string) {
             where: { parentId: null },
             include: {
               assignee: { select: { id: true, name: true, avatar: true } },
+              revisions: {
+                include: { feedbacks: { orderBy: { createdAt: "asc" } } },
+                orderBy: { version: "desc" },
+              },
+              feedbacks: { orderBy: { createdAt: "desc" } },
             },
             orderBy: { order: "asc" },
           },

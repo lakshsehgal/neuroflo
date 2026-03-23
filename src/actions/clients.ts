@@ -180,6 +180,7 @@ export async function deleteClient(id: string): Promise<ActionResponse> {
 const invoiceSchema = z.object({
   clientId: z.string(),
   amount: z.number().positive(),
+  gstRate: z.number().min(0).max(100).optional(),
   dueDate: z.string(),
   invoiceNumber: z.string().optional(),
   notes: z.string().optional(),
@@ -195,8 +196,12 @@ export async function createInvoice(
 
   const invoice = await db.invoice.create({
     data: {
-      ...parsed.data,
+      clientId: parsed.data.clientId,
+      amount: parsed.data.amount,
+      gstRate: parsed.data.gstRate ?? 18,
       dueDate: new Date(parsed.data.dueDate),
+      invoiceNumber: parsed.data.invoiceNumber,
+      notes: parsed.data.notes,
     },
   });
 
@@ -227,12 +232,13 @@ export async function updateInvoiceStatus(
 
 export async function updateInvoice(
   id: string,
-  input: { amount?: number; dueDate?: string; invoiceNumber?: string; notes?: string }
+  input: { amount?: number; gstRate?: number; dueDate?: string; invoiceNumber?: string; notes?: string }
 ): Promise<ActionResponse> {
   await requireRole("OPERATOR");
 
   const data: Record<string, unknown> = {};
   if (input.amount !== undefined) data.amount = input.amount;
+  if (input.gstRate !== undefined) data.gstRate = input.gstRate;
   if (input.dueDate) data.dueDate = new Date(input.dueDate);
   if (input.invoiceNumber !== undefined) data.invoiceNumber = input.invoiceNumber || null;
   if (input.notes !== undefined) data.notes = input.notes || null;

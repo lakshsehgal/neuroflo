@@ -31,8 +31,26 @@ export default async function GuestProjectPage({ params }: Props) {
         shootDate: t.shootDate ? t.shootDate.toISOString() : null,
         dueDate: t.dueDate ? t.dueDate.toISOString() : null,
         videoUrl: t.videoUrl,
+        deliveryLink: t.deliveryLink,
+        estimatedDeliveryDate: t.estimatedDeliveryDate ? t.estimatedDeliveryDate.toISOString() : null,
         assigneeName: t.assignee?.name || null,
+        revisions: t.revisions.map((r) => ({
+          id: r.id,
+          version: r.version,
+          videoUrl: r.videoUrl,
+          note: r.note,
+          createdAt: r.createdAt.toISOString(),
+          feedbacks: r.feedbacks.map((f) => ({
+            id: f.id,
+            content: f.content,
+            authorName: f.authorName,
+            isClient: f.isClient,
+            status: f.status,
+            createdAt: f.createdAt.toISOString(),
+          })),
+        })),
       }))}
+      token={token}
       guestName={access.name}
     />
   );
