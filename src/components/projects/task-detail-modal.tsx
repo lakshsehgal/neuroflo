@@ -93,6 +93,9 @@ export function TaskDetailModal({
   const [showAddRevision, setShowAddRevision] = useState(false);
   const [feedbackText, setFeedbackText] = useState("");
   const [feedbackRevisionId, setFeedbackRevisionId] = useState<string | null>(null);
+  const [creatorName, setCreatorName] = useState("");
+  const [portfolioLink, setPortfolioLink] = useState("");
+  const [deliveryLink, setDeliveryLink] = useState("");
 
   useEffect(() => {
     if (taskId && open) {
@@ -102,6 +105,9 @@ export function TaskDetailModal({
           setTask(data);
           setTitle(data.title);
           setDescription(data.description || "");
+          setCreatorName(data.creatorName || "");
+          setPortfolioLink(data.workPortfolioLink || "");
+          setDeliveryLink(data.deliveryLink || "");
         }
         setLoading(false);
       });
@@ -562,10 +568,16 @@ export function TaskDetailModal({
                     </label>
                     <Input
                       placeholder="Creator name..."
-                      value={task.creatorName || ""}
-                      onChange={(e) =>
-                        handleUpdateField("creatorName", e.target.value)
-                      }
+                      value={creatorName}
+                      onChange={(e) => setCreatorName(e.target.value)}
+                      onBlur={() => {
+                        if (creatorName !== (task.creatorName || "")) {
+                          handleUpdateField("creatorName", creatorName);
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") e.currentTarget.blur();
+                      }}
                       className="h-8 text-sm"
                     />
                   </div>
@@ -578,10 +590,16 @@ export function TaskDetailModal({
                     </label>
                     <Input
                       placeholder="https://..."
-                      value={task.workPortfolioLink || ""}
-                      onChange={(e) =>
-                        handleUpdateField("workPortfolioLink", e.target.value)
-                      }
+                      value={portfolioLink}
+                      onChange={(e) => setPortfolioLink(e.target.value)}
+                      onBlur={() => {
+                        if (portfolioLink !== (task.workPortfolioLink || "")) {
+                          handleUpdateField("workPortfolioLink", portfolioLink);
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") e.currentTarget.blur();
+                      }}
                       className="h-8 text-sm"
                     />
                   </div>
@@ -614,10 +632,16 @@ export function TaskDetailModal({
                     </label>
                     <Input
                       placeholder="https://drive.google.com/..."
-                      value={task.deliveryLink || ""}
-                      onChange={(e) =>
-                        handleUpdateField("deliveryLink", e.target.value)
-                      }
+                      value={deliveryLink}
+                      onChange={(e) => setDeliveryLink(e.target.value)}
+                      onBlur={() => {
+                        if (deliveryLink !== (task.deliveryLink || "")) {
+                          handleUpdateField("deliveryLink", deliveryLink);
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") e.currentTarget.blur();
+                      }}
                       className="h-8 text-sm"
                     />
                   </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -113,8 +113,8 @@ export function UGCProjectDetail({
     videos.filter((v) => v.creatorName).map((v) => v.creatorName)
   ).size;
 
-  // Apply filters
-  const filteredVideos = videos.filter((video) => {
+  // Apply filters (memoized to avoid recalculating on unrelated re-renders)
+  const filteredVideos = useMemo(() => videos.filter((video) => {
     if (
       filters.search &&
       !video.title.toLowerCase().includes(filters.search.toLowerCase()) &&
@@ -141,24 +141,27 @@ export function UGCProjectDetail({
       return false;
     }
     return true;
-  });
+  }), [videos, filters]);
 
   // Convert for task board (needs Date objects)
-  const tasksForBoard = filteredVideos.map((v) => ({
-    ...v,
-    dueDate: v.dueDate ? new Date(v.dueDate) : null,
-    shootDate: v.shootDate ? new Date(v.shootDate) : null,
-  }));
+  const tasksByStatus = useMemo(() => {
+    const tasksForBoard = filteredVideos.map((v) => ({
+      ...v,
+      dueDate: v.dueDate ? new Date(v.dueDate) : null,
+      shootDate: v.shootDate ? new Date(v.shootDate) : null,
+    }));
 
-  const tasksByStatus: Record<string, typeof tasksForBoard> = {};
-  const statuses = [
-    "RESEARCH", "MOODBOARDING", "ANGLES", "SCRIPTING",
-    "APPROVAL_PENDING", "CREATOR_FINALISING", "PRODUCTION",
-    "POST_PRODUCTION", "IN_REVISION", "DELIVERED", "ON_HOLD",
-  ];
-  for (const s of statuses) {
-    tasksByStatus[s] = tasksForBoard.filter((t) => t.status === s);
-  }
+    const statuses = [
+      "RESEARCH", "MOODBOARDING", "ANGLES", "SCRIPTING",
+      "APPROVAL_PENDING", "CREATOR_FINALISING", "PRODUCTION",
+      "POST_PRODUCTION", "IN_REVISION", "DELIVERED", "ON_HOLD",
+    ];
+    const result: Record<string, typeof tasksForBoard> = {};
+    for (const s of statuses) {
+      result[s] = tasksForBoard.filter((t) => t.status === s);
+    }
+    return result;
+  }, [filteredVideos]);
 
   function handleVideoClick(taskId: string) {
     setSelectedTaskId(taskId);
