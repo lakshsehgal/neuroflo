@@ -47,10 +47,9 @@ type GuestVideo = {
   status: string;
   priority: string;
   creatorName: string | null;
-  creatorHandle: string | null;
+  workPortfolioLink: string | null;
   shootDate: string | null;
   dueDate: string | null;
-  videoUrl: string | null;
   deliveryLink: string | null;
   estimatedDeliveryDate: string | null;
   assigneeName: string | null;
@@ -66,6 +65,7 @@ const statusLabels: Record<string, string> = {
   CREATOR_FINALISING: "Creator Finalising",
   PRODUCTION: "Shooting",
   POST_PRODUCTION: "Editing",
+  IN_REVISION: "In Revision",
   DELIVERED: "Delivered",
   ON_HOLD: "On Hold",
 };
@@ -79,6 +79,7 @@ const statusColors: Record<string, string> = {
   CREATOR_FINALISING: "bg-cyan-100 text-cyan-700",
   PRODUCTION: "bg-green-100 text-green-700",
   POST_PRODUCTION: "bg-blue-100 text-blue-700",
+  IN_REVISION: "bg-orange-100 text-orange-700",
   DELIVERED: "bg-emerald-100 text-emerald-700",
   ON_HOLD: "bg-gray-100 text-gray-700",
 };
@@ -93,6 +94,7 @@ const stageOrder = [
   "CREATOR_FINALISING",
   "PRODUCTION",
   "POST_PRODUCTION",
+  "IN_REVISION",
   "DELIVERED",
 ];
 
@@ -312,8 +314,8 @@ function GuestVideoCard({ video, guestName }: { video: GuestVideo; guestName: st
               <span className="font-medium text-violet-700">
                 {video.creatorName}
               </span>
-              {video.creatorHandle && (
-                <span>({video.creatorHandle})</span>
+              {video.workPortfolioLink && (
+                <a href={video.workPortfolioLink} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">(Portfolio)</a>
               )}
             </span>
           )}

@@ -30,9 +30,9 @@ type VideoItem = {
   priority: string;
   dueDate: string | null;
   creatorName: string | null;
-  creatorHandle: string | null;
+  workPortfolioLink: string | null;
   shootDate: string | null;
-  videoUrl: string | null;
+  deliveryLink: string | null;
   thumbnailUrl: string | null;
   assignee: { id: string; name: string; avatar: string | null } | null;
   labels: { id: string; name: string; color: string }[];
@@ -154,7 +154,7 @@ export function UGCProjectDetail({
   const statuses = [
     "RESEARCH", "MOODBOARDING", "ANGLES", "SCRIPTING",
     "APPROVAL_PENDING", "CREATOR_FINALISING", "PRODUCTION",
-    "POST_PRODUCTION", "DELIVERED", "ON_HOLD",
+    "POST_PRODUCTION", "IN_REVISION", "DELIVERED", "ON_HOLD",
   ];
   for (const s of statuses) {
     tasksByStatus[s] = tasksForBoard.filter((t) => t.status === s);

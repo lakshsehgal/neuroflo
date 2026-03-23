@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { updateClient, updateClientField, updateClientMandates, createInvoice, updateInvoiceStatus, updateInvoice, deleteInvoice, deleteClient } from "@/actions/clients";
+import { updateClient, updateClientField, updateClientMandates, createInvoice, updateInvoiceStatus, updateInvoice, deleteInvoice, deleteClient, addInvoicePayment, deleteInvoicePayment } from "@/actions/clients";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { formatDate } from "@/lib/utils";
 import { AnimatedTableBody, AnimatedRow } from "@/components/motion";
-import { Plus, ArrowLeft, Link2, Copy, CheckCircle2, UserPlus, Pencil, Trash2 } from "lucide-react";
+import { Plus, ArrowLeft, Link2, Copy, CheckCircle2, UserPlus, Pencil, Trash2, ChevronDown, ChevronUp, IndianRupee } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { generateOnboardingToken } from "@/actions/onboarding";
@@ -211,14 +211,49 @@ export function ClientDetailContent({ client: initial, onboarding: initialOnboar
     });
   }
 
+  // Partial payments
+  const [paymentInvoiceId, setPaymentInvoiceId] = useState<string | null>(null);
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentNote, setPaymentNote] = useState("");
+  const [expandedInvoice, setExpandedInvoice] = useState<string | null>(null);
+
+  function handleAddPayment(invoiceId: string) {
+    if (!paymentAmount) return;
+    startTransition(async () => {
+      const result = await addInvoicePayment(invoiceId, parseFloat(paymentAmount), paymentNote || undefined);
+      if (!result.success) {
+        alert(result.error);
+        return;
+      }
+      setPaymentInvoiceId(null);
+      setPaymentAmount("");
+      setPaymentNote("");
+      window.location.reload();
+    });
+  }
+
+  function handleDeletePayment(paymentId: string) {
+    if (!confirm("Remove this payment record?")) return;
+    startTransition(async () => {
+      await deleteInvoicePayment(paymentId);
+      window.location.reload();
+    });
+  }
+
   const fmt = (n: number) =>
     new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n);
 
-  // Revenue = base amount only (excludes GST)
-  const totalPaid = client.invoices.filter((i) => i.status === "PAID").reduce((s, i) => s + i.amount, 0);
-  const totalPending = client.invoices.filter((i) => ["PENDING", "SENT", "OVERDUE"].includes(i.status)).reduce((s, i) => s + i.amount, 0);
-  const totalGstCollected = client.invoices.filter((i) => i.status === "PAID").reduce((s, i) => s + (i.amount * (i.gstRate || 0)) / 100, 0);
-  const totalGstPending = client.invoices.filter((i) => ["PENDING", "SENT", "OVERDUE"].includes(i.status)).reduce((s, i) => s + (i.amount * (i.gstRate || 0)) / 100, 0);
+  // Revenue calculations using actual payments
+  const totalReceived = client.invoices.reduce((s, inv) => s + (inv.payments || []).reduce((ps, p) => ps + p.amount, 0), 0);
+  const totalInvoiced = client.invoices.filter((i) => i.status !== "CANCELLED").reduce((s, i) => s + i.amount * (1 + (i.gstRate || 0) / 100), 0);
+  const totalOutstanding = totalInvoiced - totalReceived;
+  // GST: proportion of payments that is GST
+  const totalGstInPayments = client.invoices.reduce((s, inv) => {
+    const invPayments = (inv.payments || []).reduce((ps, p) => ps + p.amount, 0);
+    const gstRatio = (inv.gstRate || 0) / (100 + (inv.gstRate || 0));
+    return s + invPayments * gstRatio;
+  }, 0);
+  const revenueReceived = totalReceived - totalGstInPayments;
 
   return (
     <div className="space-y-6">
@@ -561,11 +596,11 @@ export function ClientDetailContent({ client: initial, onboarding: initialOnboar
                     <thead>
                       <tr className="border-b bg-muted/50">
                         <th className="px-3 py-2 text-left text-xs font-medium">Invoice #</th>
-                        <th className="px-3 py-2 text-left text-xs font-medium">Base Amt</th>
-                        <th className="px-3 py-2 text-left text-xs font-medium">GST</th>
                         <th className="px-3 py-2 text-left text-xs font-medium">Total</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium">Paid</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium">Remaining</th>
                         <th className="px-3 py-2 text-left text-xs font-medium">Due Date</th>
-                        <th className="px-3 py-2 text-left text-xs font-medium">Payment</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium">Status</th>
                         <th className="px-3 py-2 text-left text-xs font-medium">Actions</th>
                       </tr>
                     </thead>
@@ -573,37 +608,118 @@ export function ClientDetailContent({ client: initial, onboarding: initialOnboar
                       {client.invoices.map((inv) => {
                         const gstAmt = (inv.amount * (inv.gstRate || 0)) / 100;
                         const totalAmt = inv.amount + gstAmt;
-                        const paymentLabel = inv.status === "PAID" ? "Received" : inv.status === "CANCELLED" ? "Cancelled" : "Due";
-                        const paymentColor = inv.status === "PAID" ? "bg-green-100 text-green-800" : inv.status === "CANCELLED" ? "bg-gray-100 text-gray-800" : inv.status === "OVERDUE" ? "bg-red-100 text-red-800" : "bg-amber-100 text-amber-800";
+                        const paidAmt = (inv.payments || []).reduce((s, p) => s + p.amount, 0);
+                        const remaining = Math.max(0, totalAmt - paidAmt);
+                        const paidPct = totalAmt > 0 ? Math.min(100, (paidAmt / totalAmt) * 100) : 0;
+                        const paymentLabel = paidPct >= 99.9 ? "Fully Paid" : paidAmt > 0 ? "Partial" : inv.status === "CANCELLED" ? "Cancelled" : inv.status === "OVERDUE" ? "Overdue" : "Due";
+                        const paymentColor = paidPct >= 99.9 ? "bg-green-100 text-green-800" : paidAmt > 0 ? "bg-blue-100 text-blue-800" : inv.status === "CANCELLED" ? "bg-gray-100 text-gray-800" : inv.status === "OVERDUE" ? "bg-red-100 text-red-800" : "bg-amber-100 text-amber-800";
+                        const isExpanded = expandedInvoice === inv.id;
                         return (
                         <AnimatedRow key={inv.id} className="border-b last:border-0">
-                          <td className="px-3 py-2 text-sm">{inv.invoiceNumber || "—"}</td>
-                          <td className="px-3 py-2 text-sm font-medium">{fmt(inv.amount)}</td>
-                          <td className="px-3 py-2 text-xs text-muted-foreground">{fmt(gstAmt)} <span className="text-[10px]">({inv.gstRate || 0}%)</span></td>
-                          <td className="px-3 py-2 text-sm font-semibold">{fmt(totalAmt)}</td>
-                          <td className="px-3 py-2 text-xs text-muted-foreground">{formatDate(inv.dueDate)}</td>
-                          <td className="px-3 py-2">
-                            <Badge className={`${paymentColor} text-[10px]`} variant="secondary">{paymentLabel}</Badge>
-                          </td>
-                          <td className="px-3 py-2">
-                            <div className="flex items-center gap-1">
-                              <Select value={inv.status} onValueChange={(v) => handleInvoiceStatus(inv.id, v as "PENDING" | "SENT" | "PAID" | "OVERDUE" | "CANCELLED")}>
-                                <SelectTrigger className="h-7 text-xs w-28"><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="PENDING">Pending</SelectItem>
-                                  <SelectItem value="SENT">Sent</SelectItem>
-                                  <SelectItem value="PAID">Paid</SelectItem>
-                                  <SelectItem value="OVERDUE">Overdue</SelectItem>
-                                  <SelectItem value="CANCELLED">Cancelled</SelectItem>
-                                </SelectContent>
-                              </Select>
-                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => startEditInvoice(inv)}>
-                                <Pencil className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => handleDeleteInvoice(inv.id)}>
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
+                          <td colSpan={7} className="p-0">
+                            <div className="px-3 py-2 grid grid-cols-7 items-center">
+                              <div className="text-sm">{inv.invoiceNumber || "—"}</div>
+                              <div>
+                                <p className="text-sm font-semibold">{fmt(totalAmt)}</p>
+                                <p className="text-[10px] text-muted-foreground">{fmt(inv.amount)} + {inv.gstRate || 0}% GST</p>
+                              </div>
+                              <div className="text-sm font-medium text-green-700">{fmt(paidAmt)}</div>
+                              <div className="text-sm font-medium text-orange-700">{remaining > 0.01 ? fmt(remaining) : "—"}</div>
+                              <div className="text-xs text-muted-foreground">{formatDate(inv.dueDate)}</div>
+                              <div>
+                                <Badge className={`${paymentColor} text-[10px]`} variant="secondary">{paymentLabel}</Badge>
+                                {paidAmt > 0 && paidPct < 99.9 && (
+                                  <div className="mt-1 h-1 w-full rounded-full bg-muted overflow-hidden">
+                                    <div className="h-full bg-blue-500 rounded-full" style={{ width: `${paidPct}%` }} />
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => { setPaymentInvoiceId(paymentInvoiceId === inv.id ? null : inv.id); setPaymentAmount(""); setPaymentNote(""); }}>
+                                  <IndianRupee className="h-3 w-3 mr-0.5" /> Pay
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setExpandedInvoice(isExpanded ? null : inv.id)}>
+                                  {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => startEditInvoice(inv)}>
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => handleDeleteInvoice(inv.id)}>
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
                             </div>
+                            {/* Record Payment Inline */}
+                            {paymentInvoiceId === inv.id && (
+                              <div className="px-3 pb-3">
+                                <div className="rounded-md border bg-muted/30 p-3 space-y-2">
+                                  <p className="text-xs font-medium">Record Payment</p>
+                                  <div className="flex gap-2">
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      placeholder={`Amount (max ${fmt(remaining)})`}
+                                      value={paymentAmount}
+                                      onChange={(e) => setPaymentAmount(e.target.value)}
+                                      className="h-8 text-sm flex-1"
+                                    />
+                                    <Input
+                                      placeholder="Note (optional)"
+                                      value={paymentNote}
+                                      onChange={(e) => setPaymentNote(e.target.value)}
+                                      className="h-8 text-sm flex-1"
+                                    />
+                                    <Button size="sm" className="h-8" onClick={() => handleAddPayment(inv.id)} disabled={!paymentAmount || isPending}>
+                                      {isPending ? "..." : "Record"}
+                                    </Button>
+                                    <Button size="sm" variant="ghost" className="h-8" onClick={() => setPaymentInvoiceId(null)}>Cancel</Button>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                            {/* Payment History */}
+                            {isExpanded && (inv.payments || []).length > 0 && (
+                              <div className="px-3 pb-3">
+                                <div className="rounded-md border">
+                                  <div className="px-3 py-1.5 bg-muted/50 border-b">
+                                    <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Payment History</p>
+                                  </div>
+                                  {(inv.payments || []).map((p) => (
+                                    <div key={p.id} className="px-3 py-1.5 flex items-center gap-3 border-b last:border-0 text-xs">
+                                      <span className="font-medium text-green-700">{fmt(p.amount)}</span>
+                                      <span className="text-muted-foreground">{new Date(p.paidAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</span>
+                                      {p.note && <span className="text-muted-foreground truncate flex-1">{p.note}</span>}
+                                      <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0 text-destructive/70 hover:text-destructive" onClick={() => handleDeletePayment(p.id)}>
+                                        <Trash2 className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            {isExpanded && (inv.payments || []).length === 0 && (
+                              <div className="px-3 pb-3">
+                                <p className="text-xs text-muted-foreground">No payments recorded yet.</p>
+                              </div>
+                            )}
+                            {/* Status control */}
+                            {isExpanded && (
+                              <div className="px-3 pb-3">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-muted-foreground">Status:</span>
+                                  <Select value={inv.status} onValueChange={(v) => handleInvoiceStatus(inv.id, v as "PENDING" | "SENT" | "PAID" | "OVERDUE" | "CANCELLED")}>
+                                    <SelectTrigger className="h-7 text-xs w-28"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="PENDING">Pending</SelectItem>
+                                      <SelectItem value="SENT">Sent</SelectItem>
+                                      <SelectItem value="PAID">Paid</SelectItem>
+                                      <SelectItem value="OVERDUE">Overdue</SelectItem>
+                                      <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              </div>
+                            )}
                           </td>
                         </AnimatedRow>
                         );
@@ -658,24 +774,22 @@ export function ClientDetailContent({ client: initial, onboarding: initialOnboar
           <Card>
             <CardContent className="pt-6 space-y-4">
               <div>
-                <p className="text-xs text-muted-foreground">Revenue Received</p>
-                <p className="text-lg font-bold text-green-600">{fmt(totalPaid)}</p>
+                <p className="text-xs text-muted-foreground">Total Received</p>
+                <p className="text-lg font-bold text-green-600">{fmt(totalReceived)}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Payment Due</p>
-                <p className="text-lg font-bold text-orange-600">{fmt(totalPending)}</p>
+                <p className="text-xs text-muted-foreground">Outstanding</p>
+                <p className="text-lg font-bold text-orange-600">{fmt(Math.max(0, totalOutstanding))}</p>
               </div>
               <div className="border-t pt-3">
-                <p className="text-xs text-muted-foreground">GST Collected</p>
-                <p className="text-sm font-medium text-blue-600">{fmt(totalGstCollected)}</p>
+                <p className="text-xs text-muted-foreground">Revenue (excl. GST)</p>
+                <p className="text-sm font-medium text-emerald-600">{fmt(revenueReceived)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">GST in Payments</p>
+                <p className="text-sm font-medium text-blue-600">{fmt(totalGstInPayments)}</p>
                 <p className="text-[10px] text-muted-foreground mt-0.5">Not counted as revenue</p>
               </div>
-              {totalGstPending > 0 && (
-                <div>
-                  <p className="text-xs text-muted-foreground">GST Pending</p>
-                  <p className="text-sm font-medium text-amber-600">{fmt(totalGstPending)}</p>
-                </div>
-              )}
               {client.contactEmail && (
                 <div>
                   <p className="text-xs text-muted-foreground">Contact Email</p>

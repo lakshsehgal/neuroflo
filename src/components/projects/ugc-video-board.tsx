@@ -47,9 +47,9 @@ type Task = {
   priority: string;
   dueDate: Date | null;
   creatorName?: string | null;
-  creatorHandle?: string | null;
+  workPortfolioLink?: string | null;
   shootDate?: Date | null;
-  videoUrl?: string | null;
+  deliveryLink?: string | null;
   thumbnailUrl?: string | null;
   assignee: { id: string; name: string; avatar: string | null } | null;
   labels: { id: string; name: string; color: string }[];
@@ -73,6 +73,7 @@ const columns = [
   { key: "CREATOR_FINALISING", label: "Creator", color: "bg-cyan-500", emoji: "" },
   { key: "PRODUCTION", label: "Shooting", color: "bg-green-500", emoji: "" },
   { key: "POST_PRODUCTION", label: "Editing", color: "bg-blue-500", emoji: "" },
+  { key: "IN_REVISION", label: "In Revision", color: "bg-orange-500", emoji: "" },
   { key: "DELIVERED", label: "Delivered", color: "bg-emerald-500", emoji: "" },
   { key: "ON_HOLD", label: "On Hold", color: "bg-gray-500", emoji: "" },
 ];

@@ -25,9 +25,9 @@ type VideoItem = {
   priority: string;
   dueDate: string | null;
   creatorName: string | null;
-  creatorHandle: string | null;
+  workPortfolioLink: string | null;
   shootDate: string | null;
-  videoUrl: string | null;
+  deliveryLink: string | null;
   thumbnailUrl: string | null;
   assignee: { id: string; name: string; avatar: string | null } | null;
   labels: { id: string; name: string; color: string }[];
@@ -51,6 +51,7 @@ const statusLabels: Record<string, string> = {
   CREATOR_FINALISING: "Creator Finalising",
   PRODUCTION: "Shooting",
   POST_PRODUCTION: "Editing",
+  IN_REVISION: "In Revision",
   DELIVERED: "Delivered",
   ON_HOLD: "On Hold",
 };
@@ -187,7 +188,7 @@ export function UGCVideoList({
                       >
                         {video.priority}
                       </Badge>
-                      {video.videoUrl && (
+                      {video.deliveryLink && (
                         <ExternalLink className="h-3 w-3 text-muted-foreground shrink-0" />
                       )}
                     </div>
@@ -218,10 +219,10 @@ export function UGCVideoList({
                   ) : (
                     <span className="text-xs text-muted-foreground">-</span>
                   )}
-                  {video.creatorHandle && (
-                    <p className="text-[10px] text-muted-foreground truncate">
-                      {video.creatorHandle}
-                    </p>
+                  {video.workPortfolioLink && (
+                    <a href={video.workPortfolioLink} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary truncate hover:underline">
+                      Portfolio
+                    </a>
                   )}
                 </div>
 

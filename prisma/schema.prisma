@@ -24,6 +24,7 @@ enum TaskStatus {
   CREATOR_FINALISING
   PRODUCTION
   POST_PRODUCTION
+  IN_REVISION
   DELIVERED
   ON_HOLD
 }
@@ -318,11 +319,10 @@ model Task {
 
   // UGC-specific fields
   creatorName           String?
-  creatorHandle         String?
+  workPortfolioLink     String?
   shootDate             DateTime?
-  videoUrl              String?
   thumbnailUrl          String?
-  deliveryLink          String?
+  deliveryLink          String?   // Final video / delivery link
   estimatedDeliveryDate DateTime?
 
   subtasks       Task[]          @relation("Subtasks")
@@ -598,6 +598,20 @@ model Invoice {
   reminderSent Boolean       @default(false)
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
+
+  payments     InvoicePayment[]
+}
+
+model InvoicePayment {
+  id        String   @id @default(cuid())
+  invoiceId String
+  invoice   Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  amount    Float    // Partial payment amount (pre-GST portion)
+  note      String?
+  paidAt    DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  @@index([invoiceId])
 }
 
 model Campaign {

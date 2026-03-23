@@ -65,6 +65,7 @@ const statusLabels: Record<string, string> = {
   CREATOR_FINALISING: "Creator Finalising",
   PRODUCTION: "Production",
   POST_PRODUCTION: "Post Production",
+  IN_REVISION: "In Revision",
   DELIVERED: "Delivered",
   ON_HOLD: "On Hold",
 };
@@ -569,17 +570,17 @@ export function TaskDetailModal({
                     />
                   </div>
 
-                  {/* Creator Handle */}
+                  {/* Work Portfolio Link */}
                   <div>
                     <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                      <AtSign className="h-3 w-3" />
-                      Creator Handle
+                      <Link2 className="h-3 w-3" />
+                      Portfolio Link
                     </label>
                     <Input
-                      placeholder="@handle"
-                      value={task.creatorHandle || ""}
+                      placeholder="https://..."
+                      value={task.workPortfolioLink || ""}
                       onChange={(e) =>
-                        handleUpdateField("creatorHandle", e.target.value)
+                        handleUpdateField("workPortfolioLink", e.target.value)
                       }
                       className="h-8 text-sm"
                     />
@@ -605,27 +606,11 @@ export function TaskDetailModal({
                     />
                   </div>
 
-                  {/* Video URL */}
-                  <div>
-                    <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                      <Link2 className="h-3 w-3" />
-                      Video URL
-                    </label>
-                    <Input
-                      placeholder="https://..."
-                      value={task.videoUrl || ""}
-                      onChange={(e) =>
-                        handleUpdateField("videoUrl", e.target.value)
-                      }
-                      className="h-8 text-sm"
-                    />
-                  </div>
-
-                  {/* Delivery Link */}
+                  {/* Delivery / Final Video Link */}
                   <div>
                     <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                       <ExternalLink className="h-3 w-3" />
-                      Delivery Link
+                      Delivery / Video Link
                     </label>
                     <Input
                       placeholder="https://drive.google.com/..."

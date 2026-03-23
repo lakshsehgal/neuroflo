@@ -161,7 +161,10 @@ export async function getClient(id: string) {
     where: { id },
     include: {
       projects: { select: { id: true, name: true } },
-      invoices: { orderBy: { dueDate: "desc" } },
+      invoices: {
+        include: { payments: { orderBy: { paidAt: "desc" } } },
+        orderBy: { dueDate: "desc" },
+      },
       primaryPerformanceOwner: { select: { id: true, name: true } },
       secondaryPerformanceOwner: { select: { id: true, name: true } },
       creativeStrategyOwner: { select: { id: true, name: true } },
@@ -444,4 +447,85 @@ export async function getUpcomingReminders() {
     },
     orderBy: { dueDate: "asc" },
   });
+}
+
+// Partial payments
+export async function addInvoicePayment(
+  invoiceId: string,
+  amount: number,
+  note?: string
+): Promise<ActionResponse<{ id: string }>> {
+  await requireRole("OPERATOR");
+
+  if (amount <= 0) return { success: false, error: "Amount must be positive" };
+
+  const invoice = await db.invoice.findUnique({
+    where: { id: invoiceId },
+    include: { payments: true },
+  });
+  if (!invoice) return { success: false, error: "Invoice not found" };
+
+  const totalPaidSoFar = invoice.payments.reduce((s, p) => s + p.amount, 0);
+  const totalInvoice = invoice.amount * (1 + (invoice.gstRate || 0) / 100);
+  const remaining = totalInvoice - totalPaidSoFar;
+
+  if (amount > remaining + 0.01) {
+    return { success: false, error: `Payment exceeds remaining balance of ${remaining.toFixed(2)}` };
+  }
+
+  const payment = await db.invoicePayment.create({
+    data: { invoiceId, amount, note },
+  });
+
+  // Auto-mark as PAID if fully paid
+  const newTotal = totalPaidSoFar + amount;
+  if (newTotal >= totalInvoice - 0.01) {
+    await db.invoice.update({
+      where: { id: invoiceId },
+      data: { status: "PAID", paidDate: new Date() },
+    });
+  } else if (invoice.status === "PENDING" || invoice.status === "SENT") {
+    // Mark as SENT (partially paid) if it was still pending
+    await db.invoice.update({
+      where: { id: invoiceId },
+      data: { status: "SENT" },
+    });
+  }
+
+  revalidatePath(`/admin/clients/${invoice.clientId}`);
+  return { success: true, data: { id: payment.id } };
+}
+
+export async function deleteInvoicePayment(id: string): Promise<ActionResponse> {
+  await requireRole("OPERATOR");
+
+  const payment = await db.invoicePayment.findUnique({
+    where: { id },
+    include: { invoice: { include: { payments: true } } },
+  });
+  if (!payment) return { success: false, error: "Payment not found" };
+
+  await db.invoicePayment.delete({ where: { id } });
+
+  // Recalculate status
+  const remainingPayments = payment.invoice.payments.filter((p) => p.id !== id);
+  const totalPaid = remainingPayments.reduce((s, p) => s + p.amount, 0);
+  const totalInvoice = payment.invoice.amount * (1 + (payment.invoice.gstRate || 0) / 100);
+
+  if (totalPaid >= totalInvoice - 0.01) {
+    // Still fully paid
+  } else if (totalPaid > 0) {
+    await db.invoice.update({
+      where: { id: payment.invoiceId },
+      data: { status: "SENT", paidDate: null },
+    });
+  } else {
+    await db.invoice.update({
+      where: { id: payment.invoiceId },
+      data: { status: "PENDING", paidDate: null },
+    });
+  }
+
+  revalidatePath(`/admin/clients/${payment.invoice.clientId}`);
+  return { success: true };
 }
