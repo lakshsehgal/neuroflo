@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useTransition } from "react";
-import { updateTicket, updateTicketStatus, addTicketComment, deleteTicket } from "@/actions/tickets";
+import { updateTicket, updateTicketStatus, addTicketComment, deleteTicket, createTicketRevision } from "@/actions/tickets";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -44,6 +44,9 @@ import {
   Layers,
   Pencil,
   Trash2,
+  Plus,
+  Upload,
+  Globe,
 } from "lucide-react";
 import type { getTicket } from "@/actions/tickets";
 
@@ -129,6 +132,9 @@ export function TicketDetailContent({
   const [editingDescription, setEditingDescription] = useState(false);
   const [descriptionDraft, setDescriptionDraft] = useState(ticket.description || "");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showRevisionForm, setShowRevisionForm] = useState(false);
+  const [revisionDeliveryUrl, setRevisionDeliveryUrl] = useState("");
+  const [revisionNote, setRevisionNote] = useState("");
   const router = useRouter();
 
   function handleUpdateField(field: string, value: string) {
@@ -203,6 +209,24 @@ export function TicketDetailContent({
     });
   }
 
+  function handleAddRevision() {
+    if (!revisionDeliveryUrl.trim()) return;
+    startTransition(async () => {
+      const res = await createTicketRevision({
+        ticketId: ticket.id,
+        deliveryUrl: revisionDeliveryUrl.trim(),
+        note: revisionNote.trim() || undefined,
+      });
+      if (res.success) {
+        setRevisionDeliveryUrl("");
+        setRevisionNote("");
+        setShowRevisionForm(false);
+        window.location.reload();
+      }
+    });
+  }
+
+  const revisionCount = ticket.revisions.length;
   const currentStatus = statusOptions.find((s) => s.value === ticket.status);
   const overdue = ticket.dueDate ? isOverdue(ticket.dueDate) : false;
   const dueSoon = ticket.dueDate ? isDueSoon(ticket.dueDate) : false;
@@ -430,29 +454,86 @@ export function TicketDetailContent({
             </Card>
           </div>
 
-          {/* Revisions */}
+          {/* Versions / Revisions */}
           <Card className="shadow-sm border-border/60">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2 text-sm font-semibold text-foreground">
                   <History className="h-4 w-4 text-muted-foreground" />
-                  Revisions
+                  Versions
+                  <Badge variant="secondary" className="text-xs tabular-nums">
+                    {revisionCount} {revisionCount === 1 ? "revision" : "revisions"}
+                  </Badge>
                 </CardTitle>
-                <Badge variant="secondary" className="text-xs tabular-nums">
-                  {ticket.revisions.length}
-                </Badge>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 px-2.5 text-xs gap-1"
+                  onClick={() => setShowRevisionForm(!showRevisionForm)}
+                >
+                  <Plus className="h-3 w-3" />
+                  Add Version
+                </Button>
               </div>
             </CardHeader>
             <CardContent>
-              {ticket.revisions.length === 0 ? (
+              {/* New version form */}
+              {showRevisionForm && (
+                <div className="mb-4 rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-3">
+                  <p className="text-xs font-semibold text-foreground">Upload New Version</p>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-muted-foreground">Delivery Link *</label>
+                    <Input
+                      value={revisionDeliveryUrl}
+                      onChange={(e) => setRevisionDeliveryUrl(e.target.value)}
+                      placeholder="https://drive.google.com/... or any URL"
+                      className="h-8 text-sm"
+                      autoFocus
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-muted-foreground">Note (optional)</label>
+                    <Input
+                      value={revisionNote}
+                      onChange={(e) => setRevisionNote(e.target.value)}
+                      placeholder="What changed in this version..."
+                      className="h-8 text-sm"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleAddRevision();
+                      }}
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      className="h-7 px-3 text-xs gap-1"
+                      onClick={handleAddRevision}
+                      disabled={!revisionDeliveryUrl.trim() || isPending}
+                    >
+                      <Upload className="h-3 w-3" />
+                      {isPending ? "Submitting..." : `Submit as v${revisionCount + 1}`}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => { setShowRevisionForm(false); setRevisionDeliveryUrl(""); setRevisionNote(""); }}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {ticket.revisions.length === 0 && !showRevisionForm ? (
                 <div className="flex flex-col items-center justify-center py-8 text-center">
                   <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted mb-3">
                     <Layers className="h-5 w-5 text-muted-foreground" />
                   </div>
-                  <p className="text-sm font-medium text-muted-foreground">No revisions yet</p>
-                  <p className="text-xs text-muted-foreground/70 mt-1">Revisions will appear here as work progresses</p>
+                  <p className="text-sm font-medium text-muted-foreground">No versions yet</p>
+                  <p className="text-xs text-muted-foreground/70 mt-1">Click &quot;Add Version&quot; to upload your first delivery</p>
                 </div>
-              ) : (
+              ) : ticket.revisions.length > 0 && (
                 <div className="relative space-y-0">
                   {/* Timeline line */}
                   {ticket.revisions.length > 1 && (
@@ -469,12 +550,38 @@ export function TicketDetailContent({
                         v{rev.version}
                       </div>
                       <div className="flex-1 min-w-0 pt-0.5">
-                        <div className="flex items-baseline gap-2">
-                          <span className="text-sm font-medium truncate">{rev.fileName}</span>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {rev.fileName && (
+                            <span className="text-sm font-medium truncate">{rev.fileName}</span>
+                          )}
                           {idx === 0 && (
                             <Badge className="bg-primary/10 text-primary text-[10px] px-1.5 py-0">Latest</Badge>
                           )}
                         </div>
+                        {/* Version delivery link */}
+                        {rev.deliveryUrl && (
+                          <a
+                            href={rev.deliveryUrl.startsWith("http") ? rev.deliveryUrl : `https://${rev.deliveryUrl}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 mt-1 text-xs font-medium text-primary hover:underline"
+                          >
+                            <Globe className="h-3 w-3" />
+                            View Delivery
+                          </a>
+                        )}
+                        {/* S3 file link */}
+                        {rev.s3Url && !rev.deliveryUrl && (
+                          <a
+                            href={rev.s3Url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 mt-1 text-xs font-medium text-primary hover:underline"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            Download File
+                          </a>
+                        )}
                         <p className="text-xs text-muted-foreground mt-0.5">
                           {rev.uploadedBy.name} &middot; {formatRelativeTime(rev.createdAt)}
                         </p>

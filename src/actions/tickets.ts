@@ -341,6 +341,91 @@ export async function approveTicket(
   return { success: true };
 }
 
+// ─── Revisions ─────────────────────────────────────────
+
+const revisionSchema = z.object({
+  ticketId: z.string().min(1),
+  deliveryUrl: z.string().url().optional(),
+  note: z.string().optional(),
+  s3Key: z.string().optional(),
+  s3Url: z.string().optional(),
+  fileName: z.string().optional(),
+});
+
+export async function createTicketRevision(
+  input: z.infer<typeof revisionSchema>
+): Promise<ActionResponse<{ id: string; version: number }>> {
+  const user = await requireTicketAccess();
+
+  const parsed = revisionSchema.safeParse(input);
+  if (!parsed.success) return { success: false, error: "Invalid input" };
+
+  // Must provide either a delivery URL or an S3 upload
+  if (!parsed.data.deliveryUrl && !parsed.data.s3Url) {
+    return { success: false, error: "Please provide a delivery link or upload a file" };
+  }
+
+  const ticket = await db.ticket.findUnique({
+    where: { id: parsed.data.ticketId },
+    select: { id: true, title: true, creatorId: true, assigneeId: true },
+  });
+  if (!ticket) return { success: false, error: "Ticket not found" };
+
+  // Calculate next version number
+  const latestRevision = await db.revision.findFirst({
+    where: { ticketId: parsed.data.ticketId },
+    orderBy: { version: "desc" },
+    select: { version: true },
+  });
+  const nextVersion = (latestRevision?.version ?? 0) + 1;
+
+  const revision = await db.revision.create({
+    data: {
+      ticketId: parsed.data.ticketId,
+      version: nextVersion,
+      deliveryUrl: parsed.data.deliveryUrl || null,
+      s3Key: parsed.data.s3Key || null,
+      s3Url: parsed.data.s3Url || null,
+      fileName: parsed.data.fileName || null,
+      note: parsed.data.note || null,
+      uploadedById: user.id,
+    },
+  });
+
+  await db.activityLog.create({
+    data: {
+      userId: user.id,
+      action: "REVISION_UPLOADED",
+      entityType: "TICKET",
+      entityId: ticket.id,
+      metadata: { version: nextVersion, title: ticket.title },
+    },
+  });
+
+  // Notify ticket creator and assignee about new version
+  const recipientIds = [ticket.creatorId, ticket.assigneeId].filter(
+    (id): id is string => !!id && id !== user.id
+  );
+  if (recipientIds.length > 0) {
+    notifyTicketComment(
+      ticket.id,
+      `Version ${nextVersion} uploaded for "${ticket.title}"`,
+      user.name,
+      recipientIds,
+      user.id
+    ).catch(console.error);
+  }
+
+  revalidatePath(`/tickets/${parsed.data.ticketId}`);
+  revalidatePath("/tickets");
+  return { success: true, data: { id: revision.id, version: nextVersion } };
+}
+
+export async function getTicketRevisionCount(ticketId: string): Promise<number> {
+  await requireAuth();
+  return db.revision.count({ where: { ticketId } });
+}
+
 export async function deleteTicket(id: string): Promise<ActionResponse> {
   await requireTicketAccess();
 
