@@ -358,7 +358,11 @@ export async function createTicketRevision(
   const user = await requireTicketAccess();
 
   const parsed = revisionSchema.safeParse(input);
-  if (!parsed.success) return { success: false, error: "Invalid input" };
+  if (!parsed.success) {
+    const urlError = parsed.error.issues.find((i) => i.path.includes("deliveryUrl"));
+    if (urlError) return { success: false, error: "Please enter a valid URL (e.g. https://example.com)" };
+    return { success: false, error: "Invalid input" };
+  }
 
   // Must provide either a delivery URL or an S3 upload
   if (!parsed.data.deliveryUrl && !parsed.data.s3Url) {

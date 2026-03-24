@@ -137,6 +137,7 @@ export function TicketDetailContent({
   const [showRevisionForm, setShowRevisionForm] = useState(false);
   const [revisionDeliveryUrl, setRevisionDeliveryUrl] = useState("");
   const [revisionNote, setRevisionNote] = useState("");
+  const [revisionError, setRevisionError] = useState("");
   const router = useRouter();
 
   function handleUpdateField(field: string, value: string) {
@@ -213,17 +214,25 @@ export function TicketDetailContent({
 
   function handleAddRevision() {
     if (!revisionDeliveryUrl.trim()) return;
+    setRevisionError("");
     startTransition(async () => {
-      const res = await createTicketRevision({
-        ticketId: ticket.id,
-        deliveryUrl: revisionDeliveryUrl.trim(),
-        note: revisionNote.trim() || undefined,
-      });
-      if (res.success) {
-        setRevisionDeliveryUrl("");
-        setRevisionNote("");
-        setShowRevisionForm(false);
-        window.location.reload();
+      try {
+        const res = await createTicketRevision({
+          ticketId: ticket.id,
+          deliveryUrl: revisionDeliveryUrl.trim(),
+          note: revisionNote.trim() || undefined,
+        });
+        if (res.success) {
+          setRevisionDeliveryUrl("");
+          setRevisionNote("");
+          setRevisionError("");
+          setShowRevisionForm(false);
+          window.location.reload();
+        } else {
+          setRevisionError(res.error || "Failed to submit version. Please try again.");
+        }
+      } catch {
+        setRevisionError("Something went wrong. Please try again.");
       }
     });
   }
@@ -513,6 +522,9 @@ export function TicketDetailContent({
                       }}
                     />
                   </div>
+                  {revisionError && (
+                    <p className="text-sm text-red-600">{revisionError}</p>
+                  )}
                   <div className="flex gap-2">
                     <Button
                       size="sm"
@@ -527,7 +539,7 @@ export function TicketDetailContent({
                       size="sm"
                       variant="ghost"
                       className="h-7 px-2 text-xs"
-                      onClick={() => { setShowRevisionForm(false); setRevisionDeliveryUrl(""); setRevisionNote(""); }}
+                      onClick={() => { setShowRevisionForm(false); setRevisionDeliveryUrl(""); setRevisionNote(""); setRevisionError(""); }}
                     >
                       Cancel
                     </Button>
