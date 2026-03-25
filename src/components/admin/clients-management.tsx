@@ -237,6 +237,7 @@ export function ClientsManagement({ clients: initialClients, reminders, thisMont
   const [clients, setClients] = useState(initialClients);
   const [myClientsOnly, setMyClientsOnly] = useState(false);
   const [clientSearch, setClientSearch] = useState("");
+  const [invoiceStatusFilter, setInvoiceStatusFilter] = useState<string>("ALL");
 
   // Column visibility
   const [visibleColumns, setVisibleColumns] = useState<string[]>(() => {
@@ -527,14 +528,30 @@ export function ClientsManagement({ clients: initialClients, reminders, thisMont
         </div>
 
         {activeTab !== "dashboard" && (
-          <div className="relative max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              value={clientSearch}
-              onChange={(e) => setClientSearch(e.target.value)}
-              placeholder="Search clients..."
-              className="pl-9 h-9 text-sm"
-            />
+          <div className="flex items-center gap-3">
+            <div className="relative max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={clientSearch}
+                onChange={(e) => setClientSearch(e.target.value)}
+                placeholder="Search clients..."
+                className="pl-9 h-9 text-sm"
+              />
+            </div>
+            <Select value={invoiceStatusFilter} onValueChange={setInvoiceStatusFilter}>
+              <SelectTrigger className="h-9 w-[180px] text-sm">
+                <SelectValue placeholder="Invoice Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Invoices</SelectItem>
+                <SelectItem value="PENDING">Pending</SelectItem>
+                <SelectItem value="SENT">Sent</SelectItem>
+                <SelectItem value="PAID">Paid</SelectItem>
+                <SelectItem value="OVERDUE">Overdue</SelectItem>
+                <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                <SelectItem value="NO_INVOICE">No Invoice</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         )}
 
@@ -548,6 +565,13 @@ export function ClientsManagement({ clients: initialClients, reminders, thisMont
                   && c.creativeStrategyOwnerId !== currentUserId) return false;
               }
               if (clientSearch && !c.name.toLowerCase().includes(clientSearch.toLowerCase())) return false;
+              if (invoiceStatusFilter !== "ALL") {
+                if (invoiceStatusFilter === "NO_INVOICE") {
+                  if (c.invoices.length > 0) return false;
+                } else {
+                  if (!c.invoices.some((inv) => inv.status === invoiceStatusFilter)) return false;
+                }
+              }
               return true;
             })}
             reminders={reminders}
@@ -572,6 +596,13 @@ export function ClientsManagement({ clients: initialClients, reminders, thisMont
                   && c.creativeStrategyOwnerId !== currentUserId) return false;
               }
               if (clientSearch && !c.name.toLowerCase().includes(clientSearch.toLowerCase())) return false;
+              if (invoiceStatusFilter !== "ALL") {
+                if (invoiceStatusFilter === "NO_INVOICE") {
+                  if (c.invoices.length > 0) return false;
+                } else {
+                  if (!c.invoices.some((inv) => inv.status === invoiceStatusFilter)) return false;
+                }
+              }
               return true;
             })}
             handleInlineUpdate={handleInlineUpdate}
@@ -732,7 +763,7 @@ function ClientsTab({
               {clients.map((client) => {
                 const perfSentiment = sentimentConfig[client.performanceSentiment] || sentimentConfig.NEUTRAL;
                 const creativeSentiment = sentimentConfig[client.creativeSentiment] || sentimentConfig.NEUTRAL;
-                const nextInvoice = client.invoices[0];
+                const nextInvoice = client.invoices.find((inv) => ["PENDING", "SENT", "OVERDUE"].includes(inv.status)) || null;
                 return (
                   <AnimatedRow key={client.id} className="border-b hover:bg-muted/30">
                     <td className="px-4 py-2.5 cursor-pointer" onClick={() => router.push(`/admin/clients/${client.id}`)}>

@@ -147,9 +147,8 @@ export async function getClients() {
     include: {
       _count: { select: { projects: true, invoices: true } },
       invoices: {
-        where: { status: { in: ["PENDING", "SENT", "OVERDUE"] } },
+        select: { id: true, status: true, dueDate: true, amount: true },
         orderBy: { dueDate: "asc" },
-        take: 1,
       },
       primaryPerformanceOwner: { select: { id: true, name: true } },
       secondaryPerformanceOwner: { select: { id: true, name: true } },
