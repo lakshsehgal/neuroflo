@@ -80,11 +80,28 @@ function monthlyAmount(amount: number, frequency: string): number {
 export async function getFounderDashboardData() {
   await requireRole("ADMIN");
 
+  const now = new Date();
   const twelveMonthsAgo = new Date();
   twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 11);
   twelveMonthsAgo.setDate(1);
 
-  const [expenses, allInvoices, clients] = await Promise.all([
+  const [
+    expenses,
+    allInvoices,
+    clients,
+    allClients,
+    activeProjects,
+    totalTasks,
+    deliveredTasks,
+    overdueTasks,
+    totalTickets,
+    approvedTickets,
+    totalTeamTasks,
+    doneTeamTasks,
+    blockedTeamTasks,
+    teamMembers,
+    recentActivity,
+  ] = await Promise.all([
     db.expense.findMany({ where: { isActive: true } }),
     db.invoice.findMany({
       where: { dueDate: { gte: twelveMonthsAgo } },
@@ -109,6 +126,46 @@ export async function getFounderDashboardData() {
         sentimentStatus: true,
         _count: { select: { invoices: true, projects: true } },
       },
+    }),
+    // All clients (active + churned) for health overview
+    db.client.findMany({
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        sentimentStatus: true,
+        avgBillingAmount: true,
+        engagementStartDate: true,
+      },
+    }),
+    // Active projects count
+    db.project.count({ where: { status: "ACTIVE" } }),
+    // Total tasks
+    db.task.count(),
+    // Delivered tasks
+    db.task.count({ where: { status: "DELIVERED" } }),
+    // Overdue tasks (past due, not delivered)
+    db.task.count({
+      where: {
+        dueDate: { lt: now },
+        status: { not: "DELIVERED" },
+      },
+    }),
+    // Total tickets
+    db.ticket.count(),
+    // Approved tickets
+    db.ticket.count({ where: { status: "APPROVED" } }),
+    // Total team tasks
+    db.teamTask.count(),
+    // Done team tasks
+    db.teamTask.count({ where: { status: "DONE" } }),
+    // Blocked team tasks
+    db.teamTask.count({ where: { status: "BLOCKED" } }),
+    // Active team members
+    db.user.count({ where: { isActive: true } }),
+    // Recent activity (last 7 days)
+    db.activityLog.count({
+      where: { createdAt: { gte: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000) } },
     }),
   ]);
 
@@ -182,6 +239,63 @@ export async function getFounderDashboardData() {
     0
   );
 
+  // Revenue growth: compare last 2 months
+  const lastMonthRevenue = monthlyRevenue[monthlyRevenue.length - 1]?.revenue || 0;
+  const prevMonthRevenue = monthlyRevenue[monthlyRevenue.length - 2]?.revenue || 0;
+  const revenueGrowth = prevMonthRevenue > 0
+    ? ((lastMonthRevenue - prevMonthRevenue) / prevMonthRevenue) * 100
+    : 0;
+
+  // Client health breakdown
+  const clientHealth = {
+    happy: allClients.filter((c) => c.status === "ACTIVE" && c.sentimentStatus === "HAPPY").length,
+    neutral: allClients.filter((c) => c.status === "ACTIVE" && c.sentimentStatus === "NEUTRAL").length,
+    atRisk: allClients.filter((c) => c.status === "ACTIVE" && c.sentimentStatus === "AT_RISK").length,
+    churned: allClients.filter((c) => c.status === "CHURNED" || c.sentimentStatus === "CHURNED").length,
+    total: allClients.length,
+    activeCount: allClients.filter((c) => c.status === "ACTIVE").length,
+  };
+
+  // Clients with overdue invoices
+  const overdueByClient: Record<string, { name: string; amount: number }> = {};
+  for (const inv of allInvoices.filter((i) => i.status === "OVERDUE")) {
+    if (!overdueByClient[inv.clientId]) {
+      overdueByClient[inv.clientId] = { name: inv.client.name, amount: 0 };
+    }
+    overdueByClient[inv.clientId].amount += inv.amount;
+  }
+  const overdueClients = Object.values(overdueByClient).sort((a, b) => b.amount - a.amount);
+
+  // Upcoming invoices due in next 7 days
+  const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const upcomingInvoices = allInvoices
+    .filter(
+      (i) =>
+        ["PENDING", "SENT"].includes(i.status) &&
+        new Date(i.dueDate) <= sevenDaysFromNow &&
+        new Date(i.dueDate) >= now
+    )
+    .map((i) => ({
+      clientName: i.client.name,
+      amount: i.amount,
+      dueDate: i.dueDate,
+    }));
+
+  // Burn rate & runway
+  const burnRate = totalMonthlyExpenses;
+  // Use cash collected last 3 months as avg incoming
+  const last3MonthsRevenue = monthlyRevenue.slice(-3).reduce((s, m) => s + m.revenue, 0) / 3;
+
+  // Task completion rate
+  const taskCompletionRate = totalTasks > 0 ? (deliveredTasks / totalTasks) * 100 : 0;
+  const ticketCompletionRate = totalTickets > 0 ? (approvedTickets / totalTickets) * 100 : 0;
+  const teamTaskCompletionRate = totalTeamTasks > 0 ? (doneTeamTasks / totalTeamTasks) * 100 : 0;
+
+  // Revenue per client (active clients only)
+  const revenuePerClient = clientHealth.activeCount > 0
+    ? totalRevenue / clientHealth.activeCount
+    : 0;
+
   return {
     expenses: {
       totalMonthly: totalMonthlyExpenses,
@@ -205,6 +319,34 @@ export async function getFounderDashboardData() {
       margin: expectedMonthlyRevenue > 0
         ? ((expectedMonthlyRevenue - totalMonthlyExpenses) / expectedMonthlyRevenue) * 100
         : 0,
+    },
+    // New: Founder Insights
+    founderInsights: {
+      revenueGrowth,
+      lastMonthRevenue,
+      prevMonthRevenue,
+      burnRate,
+      avgMonthlyIncoming: last3MonthsRevenue,
+      revenuePerClient,
+    },
+    clientHealth,
+    overdueClients,
+    upcomingInvoices,
+    operations: {
+      activeProjects,
+      totalTasks,
+      deliveredTasks,
+      overdueTasks,
+      taskCompletionRate,
+      totalTickets,
+      approvedTickets,
+      ticketCompletionRate,
+      totalTeamTasks,
+      doneTeamTasks,
+      blockedTeamTasks,
+      teamTaskCompletionRate,
+      teamMembers,
+      recentActivity,
     },
   };
 }
