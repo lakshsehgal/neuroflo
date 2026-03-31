@@ -7,24 +7,11 @@ export default async function TeamTaskDashboardPage() {
     getTeamsWithDepartments(),
   ]);
 
-  // Only these teams use Team Tasks
-  const allowedTeamNames = new Set(["Creative Strategy", "Team Flame", "Team Fire", "Team Google"]);
-  const allowedTeamSet = new Set(
-    teams.filter((t) => allowedTeamNames.has(t.name)).map((t) => t.name)
-  );
-
-  const filteredAnalytics = {
-    ...analytics,
-    teamCounts: analytics.teamCounts.filter((t) => allowedTeamSet.has(t.name)),
-  };
-
   // Build team name→id map for linking
   const teamIdMap: Record<string, string> = {};
   teams.forEach((t) => {
-    if (allowedTeamSet.has(t.name)) {
-      teamIdMap[t.name] = t.id;
-    }
+    teamIdMap[t.name] = t.id;
   });
 
-  return <TeamTaskDashboardContent data={filteredAnalytics} teamIdMap={teamIdMap} />;
+  return <TeamTaskDashboardContent data={analytics} teamIdMap={teamIdMap} />;
 }
