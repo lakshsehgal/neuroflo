@@ -92,8 +92,6 @@ const STATUS_LABELS: Record<string, string> = {
   APPROVED: "Approved",
   AWAITING_EDITS: "Awaiting Edits",
   ON_HOLD: "On Hold",
-  AWAITING_ASSETS: "Awaiting Assets",
-  HOOK_CTA_VARIATIONS: "Hook/CTA Variations",
 };
 
 export function TicketDashboardContent({ data }: { data: TicketAnalytics }) {

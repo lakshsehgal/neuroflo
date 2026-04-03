@@ -51,8 +51,6 @@ const statusOptions = [
   { value: "APPROVED", label: "Approved", color: "bg-green-100 text-green-800" },
   { value: "AWAITING_EDITS", label: "Awaiting Edits", color: "bg-amber-100 text-amber-800" },
   { value: "ON_HOLD", label: "On Hold", color: "bg-slate-100 text-slate-800" },
-  { value: "AWAITING_ASSETS", label: "Awaiting Assets", color: "bg-purple-100 text-purple-800" },
-  { value: "HOOK_CTA_VARIATIONS", label: "Hook/CTA Variations", color: "bg-rose-100 text-rose-800" },
 ];
 
 const urgencyConfig: Record<string, { label: string; color: string; icon: boolean }> = {

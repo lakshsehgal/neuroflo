@@ -45,8 +45,6 @@ enum TicketStatus {
   APPROVED
   AWAITING_EDITS
   ON_HOLD
-  AWAITING_ASSETS
-  HOOK_CTA_VARIATIONS
 }
 
 enum TicketFormat {

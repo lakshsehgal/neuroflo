@@ -92,8 +92,6 @@ const statusColors: Record<string, string> = {
   APPROVED: "bg-emerald-50 text-emerald-700 border-emerald-200",
   AWAITING_EDITS: "bg-yellow-50 text-yellow-700 border-yellow-200",
   ON_HOLD: "bg-gray-100 text-gray-600 border-gray-200",
-  AWAITING_ASSETS: "bg-purple-50 text-purple-700 border-purple-200",
-  HOOK_CTA_VARIATIONS: "bg-rose-50 text-rose-700 border-rose-200",
 };
 
 const statusLabels: Record<string, string> = {
@@ -106,8 +104,6 @@ const statusLabels: Record<string, string> = {
   APPROVED: "Approved",
   AWAITING_EDITS: "Awaiting Edits",
   ON_HOLD: "On Hold",
-  AWAITING_ASSETS: "Awaiting Assets",
-  HOOK_CTA_VARIATIONS: "Hook/CTA Variations",
 };
 
 const statusColumnOrder = [
@@ -119,8 +115,6 @@ const statusColumnOrder = [
   "NEEDS_EDIT",
   "AWAITING_EDITS",
   "ON_HOLD",
-  "AWAITING_ASSETS",
-  "HOOK_CTA_VARIATIONS",
   "APPROVED",
 ];
 
@@ -133,8 +127,6 @@ const kanbanColumns = [
   { key: "NEEDS_EDIT", label: "Needs Edit", color: "bg-orange-500" },
   { key: "AWAITING_EDITS", label: "Awaiting Edits", color: "bg-yellow-500" },
   { key: "ON_HOLD", label: "On Hold", color: "bg-gray-400" },
-  { key: "AWAITING_ASSETS", label: "Awaiting Assets", color: "bg-purple-500" },
-  { key: "HOOK_CTA_VARIATIONS", label: "Hook/CTA Variations", color: "bg-rose-500" },
   { key: "APPROVED", label: "Approved", color: "bg-emerald-500" },
 ];
 
