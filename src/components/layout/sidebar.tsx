@@ -38,12 +38,12 @@ export function Sidebar({ userRole }: SidebarProps) {
 
   return (
     <motion.aside
-      className="flex h-screen flex-col border-r bg-card"
+      className="flex h-screen flex-col border-r border-sidebar-border bg-sidebar-bg text-sidebar-foreground"
       animate={{ width: collapsed ? 64 : 256 }}
       transition={{ type: "spring", stiffness: 300, damping: 30 }}
     >
       {/* Logo */}
-      <div className="flex h-14 items-center justify-between border-b px-4">
+      <div className="flex h-14 items-center justify-between border-b border-sidebar-border px-4">
         <AnimatePresence>
           {!collapsed && (
             <motion.div
@@ -71,7 +71,7 @@ export function Sidebar({ userRole }: SidebarProps) {
           variant="ghost"
           size="icon"
           onClick={() => setCollapsed(!collapsed)}
-          className="h-8 w-8 shrink-0"
+          className="h-8 w-8 shrink-0 text-sidebar-foreground hover:bg-sidebar-active-bg hover:text-sidebar-foreground"
         >
           <motion.div
             animate={{ rotate: collapsed ? 180 : 0 }}
@@ -97,7 +97,7 @@ export function Sidebar({ userRole }: SidebarProps) {
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.15 }}
-                    className="mb-2 px-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+                    className="mb-2 px-2 text-xs font-semibold uppercase tracking-wider text-sidebar-muted"
                   >
                     {section.label}
                   </motion.p>
@@ -145,7 +145,7 @@ export function Sidebar({ userRole }: SidebarProps) {
                   );
                 })}
               </div>
-              <Separator className="mt-3" />
+              <Separator className="mt-3 bg-sidebar-border" />
             </div>
           );
         })}
@@ -174,10 +174,10 @@ function NavLink({
       href={href}
       className={cn(
         "group relative flex items-center gap-3 rounded-md px-2 py-2 text-sm font-medium transition-all duration-150",
-        "hover:bg-accent hover:text-accent-foreground",
+        "hover:bg-sidebar-active-bg hover:text-white",
         active
-          ? "bg-accent text-accent-foreground"
-          : "text-muted-foreground",
+          ? "bg-sidebar-active-bg text-white"
+          : "text-sidebar-muted",
         collapsed && "justify-center px-0"
       )}
       title={collapsed ? label : undefined}
@@ -185,7 +185,7 @@ function NavLink({
       {active && (
         <motion.div
           layoutId="sidebar-active"
-          className="absolute inset-0 rounded-md bg-accent"
+          className="absolute inset-0 rounded-md bg-sidebar-active-bg"
           transition={{ type: "spring", stiffness: 350, damping: 30 }}
           style={{ zIndex: -1 }}
         />
