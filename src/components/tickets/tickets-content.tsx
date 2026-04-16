@@ -43,11 +43,16 @@ import {
   Eye,
   EyeOff,
   Check,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  Minus,
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { formatDate, isOverdue } from "@/lib/utils";
-import { updateTicket, updateTicketStatus } from "@/actions/tickets";
+import { updateTicket, updateTicketStatus, bulkUpdateTickets } from "@/actions/tickets";
 import { TicketDetailModal } from "@/components/tickets/ticket-detail-modal";
 import {
   DndContext,
@@ -159,6 +164,8 @@ type TicketData = {
   assignedByName: string | null;
   revisionCount: number;
   commentCount: number;
+  createdAt: string;
+  updatedAt: string;
 };
 
 type WorkloadTicket = {
@@ -190,20 +197,32 @@ interface Props {
   tickets: TicketData[];
   users: User[];
   clients: Client[];
+  assignedByNames: string[];
   workloadTickets: WorkloadTicket[];
 }
 
-export function TicketsContent({ tickets: initialTickets, users, clients, workloadTickets }: Props) {
+export function TicketsContent({ tickets: initialTickets, users, clients, assignedByNames, workloadTickets }: Props) {
   const [view, setView] = useState<"table" | "kanban" | "workload">("table");
   const [search, setSearch] = useState("");
-  const [filterStatus, setFilterStatus] = useState<string>("all");
-  const [filterPriority, setFilterPriority] = useState<string>("all");
-  const [filterAssignee, setFilterAssignee] = useState<string>("all");
-  const [filterClient, setFilterClient] = useState<string>("all");
+  const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
+  const [filterPriorities, setFilterPriorities] = useState<string[]>([]);
+  const [filterAssignees, setFilterAssignees] = useState<string[]>([]);
+  const [filterClients, setFilterClients] = useState<string[]>([]);
+  const [filterAssignedBy, setFilterAssignedBy] = useState<string[]>([]);
   const [filterDueDate, setFilterDueDate] = useState<string>("all");
   const [filterDueDateFrom, setFilterDueDateFrom] = useState("");
   const [filterDueDateTo, setFilterDueDateTo] = useState("");
   const [showFilters, setShowFilters] = useState(false);
+
+  // Sort
+  const [sortField, setSortField] = useState<"dueDate" | "createdAt" | "updatedAt" | "title" | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+
+  // Bulk selection
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkField, setBulkField] = useState<string>("");
+  const [bulkValue, setBulkValue] = useState<string>("");
+  const [isBulkUpdating, startBulkTransition] = useTransition();
 
   // Ticket detail modal
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
@@ -247,12 +266,13 @@ export function TicketsContent({ tickets: initialTickets, users, clients, worklo
     weekEnd.setDate(weekEnd.getDate() + (7 - weekEnd.getDay()));
     const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
 
-    return tickets.filter((t) => {
+    let result = tickets.filter((t) => {
       if (search && !t.title.toLowerCase().includes(search.toLowerCase()) && !t.clientName?.toLowerCase().includes(search.toLowerCase())) return false;
-      if (filterStatus !== "all" && t.status !== filterStatus) return false;
-      if (filterPriority !== "all" && t.priority !== filterPriority) return false;
-      if (filterAssignee !== "all" && t.assigneeId !== filterAssignee) return false;
-      if (filterClient !== "all" && t.clientName !== filterClient) return false;
+      if (filterStatuses.length > 0 && !filterStatuses.includes(t.status)) return false;
+      if (filterPriorities.length > 0 && !filterPriorities.includes(t.priority)) return false;
+      if (filterAssignees.length > 0 && !filterAssignees.includes(t.assigneeId || "")) return false;
+      if (filterClients.length > 0 && !filterClients.includes(t.clientName || "")) return false;
+      if (filterAssignedBy.length > 0 && !filterAssignedBy.includes(t.assignedByName || "")) return false;
       if (filterDueDate !== "all") {
         const due = t.dueDate ? new Date(t.dueDate) : null;
         if (filterDueDate === "overdue" && (!due || due >= now)) return false;
@@ -267,19 +287,74 @@ export function TicketsContent({ tickets: initialTickets, users, clients, worklo
       }
       return true;
     });
-  }, [tickets, search, filterStatus, filterPriority, filterAssignee, filterClient, filterDueDate, filterDueDateFrom, filterDueDateTo]);
 
-  const activeFilterCount = [filterStatus, filterPriority, filterAssignee, filterClient, filterDueDate].filter((f) => f !== "all").length;
+    // Sort
+    if (sortField) {
+      result = [...result].sort((a, b) => {
+        let aVal: string | null = null;
+        let bVal: string | null = null;
+        if (sortField === "dueDate") { aVal = a.dueDate; bVal = b.dueDate; }
+        else if (sortField === "createdAt") { aVal = a.createdAt; bVal = b.createdAt; }
+        else if (sortField === "updatedAt") { aVal = a.updatedAt; bVal = b.updatedAt; }
+        else if (sortField === "title") { aVal = a.title.toLowerCase(); bVal = b.title.toLowerCase(); }
+        if (!aVal && !bVal) return 0;
+        if (!aVal) return 1;
+        if (!bVal) return -1;
+        const cmp = aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
+        return sortDir === "asc" ? cmp : -cmp;
+      });
+    }
+
+    return result;
+  }, [tickets, search, filterStatuses, filterPriorities, filterAssignees, filterClients, filterAssignedBy, filterDueDate, filterDueDateFrom, filterDueDateTo, sortField, sortDir]);
+
+  const activeFilterCount = filterStatuses.length + filterPriorities.length + filterAssignees.length + filterClients.length + filterAssignedBy.length + (filterDueDate !== "all" ? 1 : 0);
 
   const clearFilters = () => {
-    setFilterStatus("all");
-    setFilterPriority("all");
-    setFilterAssignee("all");
-    setFilterClient("all");
+    setFilterStatuses([]);
+    setFilterPriorities([]);
+    setFilterAssignees([]);
+    setFilterClients([]);
+    setFilterAssignedBy([]);
     setFilterDueDate("all");
     setFilterDueDateFrom("");
     setFilterDueDateTo("");
     setSearch("");
+  };
+
+  const toggleSort = (field: typeof sortField) => {
+    if (sortField === field) {
+      if (sortDir === "desc") setSortDir("asc");
+      else { setSortField(null); setSortDir("desc"); }
+    } else {
+      setSortField(field);
+      setSortDir("desc");
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filtered.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filtered.map((t) => t.id)));
+    }
+  };
+
+  const handleBulkUpdate = () => {
+    if (selectedIds.size === 0 || !bulkField || !bulkValue) return;
+    const ids = [...selectedIds];
+    startBulkTransition(async () => {
+      await bulkUpdateTickets(ids, { [bulkField]: bulkValue === "__none__" ? null : bulkValue });
+      window.location.reload();
+    });
   };
 
   const handleInlineUpdate = useCallback((ticketId: string, field: string, value: string) => {
@@ -462,43 +537,92 @@ export function TicketsContent({ tickets: initialTickets, users, clients, worklo
               className="overflow-hidden"
             >
               <div className="flex flex-wrap gap-2 rounded-lg border bg-muted/20 p-3">
-                <Select value={filterStatus} onValueChange={setFilterStatus}>
-                  <SelectTrigger className="h-8 w-44 text-xs"><SelectValue placeholder="Status" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Statuses</SelectItem>
+                {/* Status multi-select */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5">
+                      Status {filterStatuses.length > 0 && <span className="ml-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground px-1">{filterStatuses.length}</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="start" className="w-52 p-2">
                     {statusColumnOrder.map((s) => (
-                      <SelectItem key={s} value={s}>{statusLabels[s]}</SelectItem>
+                      <label key={s} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted/50 cursor-pointer">
+                        <Checkbox checked={filterStatuses.includes(s)} onCheckedChange={() => setFilterStatuses((prev) => prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s])} />
+                        <Badge className={`${statusColors[s]} text-[10px] border`} variant="secondary">{statusLabels[s]}</Badge>
+                      </label>
                     ))}
-                  </SelectContent>
-                </Select>
-                <Select value={filterPriority} onValueChange={setFilterPriority}>
-                  <SelectTrigger className="h-8 w-32 text-xs"><SelectValue placeholder="Priority" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Priorities</SelectItem>
-                    <SelectItem value="LOW">Low</SelectItem>
-                    <SelectItem value="MEDIUM">Medium</SelectItem>
-                    <SelectItem value="HIGH">High</SelectItem>
-                    <SelectItem value="URGENT">Urgent</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={filterAssignee} onValueChange={setFilterAssignee}>
-                  <SelectTrigger className="h-8 w-40 text-xs"><SelectValue placeholder="Assignee" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Assignees</SelectItem>
+                  </PopoverContent>
+                </Popover>
+
+                {/* Priority multi-select */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5">
+                      Priority {filterPriorities.length > 0 && <span className="ml-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground px-1">{filterPriorities.length}</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="start" className="w-44 p-2">
+                    {["LOW", "MEDIUM", "HIGH", "URGENT"].map((p) => (
+                      <label key={p} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted/50 cursor-pointer">
+                        <Checkbox checked={filterPriorities.includes(p)} onCheckedChange={() => setFilterPriorities((prev) => prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p])} />
+                        <span className="capitalize">{p.toLowerCase()}</span>
+                      </label>
+                    ))}
+                  </PopoverContent>
+                </Popover>
+
+                {/* Assignee multi-select */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5">
+                      Assignee {filterAssignees.length > 0 && <span className="ml-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground px-1">{filterAssignees.length}</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="start" className="w-52 p-2 max-h-64 overflow-y-auto">
                     {users.map((u) => (
-                      <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                      <label key={u.id} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted/50 cursor-pointer">
+                        <Checkbox checked={filterAssignees.includes(u.id)} onCheckedChange={() => setFilterAssignees((prev) => prev.includes(u.id) ? prev.filter((x) => x !== u.id) : [...prev, u.id])} />
+                        {u.name}
+                      </label>
                     ))}
-                  </SelectContent>
-                </Select>
-                <Select value={filterClient} onValueChange={setFilterClient}>
-                  <SelectTrigger className="h-8 w-40 text-xs"><SelectValue placeholder="Client" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Clients</SelectItem>
+                  </PopoverContent>
+                </Popover>
+
+                {/* Client multi-select */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5">
+                      Client {filterClients.length > 0 && <span className="ml-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground px-1">{filterClients.length}</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="start" className="w-52 p-2 max-h-64 overflow-y-auto">
                     {clients.map((c) => (
-                      <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                      <label key={c.id} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted/50 cursor-pointer">
+                        <Checkbox checked={filterClients.includes(c.name)} onCheckedChange={() => setFilterClients((prev) => prev.includes(c.name) ? prev.filter((x) => x !== c.name) : [...prev, c.name])} />
+                        {c.name}
+                      </label>
                     ))}
-                  </SelectContent>
-                </Select>
+                  </PopoverContent>
+                </Popover>
+
+                {/* Assigned By multi-select */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5">
+                      Assigned By {filterAssignedBy.length > 0 && <span className="ml-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground px-1">{filterAssignedBy.length}</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="start" className="w-52 p-2 max-h-64 overflow-y-auto">
+                    {assignedByNames.map((name) => (
+                      <label key={name} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted/50 cursor-pointer">
+                        <Checkbox checked={filterAssignedBy.includes(name)} onCheckedChange={() => setFilterAssignedBy((prev) => prev.includes(name) ? prev.filter((x) => x !== name) : [...prev, name])} />
+                        {name}
+                      </label>
+                    ))}
+                  </PopoverContent>
+                </Popover>
+
+                {/* Due date stays single-select */}
                 <Select value={filterDueDate} onValueChange={setFilterDueDate}>
                   <SelectTrigger className="h-8 w-40 text-xs"><SelectValue placeholder="Due Date" /></SelectTrigger>
                   <SelectContent>
@@ -523,8 +647,73 @@ export function TicketsContent({ tickets: initialTickets, users, clients, worklo
           )}
         </AnimatePresence>
 
+        {/* Bulk action bar */}
+        <AnimatePresence>
+          {selectedIds.size > 0 && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="overflow-hidden"
+            >
+              <div className="flex items-center gap-3 rounded-lg border bg-primary/5 border-primary/20 p-3">
+                <span className="text-sm font-medium">{selectedIds.size} selected</span>
+                <Select value={bulkField} onValueChange={(v) => { setBulkField(v); setBulkValue(""); }}>
+                  <SelectTrigger className="h-8 w-36 text-xs"><SelectValue placeholder="Field..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="status">Status</SelectItem>
+                    <SelectItem value="priority">Priority</SelectItem>
+                    <SelectItem value="assigneeId">Assignee</SelectItem>
+                    <SelectItem value="clientName">Client</SelectItem>
+                  </SelectContent>
+                </Select>
+                {bulkField === "status" && (
+                  <Select value={bulkValue} onValueChange={setBulkValue}>
+                    <SelectTrigger className="h-8 w-44 text-xs"><SelectValue placeholder="Select status..." /></SelectTrigger>
+                    <SelectContent>
+                      {statusColumnOrder.map((s) => <SelectItem key={s} value={s}>{statusLabels[s]}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                )}
+                {bulkField === "priority" && (
+                  <Select value={bulkValue} onValueChange={setBulkValue}>
+                    <SelectTrigger className="h-8 w-32 text-xs"><SelectValue placeholder="Select..." /></SelectTrigger>
+                    <SelectContent>
+                      {["LOW", "MEDIUM", "HIGH", "URGENT"].map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                )}
+                {bulkField === "assigneeId" && (
+                  <Select value={bulkValue} onValueChange={setBulkValue}>
+                    <SelectTrigger className="h-8 w-40 text-xs"><SelectValue placeholder="Select..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">Unassigned</SelectItem>
+                      {users.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                )}
+                {bulkField === "clientName" && (
+                  <Select value={bulkValue} onValueChange={setBulkValue}>
+                    <SelectTrigger className="h-8 w-40 text-xs"><SelectValue placeholder="Select..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">None</SelectItem>
+                      {clients.map((c) => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                )}
+                <Button size="sm" className="h-8 text-xs" onClick={handleBulkUpdate} disabled={!bulkField || !bulkValue || isBulkUpdating}>
+                  {isBulkUpdating ? "Updating..." : "Apply"}
+                </Button>
+                <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => { setSelectedIds(new Set()); setBulkField(""); setBulkValue(""); }}>
+                  <X className="h-3 w-3 mr-1" /> Clear
+                </Button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Content */}
-        {view === "table" && <TableView tickets={filtered} users={users} clients={clients} onUpdate={handleInlineUpdate} visibleColumns={visibleColumns} onTicketClick={handleTicketClick} />}
+        {view === "table" && <TableView tickets={filtered} users={users} clients={clients} onUpdate={handleInlineUpdate} visibleColumns={visibleColumns} onTicketClick={handleTicketClick} sortField={sortField} sortDir={sortDir} onToggleSort={toggleSort} selectedIds={selectedIds} onToggleSelect={toggleSelect} onToggleSelectAll={toggleSelectAll} />}
         {view === "kanban" && <KanbanView tickets={filtered} onStatusChange={handleInlineUpdate} onTicketClick={handleTicketClick} />}
         {view === "workload" && <WorkloadView tickets={workloadTickets} />}
       </div>
@@ -549,6 +738,12 @@ function TableView({
   onUpdate,
   visibleColumns,
   onTicketClick,
+  sortField,
+  sortDir,
+  onToggleSort,
+  selectedIds,
+  onToggleSelect,
+  onToggleSelectAll,
 }: {
   tickets: TicketData[];
   users: User[];
@@ -556,11 +751,26 @@ function TableView({
   onUpdate: (id: string, field: string, value: string) => void;
   visibleColumns: string[];
   onTicketClick: (id: string) => void;
+  sortField: string | null;
+  sortDir: "asc" | "desc";
+  onToggleSort: (field: "dueDate" | "createdAt" | "updatedAt" | "title" | null) => void;
+  selectedIds: Set<string>;
+  onToggleSelect: (id: string) => void;
+  onToggleSelectAll: () => void;
 }) {
   const router = useRouter();
   const [editingTitle, setEditingTitle] = useState<string | null>(null);
   const [titleDraft, setTitleDraft] = useState("");
   const isCol = (key: string) => visibleColumns.includes(key);
+
+  function SortHeader({ field, label }: { field: "dueDate" | "createdAt" | "updatedAt" | "title"; label: string }) {
+    return (
+      <button className="flex items-center gap-1 hover:text-foreground transition-colors" onClick={() => onToggleSort(field)}>
+        {label}
+        {sortField === field ? (sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : <ArrowUpDown className="h-3 w-3 opacity-40" />}
+      </button>
+    );
+  }
 
   if (tickets.length === 0) {
     return (
@@ -587,17 +797,19 @@ function TableView({
       <table className="w-full">
         <thead>
           <tr className="border-b bg-muted/30">
-            <th className="px-4 py-2 text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/80">Title</th>
+            <th className="px-3 py-2 w-10"><Checkbox checked={selectedIds.size === tickets.length && tickets.length > 0} onCheckedChange={onToggleSelectAll} /></th>
+            <th className="px-2 py-2 text-center text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/80 w-12">#</th>
+            <th className="px-4 py-2 text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/80"><SortHeader field="title" label="Title" /></th>
             {isCol("client") && <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/80">Client</th>}
             {isCol("status") && <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/80">Status</th>}
             {isCol("priority") && <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/80">Priority</th>}
             {isCol("assignee") && <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/80">Assignee</th>}
-            {isCol("due") && <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/80">Due</th>}
+            {isCol("due") && <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/80"><SortHeader field="dueDate" label="Due" /></th>}
             {isCol("info") && <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/80 w-20">Info</th>}
           </tr>
         </thead>
         <AnimatedTableBody>
-          {tickets.map((ticket) => {
+          {tickets.map((ticket, index) => {
             const isUrgent = ticket.priority === "URGENT" || ticket.priority === "HIGH";
             const isTicketOverdue = ticket.dueDate && isOverdue(ticket.dueDate);
             return (
@@ -608,6 +820,8 @@ function TableView({
                 }`}
                 onClick={(e: React.MouseEvent) => handleRowClick(e, ticket.id)}
               >
+                <td className="px-3 py-3 w-10" onClick={(e) => e.stopPropagation()}><Checkbox checked={selectedIds.has(ticket.id)} onCheckedChange={() => onToggleSelect(ticket.id)} /></td>
+                <td className="px-2 py-3 text-center text-xs text-muted-foreground">{index + 1}</td>
                 <td className="px-4 py-3" onClick={(e) => { if (editingTitle === ticket.id) e.stopPropagation(); }}>
                   <div className="flex items-start gap-2">
                     <div className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${

@@ -452,3 +452,45 @@ export async function getTicketWorkloadData() {
     },
   });
 }
+
+export async function bulkUpdateTickets(
+  ids: string[],
+  data: Record<string, unknown>
+): Promise<ActionResponse> {
+  await requireTicketAccess();
+
+  const updateData: Record<string, unknown> = { ...data };
+  if (updateData.dueDate && typeof updateData.dueDate === "string") {
+    updateData.dueDate = new Date(updateData.dueDate as string);
+  }
+
+  await db.ticket.updateMany({
+    where: { id: { in: ids } },
+    data: updateData,
+  });
+
+  revalidatePath("/tickets");
+  return { success: true };
+}
+
+export async function updateRevisionDeliveryUrl(
+  revisionId: string,
+  deliveryUrl: string
+): Promise<ActionResponse> {
+  await requireTicketAccess();
+
+  const revision = await db.revision.findUnique({
+    where: { id: revisionId },
+    select: { ticketId: true },
+  });
+
+  if (!revision) return { success: false, error: "Revision not found" };
+
+  await db.revision.update({
+    where: { id: revisionId },
+    data: { deliveryUrl: deliveryUrl || null },
+  });
+
+  revalidatePath(`/tickets/${revision.ticketId}`);
+  return { success: true };
+}

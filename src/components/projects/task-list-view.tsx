@@ -158,6 +158,7 @@ export function TaskListView({ projectId, tasks, members, onTaskClick }: TaskLis
       <table className="w-full">
         <thead>
           <tr className="border-b bg-muted/30">
+            <th className="px-2 py-2.5 text-center text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/80 w-12">#</th>
             <th className="px-4 py-2.5 text-left">
               <SortButton label="Task" field="title" />
             </th>
@@ -179,7 +180,7 @@ export function TaskListView({ projectId, tasks, members, onTaskClick }: TaskLis
           </tr>
         </thead>
         <AnimatedTableBody>
-          {sortedTasks.map((task) => {
+          {sortedTasks.map((task, taskIdx) => {
             const doneSubtasks = task.subtasks.filter(
               (s) => s.status === "DELIVERED"
             ).length;
@@ -192,6 +193,7 @@ export function TaskListView({ projectId, tasks, members, onTaskClick }: TaskLis
                 key={task.id}
                 className="cursor-pointer border-b last:border-0 hover:bg-muted/30"
               >
+                <td className="px-2 py-2.5 text-center text-xs text-muted-foreground">{taskIdx + 1}</td>
                 <td className="px-4 py-2.5" onClick={() => onTaskClick(task.id)}>
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium hover:text-primary transition-colors">{task.title}</span>

@@ -9,6 +9,9 @@ export default async function TicketsPage() {
     getTicketWorkloadData(),
   ]);
 
+  // Collect distinct assignedBy names for the filter
+  const assignedByNames = [...new Set(tickets.map((t) => t.assignedBy?.name).filter(Boolean))] as string[];
+
   return (
     <TicketsContent
       tickets={tickets.map((t) => ({
@@ -20,6 +23,8 @@ export default async function TicketsPage() {
         creativeType: t.creativeType,
         clientName: t.clientName,
         dueDate: t.dueDate ? t.dueDate.toISOString() : null,
+        createdAt: t.createdAt.toISOString(),
+        updatedAt: t.updatedAt.toISOString(),
         deliveryLink: t.deliveryLink,
         assigneeId: t.assignee?.id || null,
         assigneeName: t.assignee?.name || null,
@@ -32,6 +37,7 @@ export default async function TicketsPage() {
       }))}
       users={users}
       clients={clients}
+      assignedByNames={assignedByNames}
       workloadTickets={workloadTickets.map((t) => ({
         id: t.id,
         status: t.status,

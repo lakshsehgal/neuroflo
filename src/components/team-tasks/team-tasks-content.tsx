@@ -898,6 +898,7 @@ function TableView({
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="border-b bg-muted/30">
+                            <th className="px-2 py-2 text-center font-medium text-muted-foreground text-[10px] uppercase tracking-widest w-12">#</th>
                             <th className="pl-6 pr-3 py-2 text-left font-medium text-muted-foreground text-xs">
                               Title
                             </th>
@@ -927,11 +928,12 @@ function TableView({
                           </tr>
                         </thead>
                         <AnimatedTableBody>
-                          {ag.tasks.map((task) => (
+                          {ag.tasks.map((task, taskIdx) => (
                             <AnimatedRow
                               key={task.id}
                               className={`group border-b last:border-0 border-l-[3px] ${accent} hover:bg-muted/20 transition-colors`}
                             >
+                              <td className="px-2 py-2.5 text-center text-xs text-muted-foreground">{taskIdx + 1}</td>
                               <td className="pl-5 pr-3 py-2.5">
                                 <EditableTitle
                                   value={task.title}

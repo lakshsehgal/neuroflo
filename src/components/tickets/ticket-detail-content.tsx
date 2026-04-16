@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useTransition } from "react";
-import { updateTicket, updateTicketStatus, addTicketComment, deleteTicket, createTicketRevision } from "@/actions/tickets";
+import { updateTicket, updateTicketStatus, addTicketComment, deleteTicket, createTicketRevision, updateRevisionDeliveryUrl } from "@/actions/tickets";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -138,6 +138,8 @@ export function TicketDetailContent({
   const [revisionDeliveryUrl, setRevisionDeliveryUrl] = useState("");
   const [revisionNote, setRevisionNote] = useState("");
   const [revisionError, setRevisionError] = useState("");
+  const [editingRevisionId, setEditingRevisionId] = useState<string | null>(null);
+  const [revisionUrlDraft, setRevisionUrlDraft] = useState("");
   const router = useRouter();
 
   function handleUpdateField(field: string, value: string) {
@@ -234,6 +236,19 @@ export function TicketDetailContent({
       } catch {
         setRevisionError("Something went wrong. Please try again.");
       }
+    });
+  }
+
+  function handleSaveRevisionUrl(revisionId: string) {
+    startTransition(async () => {
+      await updateRevisionDeliveryUrl(revisionId, revisionUrlDraft.trim());
+      setTicket((prev) => ({
+        ...prev,
+        revisions: prev.revisions.map((r) =>
+          r.id === revisionId ? { ...r, deliveryUrl: revisionUrlDraft.trim() || null } : r
+        ),
+      }));
+      setEditingRevisionId(null);
     });
   }
 
@@ -580,29 +595,56 @@ export function TicketDetailContent({
                             <Badge className="bg-primary/10 text-primary text-[10px] px-1.5 py-0">Latest</Badge>
                           )}
                         </div>
-                        {/* Version delivery link */}
-                        {rev.deliveryUrl && (
-                          <a
-                            href={rev.deliveryUrl.startsWith("http") ? rev.deliveryUrl : `https://${rev.deliveryUrl}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 mt-1 text-xs font-medium text-primary hover:underline"
-                          >
-                            <Globe className="h-3 w-3" />
-                            View Delivery
-                          </a>
-                        )}
-                        {/* S3 file link */}
-                        {rev.s3Url && !rev.deliveryUrl && (
-                          <a
-                            href={rev.s3Url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 mt-1 text-xs font-medium text-primary hover:underline"
-                          >
-                            <ExternalLink className="h-3 w-3" />
-                            Download File
-                          </a>
+                        {/* Version delivery link - editable */}
+                        {editingRevisionId === rev.id ? (
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <Input
+                              value={revisionUrlDraft}
+                              onChange={(e) => setRevisionUrlDraft(e.target.value)}
+                              placeholder="https://..."
+                              className="h-7 text-xs flex-1"
+                              autoFocus
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") handleSaveRevisionUrl(rev.id);
+                                if (e.key === "Escape") setEditingRevisionId(null);
+                              }}
+                            />
+                            <Button size="sm" className="h-7 px-2 text-xs" onClick={() => handleSaveRevisionUrl(rev.id)}>Save</Button>
+                            <Button size="sm" variant="ghost" className="h-7 px-1.5 text-xs" onClick={() => setEditingRevisionId(null)}>Cancel</Button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 mt-1">
+                            {rev.deliveryUrl ? (
+                              <a
+                                href={rev.deliveryUrl.startsWith("http") ? rev.deliveryUrl : `https://${rev.deliveryUrl}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                              >
+                                <Globe className="h-3 w-3" />
+                                View Delivery
+                              </a>
+                            ) : rev.s3Url ? (
+                              <a
+                                href={rev.s3Url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                              >
+                                <ExternalLink className="h-3 w-3" />
+                                Download File
+                              </a>
+                            ) : (
+                              <span className="text-xs text-muted-foreground/60 italic">No link</span>
+                            )}
+                            <button
+                              onClick={() => { setEditingRevisionId(rev.id); setRevisionUrlDraft(rev.deliveryUrl || ""); }}
+                              className="text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+                              title="Edit delivery link"
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </button>
+                          </div>
                         )}
                         <p className="text-xs text-muted-foreground mt-0.5">
                           {rev.uploadedBy.name} &middot; {formatRelativeTime(rev.createdAt)}

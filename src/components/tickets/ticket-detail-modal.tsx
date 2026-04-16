@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useTransition } from "react";
-import { getTicket, updateTicket, updateTicketStatus, addTicketComment, deleteTicket } from "@/actions/tickets";
+import { getTicket, updateTicket, updateTicketStatus, addTicketComment, deleteTicket, updateRevisionDeliveryUrl } from "@/actions/tickets";
 import {
   Dialog,
   DialogContent,
@@ -94,6 +94,8 @@ export function TicketDetailModal({
   const [description, setDescription] = useState("");
   const [commentText, setCommentText] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [editingDelivery, setEditingDelivery] = useState(false);
+  const [deliveryDraft, setDeliveryDraft] = useState("");
 
   useEffect(() => {
     if (ticketId && open) {
@@ -207,8 +209,17 @@ export function TicketDetailModal({
           </div>
         ) : (
           <>
+            {/* Expand button - top left corner */}
+            <Link
+              href={`/tickets/${ticket.id}`}
+              className="absolute left-4 top-4 z-10 rounded-sm p-1 text-muted-foreground opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+              title="Open full screen"
+            >
+              <Maximize2 className="h-4 w-4" />
+            </Link>
+
             <DialogHeader className="px-6 pt-6 pb-0">
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center justify-between gap-2 pl-6">
                 <div className="flex-1 min-w-0">
                   {editingTitle ? (
                     <Input
@@ -234,13 +245,6 @@ export function TicketDetailModal({
                     </DialogTitle>
                   )}
                 </div>
-                <Link
-                  href={`/tickets/${ticket.id}`}
-                  className="shrink-0 rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                  title="Open full screen"
-                >
-                  <Maximize2 className="h-4 w-4" />
-                </Link>
               </div>
               {/* Status & priority badges */}
               <div className="flex flex-wrap items-center gap-2 mt-2">
@@ -316,20 +320,61 @@ export function TicketDetailModal({
 
                   <Separator />
 
-                  {/* Delivery Link */}
-                  {ticket.deliveryLink && (
-                    <div className="flex items-center gap-2">
+                  {/* Delivery Link - editable */}
+                  <div>
+                    <h4 className="mb-1.5 text-sm font-semibold flex items-center gap-1.5">
                       <Link2 className="h-3.5 w-3.5 text-muted-foreground" />
-                      <a
-                        href={ticket.deliveryLink.startsWith("http") ? ticket.deliveryLink : `https://${ticket.deliveryLink}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm text-primary hover:underline flex items-center gap-1"
-                      >
-                        View Delivery <ExternalLink className="h-3 w-3" />
-                      </a>
-                    </div>
-                  )}
+                      Delivery Link
+                    </h4>
+                    {editingDelivery ? (
+                      <div className="flex gap-2">
+                        <Input
+                          value={deliveryDraft}
+                          onChange={(e) => setDeliveryDraft(e.target.value)}
+                          placeholder="https://..."
+                          className="h-8 text-sm flex-1"
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              handleUpdateField("deliveryLink", deliveryDraft.trim());
+                              setTicket((prev) => prev ? { ...prev, deliveryLink: deliveryDraft.trim() || null } : prev);
+                              setEditingDelivery(false);
+                            }
+                            if (e.key === "Escape") setEditingDelivery(false);
+                          }}
+                        />
+                        <Button size="sm" className="h-8 px-3 text-xs" onClick={() => {
+                          handleUpdateField("deliveryLink", deliveryDraft.trim());
+                          setTicket((prev) => prev ? { ...prev, deliveryLink: deliveryDraft.trim() || null } : prev);
+                          setEditingDelivery(false);
+                        }}>Save</Button>
+                        <Button size="sm" variant="ghost" className="h-8 px-2 text-xs" onClick={() => setEditingDelivery(false)}>Cancel</Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        {ticket.deliveryLink ? (
+                          <a
+                            href={ticket.deliveryLink.startsWith("http") ? ticket.deliveryLink : `https://${ticket.deliveryLink}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-primary hover:underline flex items-center gap-1"
+                          >
+                            View Delivery <ExternalLink className="h-3 w-3" />
+                          </a>
+                        ) : (
+                          <span className="text-sm text-muted-foreground/60 italic">No link</span>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-1.5 text-xs text-muted-foreground"
+                          onClick={() => { setDeliveryDraft(ticket.deliveryLink || ""); setEditingDelivery(true); }}
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
 
                   {/* Creative Brief */}
                   {ticket.creativeBriefUrl && (
