@@ -220,87 +220,100 @@ export async function getTeamTaskWorkloadData() {
 export async function getTeamTaskAnalytics() {
   await requireAuth();
 
-  const tasks = await db.teamTask.findMany({
-    include: {
-      team: { include: { department: { select: { name: true } } } },
-      assignee: { select: { id: true, name: true, avatar: true } },
-    },
-  });
-
   const now = new Date();
 
-  const totalTasks = tasks.length;
-  const openTasks = tasks.filter((t) => t.status !== "DONE").length;
-  const doneTasks = tasks.filter((t) => t.status === "DONE").length;
-  const overdueTasks = tasks.filter(
-    (t) => t.dueDate && t.dueDate < now && t.status !== "DONE"
-  ).length;
-  const urgentTasks = tasks.filter((t) => t.priority === "URGENT").length;
-  const blockedTasks = tasks.filter((t) => t.status === "BLOCKED").length;
+  const [
+    totalTasks,
+    doneTasks,
+    overdueTasks,
+    urgentTasks,
+    blockedTasks,
+    statusGroups,
+    priorityGroups,
+    teamStatusGroups,
+    assigneeStatusGroups,
+  ] = await Promise.all([
+    db.teamTask.count(),
+    db.teamTask.count({ where: { status: "DONE" } }),
+    db.teamTask.count({ where: { dueDate: { lt: now }, status: { not: "DONE" } } }),
+    db.teamTask.count({ where: { priority: "URGENT" } }),
+    db.teamTask.count({ where: { status: "BLOCKED" } }),
+    db.teamTask.groupBy({ by: ["status"], _count: { _all: true } }),
+    db.teamTask.groupBy({ by: ["priority"], _count: { _all: true } }),
+    db.teamTask.groupBy({ by: ["teamId", "status"], _count: { _all: true } }),
+    db.teamTask.groupBy({
+      by: ["assigneeId", "status"],
+      where: { assigneeId: { not: null } },
+      _count: { _all: true },
+    }),
+  ]);
 
-  // Status counts
-  const statusMap = new Map<string, number>();
-  tasks.forEach((t) => statusMap.set(t.status, (statusMap.get(t.status) || 0) + 1));
-  const statusCounts = Array.from(statusMap.entries()).map(([status, count]) => ({
-    status,
-    count,
-  }));
+  // Fetch team and assignee info
+  const teamIds = [...new Set(teamStatusGroups.map((g) => g.teamId))];
+  const assigneeIds = [...new Set(assigneeStatusGroups.map((g) => g.assigneeId!))];
 
-  // Priority counts
-  const priorityMap = new Map<string, number>();
-  tasks.forEach((t) =>
-    priorityMap.set(t.priority, (priorityMap.get(t.priority) || 0) + 1)
-  );
-  const priorityCounts = Array.from(priorityMap.entries()).map(
-    ([priority, count]) => ({ priority, count })
-  );
+  const [teams, assignees, overdueByTeam, overdueByAssignee] = await Promise.all([
+    teamIds.length > 0
+      ? db.team.findMany({
+          where: { id: { in: teamIds } },
+          select: { id: true, name: true, department: { select: { name: true } } },
+        })
+      : [],
+    assigneeIds.length > 0
+      ? db.user.findMany({
+          where: { id: { in: assigneeIds } },
+          select: { id: true, name: true, avatar: true },
+        })
+      : [],
+    db.teamTask.groupBy({
+      by: ["teamId"],
+      where: { dueDate: { lt: now }, status: { not: "DONE" } },
+      _count: { _all: true },
+    }),
+    assigneeIds.length > 0
+      ? db.teamTask.groupBy({
+          by: ["assigneeId"],
+          where: { assigneeId: { in: assigneeIds }, dueDate: { lt: now }, status: { not: "DONE" } },
+          _count: { _all: true },
+        })
+      : [],
+  ]);
 
-  // Team counts
-  const teamMap = new Map<string, { name: string; dept: string; total: number; open: number; done: number; overdue: number }>();
-  tasks.forEach((t) => {
-    const key = t.teamId;
-    const existing = teamMap.get(key) || {
-      name: t.team.name,
-      dept: t.team.department.name,
-      total: 0,
-      open: 0,
-      done: 0,
-      overdue: 0,
-    };
-    existing.total++;
-    if (t.status !== "DONE") existing.open++;
-    if (t.status === "DONE") existing.done++;
-    if (t.dueDate && t.dueDate < now && t.status !== "DONE") existing.overdue++;
-    teamMap.set(key, existing);
-  });
-  const teamCounts = Array.from(teamMap.values());
+  const teamMap = new Map(teams.map((t) => [t.id, t]));
+  const userMap = new Map(assignees.map((u) => [u.id, u]));
 
-  // Assignee workload
-  const assigneeMap = new Map<
-    string,
-    { id: string; name: string; avatar: string | null; total: number; open: number; done: number; overdue: number }
-  >();
-  tasks.forEach((t) => {
-    if (!t.assignee) return;
-    const key = t.assignee.id;
-    const existing = assigneeMap.get(key) || {
-      id: t.assignee.id,
-      name: t.assignee.name,
-      avatar: t.assignee.avatar,
-      total: 0,
-      open: 0,
-      done: 0,
-      overdue: 0,
-    };
-    existing.total++;
-    if (t.status !== "DONE") existing.open++;
-    if (t.status === "DONE") existing.done++;
-    if (t.dueDate && t.dueDate < now && t.status !== "DONE") existing.overdue++;
-    assigneeMap.set(key, existing);
-  });
-  const assigneeWorkload = Array.from(assigneeMap.values()).sort(
-    (a, b) => b.open - a.open
-  );
+  // Build team counts
+  const teamAgg: Record<string, { name: string; dept: string; total: number; open: number; done: number; overdue: number }> = {};
+  for (const row of teamStatusGroups) {
+    if (!teamAgg[row.teamId]) {
+      const team = teamMap.get(row.teamId);
+      teamAgg[row.teamId] = { name: team?.name || "Unknown", dept: team?.department.name || "", total: 0, open: 0, done: 0, overdue: 0 };
+    }
+    teamAgg[row.teamId].total += row._count._all;
+    if (row.status === "DONE") teamAgg[row.teamId].done += row._count._all;
+    else teamAgg[row.teamId].open += row._count._all;
+  }
+  for (const row of overdueByTeam) {
+    if (teamAgg[row.teamId]) teamAgg[row.teamId].overdue = row._count._all;
+  }
+
+  // Build assignee workload
+  const assigneeAgg: Record<string, { id: string; name: string; avatar: string | null; total: number; open: number; done: number; overdue: number }> = {};
+  for (const row of assigneeStatusGroups) {
+    const uid = row.assigneeId!;
+    if (!assigneeAgg[uid]) {
+      const user = userMap.get(uid);
+      assigneeAgg[uid] = { id: uid, name: user?.name || "Unknown", avatar: user?.avatar || null, total: 0, open: 0, done: 0, overdue: 0 };
+    }
+    assigneeAgg[uid].total += row._count._all;
+    if (row.status === "DONE") assigneeAgg[uid].done += row._count._all;
+    else assigneeAgg[uid].open += row._count._all;
+  }
+  for (const row of overdueByAssignee) {
+    if (row.assigneeId && assigneeAgg[row.assigneeId]) assigneeAgg[row.assigneeId].overdue = row._count._all;
+  }
+
+  const openTasks = totalTasks - doneTasks;
 
   return {
     summary: {
@@ -312,10 +325,10 @@ export async function getTeamTaskAnalytics() {
       blockedTasks,
       completionRate: totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0,
     },
-    statusCounts,
-    priorityCounts,
-    teamCounts,
-    assigneeWorkload,
+    statusCounts: statusGroups.map((g) => ({ status: g.status, count: g._count._all })),
+    priorityCounts: priorityGroups.map((g) => ({ priority: g.priority, count: g._count._all })),
+    teamCounts: Object.values(teamAgg),
+    assigneeWorkload: Object.values(assigneeAgg).sort((a, b) => b.open - a.open),
   };
 }
 

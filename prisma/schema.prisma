@@ -267,6 +267,10 @@ model ActivityLog {
   entityId   String
   metadata   Json?
   createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([entityType, entityId])
 }
 
 // ─── Project Management ─────────────────────────────────
@@ -290,6 +294,10 @@ model Project {
   tickets      Ticket[]
   labels       TaskLabel[]
   guestAccess  GuestAccess[]
+
+  @@index([status])
+  @@index([clientId])
+  @@index([departmentId])
 }
 
 model ProjectMember {
@@ -334,6 +342,10 @@ model Task {
   checklistItems ChecklistItem[]
   revisions      TaskRevision[]
   feedbacks      TaskFeedback[]
+
+  @@index([projectId, status])
+  @@index([assigneeId])
+  @@index([dueDate])
 }
 
 model ChecklistItem {
@@ -414,6 +426,12 @@ model Ticket {
   revisions Revision[]
   approvals Approval[]
   comments  Comment[]
+
+  @@index([status])
+  @@index([assigneeId])
+  @@index([creatorId])
+  @@index([projectId])
+  @@index([createdAt])
 }
 
 model Revision {
@@ -457,6 +475,10 @@ model Comment {
   teamTask   TeamTask? @relation("TeamTaskComments", fields: [teamTaskId], references: [id], onDelete: Cascade)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+
+  @@index([taskId])
+  @@index([ticketId])
+  @@index([teamTaskId])
 }
 
 // ─── Asset Management ───────────────────────────────────
@@ -556,6 +578,8 @@ model Client {
   invoices    Invoice[]
   onboarding  ClientOnboarding?
   guestAccess GuestAccess[]
+
+  @@index([status])
 }
 
 model ClientOnboarding {
@@ -606,6 +630,10 @@ model Invoice {
   updatedAt    DateTime      @updatedAt
 
   payments     InvoicePayment[]
+
+  @@index([clientId])
+  @@index([status])
+  @@index([dueDate])
 }
 
 model InvoicePayment {

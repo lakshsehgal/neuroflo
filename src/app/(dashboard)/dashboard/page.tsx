@@ -11,6 +11,14 @@ export default async function DashboardPage() {
   const weekFromNow = new Date(now);
   weekFromNow.setDate(weekFromNow.getDate() + 7);
 
+  // Pre-fetch entity IDs for activity log (needed before main query batch)
+  const [myTaskIds, myTicketIds, myTeamTaskIds] = await Promise.all([
+    db.task.findMany({ where: { assigneeId: user.id }, select: { id: true } }).then((t) => t.map((x) => x.id)),
+    db.ticket.findMany({ where: { OR: [{ creatorId: user.id }, { assigneeId: user.id }] }, select: { id: true } }).then((t) => t.map((x) => x.id)),
+    db.teamTask.findMany({ where: { assigneeId: user.id }, select: { id: true } }).then((t) => t.map((x) => x.id)),
+  ]);
+
+  // Now run all dashboard queries truly in parallel
   const [
     myProjectCount,
     myTicketCount,
@@ -22,12 +30,12 @@ export default async function DashboardPage() {
     upcomingProjectDeadlines,
     upcomingTeamDeadlines,
     dbUser,
+    overdueProjectCount,
+    overdueTeamCount,
   ] = await Promise.all([
     // Projects where user has assigned tasks
     db.project.count({
-      where: {
-        tasks: { some: { assigneeId: user.id } },
-      },
+      where: { tasks: { some: { assigneeId: user.id } } },
     }),
     // User's open tickets (created or assigned)
     db.ticket.count({
@@ -36,38 +44,14 @@ export default async function DashboardPage() {
         status: { notIn: ["APPROVED"] },
       },
     }),
-    // Recent activity on entities the user is involved with
+    // Recent activity — no nested awaits now
     db.activityLog.findMany({
       where: {
         OR: [
           { userId: user.id },
-          {
-            entityType: "TASK",
-            entityId: {
-              in: await db.task
-                .findMany({ where: { assigneeId: user.id }, select: { id: true } })
-                .then((t) => t.map((x) => x.id)),
-            },
-          },
-          {
-            entityType: "TICKET",
-            entityId: {
-              in: await db.ticket
-                .findMany({
-                  where: { OR: [{ creatorId: user.id }, { assigneeId: user.id }] },
-                  select: { id: true },
-                })
-                .then((t) => t.map((x) => x.id)),
-            },
-          },
-          {
-            entityType: "TEAM_TASK",
-            entityId: {
-              in: await db.teamTask
-                .findMany({ where: { assigneeId: user.id }, select: { id: true } })
-                .then((t) => t.map((x) => x.id)),
-            },
-          },
+          { entityType: "TASK", entityId: { in: myTaskIds } },
+          { entityType: "TICKET", entityId: { in: myTicketIds } },
+          { entityType: "TEAM_TASK", entityId: { in: myTeamTaskIds } },
         ],
       },
       include: { user: { select: { name: true, avatar: true } } },
@@ -129,10 +113,7 @@ export default async function DashboardPage() {
       where: { id: user.id },
       select: { googleCalendarConnected: true },
     }),
-  ]);
-
-  // Overdue tasks count (project + team)
-  const [overdueProjectCount, overdueTeamCount] = await Promise.all([
+    // Overdue counts — now parallel with everything else
     db.task.count({
       where: {
         assigneeId: user.id,
@@ -148,6 +129,7 @@ export default async function DashboardPage() {
       },
     }),
   ]);
+
   const overdueCount = overdueProjectCount + overdueTeamCount;
 
   // Merge project + team task deadlines into one sorted list
