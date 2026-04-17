@@ -1,6 +1,6 @@
 // Service Worker for Push Notifications
 // Version 2 — bump on every change to force refresh
-const SW_VERSION = "v2-2026-04-17";
+const SW_VERSION = "v3-2026-04-17";
 
 // Activate this SW immediately, don't wait for tabs to close
 self.addEventListener("install", (event) => {
@@ -32,8 +32,8 @@ self.addEventListener("push", (event) => {
 
   const options = {
     body: data.body,
-    icon: "/neuroid-icon.svg",
-    badge: "/neuroid-icon.svg",
+    icon: "/neuroid-icon-192.png",
+    badge: "/neuroid-icon-192.png",
     data: { url: data.url || "/" },
     tag: data.tag || "neuroid-notification",
     renotify: true,
