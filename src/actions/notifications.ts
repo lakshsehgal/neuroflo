@@ -48,9 +48,9 @@ export async function createNotification(
     },
   });
 
-  // Send browser push notification
+  // Send browser push notification (non-blocking, errors already logged inside)
   await sendPushNotification(userId, title, body, link ?? undefined, type).catch(
-    () => {} // Don't fail the action if push fails
+    (err) => console.error("[Push] Unexpected error:", err)
   );
 }
 

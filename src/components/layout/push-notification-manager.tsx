@@ -98,6 +98,7 @@ export function PushNotificationManager() {
 async function registerServiceWorker() {
   try {
     const registration = await navigator.serviceWorker.register("/sw.js");
+    console.log("[Push] Service worker registered");
 
     // If already subscribed, sync with server
     const existing = await registration.pushManager.getSubscription();
@@ -110,10 +111,10 @@ async function registerServiceWorker() {
           btoa(String.fromCharCode(...new Uint8Array(key))),
           btoa(String.fromCharCode(...new Uint8Array(auth)))
         );
+        console.log("[Push] Synced existing subscription with server");
       }
     } else if (Notification.permission === "granted" && VAPID_PUBLIC_KEY) {
-      // Permission was granted (e.g. via browser prompt) but no push subscription exists yet.
-      // Auto-subscribe so push notifications actually work.
+      // Permission granted but no push subscription — auto-subscribe
       try {
         const subscription = await registration.pushManager.subscribe({
           userVisibleOnly: true,
@@ -127,22 +128,34 @@ async function registerServiceWorker() {
             btoa(String.fromCharCode(...new Uint8Array(key))),
             btoa(String.fromCharCode(...new Uint8Array(auth)))
           );
+          console.log("[Push] Auto-subscribed after permission was already granted");
         }
-      } catch {
-        // Subscription failed silently
+      } catch (err) {
+        console.error("[Push] Auto-subscribe failed:", err);
       }
+    } else if (!VAPID_PUBLIC_KEY) {
+      console.warn("[Push] NEXT_PUBLIC_VAPID_PUBLIC_KEY is not set in env");
     }
-  } catch {
-    // Service worker registration failed silently
+  } catch (err) {
+    console.error("[Push] Service worker registration failed:", err);
   }
 }
 
 export async function requestPushPermission(): Promise<boolean> {
-  if (!VAPID_PUBLIC_KEY) return false;
-  if (!("serviceWorker" in navigator) || !("PushManager" in window)) return false;
+  if (!VAPID_PUBLIC_KEY) {
+    console.error("[Push] Cannot subscribe: NEXT_PUBLIC_VAPID_PUBLIC_KEY is not set");
+    return false;
+  }
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+    console.error("[Push] Service worker / PushManager not supported in this browser");
+    return false;
+  }
 
   const permission = await Notification.requestPermission();
-  if (permission !== "granted") return false;
+  if (permission !== "granted") {
+    console.warn("[Push] Permission not granted:", permission);
+    return false;
+  }
 
   try {
     const registration = await navigator.serviceWorker.ready;
@@ -153,16 +166,26 @@ export async function requestPushPermission(): Promise<boolean> {
 
     const key = subscription.getKey("p256dh");
     const auth = subscription.getKey("auth");
-    if (!key || !auth) return false;
+    if (!key || !auth) {
+      console.error("[Push] Subscription returned no keys");
+      return false;
+    }
 
-    await subscribePush(
+    const result = await subscribePush(
       subscription.endpoint,
       btoa(String.fromCharCode(...new Uint8Array(key))),
       btoa(String.fromCharCode(...new Uint8Array(auth)))
     );
 
+    if (!result.success) {
+      console.error("[Push] Server rejected subscription:", result.error);
+      return false;
+    }
+
+    console.log("[Push] Successfully subscribed and saved on server");
     return true;
-  } catch {
+  } catch (err) {
+    console.error("[Push] Subscribe failed:", err);
     return false;
   }
 }

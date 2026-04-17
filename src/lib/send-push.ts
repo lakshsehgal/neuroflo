@@ -7,15 +7,24 @@ export async function sendPushNotification(
   body: string,
   url?: string,
   tag?: string
-) {
+): Promise<string[]> {
+  const errors: string[] = [];
+
   if (!process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
-    console.warn("[Push] VAPID keys not configured, skipping push notification");
-    return;
+    const msg = "VAPID keys not configured";
+    console.warn(`[Push] ${msg}`);
+    errors.push(msg);
+    return errors;
   }
 
   const subscriptions = await db.pushSubscription.findMany({
     where: { userId },
   });
+
+  if (subscriptions.length === 0) {
+    console.warn(`[Push] No subscriptions for user ${userId}`);
+    return errors;
+  }
 
   const payload = JSON.stringify({ title, body, url, tag });
 
@@ -31,17 +40,23 @@ export async function sendPushNotification(
     )
   );
 
-  // Clean up expired subscriptions and log errors
+  // Clean up expired subscriptions and collect errors
   for (let i = 0; i < results.length; i++) {
     const result = results[i];
     if (result.status === "rejected") {
-      if (result.reason?.statusCode === 410) {
+      const reason = result.reason as { statusCode?: number; message?: string; body?: string };
+      if (reason?.statusCode === 410 || reason?.statusCode === 404) {
         await db.pushSubscription.delete({
           where: { id: subscriptions[i].id },
         }).catch(() => {});
+        errors.push(`Subscription ${i + 1}: expired (${reason.statusCode}) — removed`);
       } else {
-        console.error("[Push] Failed to send notification:", result.reason?.message || result.reason);
+        const msg = `Subscription ${i + 1}: ${reason?.statusCode || "?"} ${reason?.message || reason?.body || "unknown error"}`;
+        console.error("[Push]", msg);
+        errors.push(msg);
       }
     }
   }
+
+  return errors;
 }

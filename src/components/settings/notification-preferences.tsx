@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { updateNotificationPreferences } from "@/actions/notifications";
-import { unsubscribePush } from "@/actions/push-subscriptions";
+import { unsubscribePush, sendTestPushNotification } from "@/actions/push-subscriptions";
 import { requestPushPermission } from "@/components/layout/push-notification-manager";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,6 +39,8 @@ export function NotificationPreferencesContent({
   const [message, setMessage] = useState("");
   const [pushStatus, setPushStatus] = useState<"loading" | "unsupported" | "denied" | "enabled" | "disabled">("loading");
   const [pushLoading, setPushLoading] = useState(false);
+  const [testLoading, setTestLoading] = useState(false);
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string; details?: string[] } | null>(null);
 
   useEffect(() => {
     checkPushStatus();
@@ -67,6 +69,32 @@ export function NotificationPreferencesContent({
     const success = await requestPushPermission();
     setPushStatus(success ? "enabled" : Notification.permission === "denied" ? "denied" : "disabled");
     setPushLoading(false);
+  }
+
+  async function handleSendTest() {
+    setTestLoading(true);
+    setTestResult(null);
+    try {
+      const res = await sendTestPushNotification();
+      if (res.success) {
+        setTestResult({
+          success: true,
+          message: `Test sent to ${res.data?.subscriptionCount ?? 0} device(s). Check for a notification!`,
+        });
+      } else {
+        setTestResult({
+          success: false,
+          message: res.error || "Failed to send test push",
+          details: res.data?.errors,
+        });
+      }
+    } catch (err) {
+      setTestResult({
+        success: false,
+        message: err instanceof Error ? err.message : "Unexpected error sending test",
+      });
+    }
+    setTestLoading(false);
   }
 
   async function handleDisablePush() {
@@ -146,22 +174,53 @@ export function NotificationPreferencesContent({
               {pushStatus === "denied" ? (
                 <span className="text-xs text-muted-foreground">Blocked</span>
               ) : (
-                <Button
-                  variant={pushStatus === "enabled" ? "outline" : "default"}
-                  size="sm"
-                  onClick={pushStatus === "enabled" ? handleDisablePush : handleEnablePush}
-                  disabled={pushLoading}
-                >
-                  {pushLoading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : pushStatus === "enabled" ? (
-                    "Disable"
-                  ) : (
-                    "Enable"
+                <div className="flex items-center gap-2">
+                  {pushStatus === "enabled" && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={handleSendTest}
+                      disabled={testLoading}
+                    >
+                      {testLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send Test"}
+                    </Button>
                   )}
-                </Button>
+                  <Button
+                    variant={pushStatus === "enabled" ? "outline" : "default"}
+                    size="sm"
+                    onClick={pushStatus === "enabled" ? handleDisablePush : handleEnablePush}
+                    disabled={pushLoading}
+                  >
+                    {pushLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : pushStatus === "enabled" ? (
+                      "Disable"
+                    ) : (
+                      "Enable"
+                    )}
+                  </Button>
+                </div>
               )}
             </div>
+
+            {testResult && (
+              <div
+                className={`mt-3 rounded-md border p-3 text-xs ${
+                  testResult.success
+                    ? "border-green-200 bg-green-50 text-green-800 dark:border-green-900 dark:bg-green-900/20 dark:text-green-300"
+                    : "border-red-200 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-900/20 dark:text-red-300"
+                }`}
+              >
+                <p className="font-medium">{testResult.message}</p>
+                {testResult.details && testResult.details.length > 0 && (
+                  <ul className="mt-2 space-y-0.5 list-disc list-inside">
+                    {testResult.details.map((d, i) => (
+                      <li key={i} className="font-mono text-[10px] break-all">{d}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
