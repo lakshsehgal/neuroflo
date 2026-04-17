@@ -97,8 +97,11 @@ export function PushNotificationManager() {
 
 async function registerServiceWorker() {
   try {
-    const registration = await navigator.serviceWorker.register("/sw.js");
-    console.log("[Push] Service worker registered");
+    const registration = await navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" });
+    console.log("[Push] Service worker registered, state:", registration.active?.state || "pending");
+
+    // Force update check on every page load — picks up new sw.js versions immediately
+    registration.update().catch((err) => console.warn("[Push] SW update check failed:", err));
 
     // If already subscribed, sync with server
     const existing = await registration.pushManager.getSubscription();

@@ -77,9 +77,21 @@ export function NotificationPreferencesContent({
     try {
       const res = await sendTestPushNotification();
       if (res.success) {
+        // Server delivered to push service successfully.
+        // If the user still doesn't see the notification, the issue is local.
+        const tips: string[] = [
+          `Delivered to ${res.data?.subscriptionCount ?? 0} device(s) via the browser push service.`,
+          "If no popup appears within a few seconds, the issue is on this device:",
+          "1. macOS: System Settings → Notifications → (your browser) → Allow Notifications ON",
+          "2. Windows: Settings → System → Notifications → (your browser) allowed, Focus Assist OFF",
+          "3. Check DevTools → Application → Service Workers — 'sw.js' should be 'activated and running'",
+          "4. In DevTools → Console, look for '[SW] push event received' — if missing, the SW isn't getting the push",
+          "5. Try unregistering the SW in DevTools and clicking Disable → Enable above to re-subscribe",
+        ];
         setTestResult({
           success: true,
-          message: `Test sent to ${res.data?.subscriptionCount ?? 0} device(s). Check for a notification!`,
+          message: "Test sent successfully to your browser's push service.",
+          details: tips,
         });
       } else {
         setTestResult({
@@ -213,11 +225,11 @@ export function NotificationPreferencesContent({
               >
                 <p className="font-medium">{testResult.message}</p>
                 {testResult.details && testResult.details.length > 0 && (
-                  <ul className="mt-2 space-y-0.5 list-disc list-inside">
+                  <div className="mt-2 space-y-1">
                     {testResult.details.map((d, i) => (
-                      <li key={i} className="font-mono text-[10px] break-all">{d}</li>
+                      <p key={i} className="text-[11px] leading-relaxed break-words">{d}</p>
                     ))}
-                  </ul>
+                  </div>
                 )}
               </div>
             )}
