@@ -27,8 +27,11 @@ const mono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Neuroid — Agency Management",
-  description: "Internal project management and creative operations tool",
+  title: "Neuroid OS",
+  description: "Neuroid OS — agency operations platform",
+  manifest: "/manifest.json",
+  applicationName: "Neuroid OS",
+  appleWebApp: { title: "Neuroid OS", capable: true },
 };
 
 export default function RootLayout({

@@ -1,6 +1,5 @@
 // Service Worker for Push Notifications
-// Version 2 — bump on every change to force refresh
-const SW_VERSION = "v3-2026-04-17";
+const SW_VERSION = "v4-2026-04-17";
 
 // Activate this SW immediately, don't wait for tabs to close
 self.addEventListener("install", (event) => {
@@ -16,7 +15,7 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("push", (event) => {
   console.log("[SW] push event received", event);
 
-  let data = { title: "NeuroFlo", body: "You have a new notification", url: "/", tag: "default" };
+  let data = { title: "Notification", body: "You have a new notification", url: "/", tag: "default" };
   if (event.data) {
     try {
       data = { ...data, ...event.data.json() };
@@ -30,20 +29,27 @@ self.addEventListener("push", (event) => {
     }
   }
 
+  // Branded headline: always show "Neuroid OS" as the notification title.
+  // The original event title is folded into the body so context isn't lost.
+  const composedBody = data.title && data.title !== "Neuroid OS"
+    ? `${data.title} — ${data.body}`
+    : data.body;
+
   const options = {
-    body: data.body,
+    body: composedBody,
     icon: "/neuroid-icon-192.png",
     badge: "/neuroid-icon-192.png",
     data: { url: data.url || "/" },
     tag: data.tag || "neuroid-notification",
     renotify: true,
-    requireInteraction: false,
+    requireInteraction: true,
+    silent: false,
     vibrate: [200, 100, 200],
   };
 
   event.waitUntil(
     self.registration
-      .showNotification(data.title || "NeuroFlo", options)
+      .showNotification("Neuroid OS", options)
       .then(() => console.log("[SW] notification shown"))
       .catch((err) => console.error("[SW] showNotification failed", err))
   );
