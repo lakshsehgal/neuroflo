@@ -4,6 +4,9 @@ set -e
 echo "Running Prisma generate..."
 npx prisma generate
 
+echo "Running one-time workflow tables cleanup..."
+npx tsx scripts/cleanup-workflow-tables.ts || echo "Cleanup skipped (non-fatal)"
+
 echo "Syncing database schema..."
 npx prisma db push
 
