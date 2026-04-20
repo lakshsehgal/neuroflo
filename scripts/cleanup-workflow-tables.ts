@@ -4,34 +4,33 @@ const db = new PrismaClient();
 
 async function main() {
   try {
-    // Check if cleanup has already been done (sentinel table)
-    const sentinel = await db.$queryRawUnsafe<{ exists: boolean }[]>(
+    // Drop leftover sentinel table from earlier attempt (harmless if it doesn't exist).
+    await db.$executeRawUnsafe(`DROP TABLE IF EXISTS "_workflow_cleanup_done" CASCADE`);
+
+    // Check if the Workflow table has the correct schema (the `triggerType` column).
+    // If the column doesn't exist, the table is in a partial/broken state from a
+    // failed deploy — drop the 3 workflow tables so db push can recreate them cleanly.
+    // If the column exists, the schema is good — leave everything alone.
+    const result = await db.$queryRawUnsafe<{ has_column: boolean }[]>(
       `SELECT EXISTS (
-        SELECT FROM pg_tables
-        WHERE schemaname = 'public' AND tablename = '_workflow_cleanup_done'
-      ) as exists`
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'Workflow'
+          AND column_name = 'triggerType'
+      ) as has_column`
     );
 
-    if (sentinel[0]?.exists) {
-      console.log("[cleanup] Workflow cleanup already done, skipping.");
+    const hasCorrectSchema = result[0]?.has_column === true;
+
+    if (hasCorrectSchema) {
+      console.log("[cleanup] Workflow schema is valid, skipping.");
       return;
     }
 
-    // Drop partially-created workflow tables from failed deploy.
-    // Safe because these are brand-new tables with no data.
-    console.log("[cleanup] Dropping partial workflow tables…");
+    console.log("[cleanup] Workflow tables are in partial state, dropping…");
     await db.$executeRawUnsafe(`DROP TABLE IF EXISTS "WorkflowLog" CASCADE`);
     await db.$executeRawUnsafe(`DROP TABLE IF EXISTS "Workflow" CASCADE`);
     await db.$executeRawUnsafe(`DROP TABLE IF EXISTS "SlackWebhook" CASCADE`);
-
-    // Create sentinel so this never runs again on future deploys
-    await db.$executeRawUnsafe(
-      `CREATE TABLE "_workflow_cleanup_done" (ran_at TIMESTAMP DEFAULT NOW())`
-    );
-    await db.$executeRawUnsafe(
-      `INSERT INTO "_workflow_cleanup_done" DEFAULT VALUES`
-    );
-
     console.log("[cleanup] Done. db push will recreate tables cleanly.");
   } finally {
     await db.$disconnect();
