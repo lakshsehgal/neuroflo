@@ -25,10 +25,21 @@ import {
   AlertCircle,
 } from "lucide-react";
 import Link from "next/link";
-import { createWorkflow } from "@/actions/workflows";
+import { createWorkflow, updateWorkflow } from "@/actions/workflows";
+
+interface WorkflowData {
+  id: string;
+  name: string;
+  description: string | null;
+  triggerType: string;
+  triggerConfig: Record<string, unknown>;
+  actionType: string;
+  actionConfig: Record<string, unknown>;
+}
 
 interface WorkflowFormProps {
   webhooks: { id: string; name: string }[];
+  workflow?: WorkflowData;
 }
 
 const TRIGGERS = [
@@ -119,17 +130,26 @@ const MESSAGE_VARIABLES = [
   { var: "{{comment}}", desc: "Comment text" },
 ];
 
-export function WorkflowForm({ webhooks }: WorkflowFormProps) {
+export function WorkflowForm({ webhooks, workflow }: WorkflowFormProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const isEditing = !!workflow;
 
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [triggerType, setTriggerType] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [actionType, setActionType] = useState("slack_message");
-  const [webhookId, setWebhookId] = useState(webhooks[0]?.id || "");
+  const existingActionConfig = (workflow?.actionConfig || {}) as Record<string, unknown>;
+  const existingTriggerConfig = (workflow?.triggerConfig || {}) as Record<string, unknown>;
+
+  const [name, setName] = useState(workflow?.name || "");
+  const [description, setDescription] = useState(workflow?.description || "");
+  const [triggerType, setTriggerType] = useState(workflow?.triggerType || "");
+  const [statusFilter, setStatusFilter] = useState(
+    (existingTriggerConfig.status as string) || ""
+  );
+  const [actionType, setActionType] = useState(workflow?.actionType || "slack_message");
+  const [webhookId, setWebhookId] = useState(
+    (existingActionConfig.webhookId as string) || webhooks[0]?.id || ""
+  );
   const [messageTemplate, setMessageTemplate] = useState(
+    (existingActionConfig.messageTemplate as string) ||
     "{{triggerLabel}}: *{{title}}* by {{actor}}"
   );
   const [error, setError] = useState("");
@@ -158,19 +178,23 @@ export function WorkflowForm({ webhooks }: WorkflowFormProps) {
         actionConfig.messageTemplate = messageTemplate;
       }
 
-      const res = await createWorkflow({
+      const payload = {
         name: name.trim(),
         description: description.trim() || undefined,
         triggerType,
         triggerConfig,
         actionType,
         actionConfig,
-      });
+      };
+
+      const res = isEditing
+        ? await updateWorkflow(workflow.id, payload)
+        : await createWorkflow(payload);
 
       if (res.success) {
         router.push("/workflows");
       } else {
-        setError(res.error || "Failed to create workflow");
+        setError(res.error || `Failed to ${isEditing ? "update" : "create"} workflow`);
       }
     });
   }
@@ -186,7 +210,7 @@ export function WorkflowForm({ webhooks }: WorkflowFormProps) {
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Zap className="h-6 w-6" />
-            New Workflow
+            {isEditing ? "Edit Workflow" : "New Workflow"}
           </h1>
           <p className="text-sm text-muted-foreground">
             When something happens → do something automatically
@@ -384,12 +408,12 @@ export function WorkflowForm({ webhooks }: WorkflowFormProps) {
             {pending ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Creating…
+                {isEditing ? "Saving…" : "Creating…"}
               </>
             ) : (
               <>
                 <Check className="mr-2 h-4 w-4" />
-                Create Workflow
+                {isEditing ? "Save Changes" : "Create Workflow"}
               </>
             )}
           </Button>

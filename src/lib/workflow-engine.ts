@@ -80,15 +80,16 @@ async function executeSlackAction(
     ? `/tickets/${payload.entityId}`
     : `/team-tasks`;
 
-  const fields: { label: string; value: string }[] = [];
-  if (payload.status) fields.push({ label: "Status", value: payload.status.replace(/_/g, " ") });
-  if (payload.priority) fields.push({ label: "Priority", value: payload.priority });
-  if (payload.assigneeName) fields.push({ label: "Assignee", value: payload.assigneeName });
-  if (payload.clientName) fields.push({ label: "Client", value: payload.clientName });
+  const context: { label: string; value: string }[] = [];
+  if (payload.status) context.push({ label: "Status", value: payload.status.replace(/_/g, " ") });
+  if (payload.priority) context.push({ label: "Priority", value: payload.priority });
+  if (payload.assigneeName) context.push({ label: "Assignee", value: payload.assigneeName });
+  if (payload.clientName) context.push({ label: "Client", value: payload.clientName });
 
   const blocks = buildSlackBlocks(
     resolveTemplate("{{triggerLabel}}", payload),
-    [{ label: "Title", value: payload.entityTitle }, ...fields],
+    text,
+    context,
     { text: "View in Neuroid OS", url: `${appUrl}${entityPath}` }
   );
 

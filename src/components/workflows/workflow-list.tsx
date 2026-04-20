@@ -12,6 +12,7 @@ import {
   ToggleLeft,
   ToggleRight,
   Trash2,
+  Pencil,
   Activity,
   Slack,
   Bell,
@@ -159,6 +160,15 @@ export function WorkflowList({ workflows }: { workflows: WorkflowItem[] }) {
                   </div>
 
                   <div className="flex items-center gap-1">
+                    <Link href={`/workflows/${w.id}/edit`}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title="Edit workflow"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    </Link>
                     <Button
                       variant="ghost"
                       size="icon"

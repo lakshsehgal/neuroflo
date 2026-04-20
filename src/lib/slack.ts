@@ -28,7 +28,8 @@ export async function sendSlackMessage(
 
 export function buildSlackBlocks(
   title: string,
-  fields: { label: string; value: string }[],
+  body: string,
+  context: { label: string; value: string }[],
   link?: { text: string; url: string }
 ): Record<string, unknown>[] {
   const blocks: Record<string, unknown>[] = [
@@ -38,12 +39,20 @@ export function buildSlackBlocks(
     },
     {
       type: "section",
-      fields: fields.map((f) => ({
-        type: "mrkdwn",
-        text: `*${f.label}:*\n${f.value}`,
-      })),
+      text: { type: "mrkdwn", text: body },
     },
   ];
+
+  const contextParts = context.filter((c) => c.value);
+  if (contextParts.length > 0) {
+    blocks.push({
+      type: "context",
+      elements: contextParts.map((c) => ({
+        type: "mrkdwn",
+        text: `*${c.label}:* ${c.value}`,
+      })),
+    });
+  }
 
   if (link) {
     blocks.push({
