@@ -12,6 +12,8 @@ import {
   User,
   ListTodo,
   ClipboardList,
+  Workflow,
+  Plug,
   type LucideIcon,
 } from "lucide-react";
 import type { UserRole } from "@/lib/roles";
@@ -43,6 +45,7 @@ export const navConfig: NavSection[] = [
       { title: "Team Tasks", href: "/team-tasks", icon: ListTodo },
       { title: "Creative Tickets", href: "/tickets", icon: Ticket },
       { title: "Client Mandates", href: "/client-mandates", icon: ClipboardList },
+      { title: "Workflows", href: "/workflows", icon: Workflow, minRole: "MANAGER" },
     ],
   },
   {
@@ -77,6 +80,7 @@ export const navConfig: NavSection[] = [
           { title: "Departments & Teams", href: "/settings/departments", icon: Building2, minRole: "ADMIN" },
           { title: "Roles & Permissions", href: "/settings/roles", icon: Shield, minRole: "ADMIN" },
           { title: "General", href: "/settings/general", icon: UserCog, minRole: "ADMIN" },
+          { title: "Integrations", href: "/settings/integrations", icon: Plug, minRole: "MANAGER" },
         ],
       },
     ],

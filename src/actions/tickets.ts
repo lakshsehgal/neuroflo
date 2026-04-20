@@ -11,6 +11,7 @@ import {
   notifyTicketComment,
   notifyTicketStatusChanged,
 } from "@/actions/notifications";
+import { fireWorkflowTrigger } from "@/lib/workflow-engine";
 
 /** Require MEMBER+ or CONTRACTOR role (contractors can access tickets) */
 async function requireTicketAccess() {
@@ -67,6 +68,16 @@ export async function createTicket(
     notifyTicketAssigned(ticket.id, ticket.title, parsed.data.assigneeId, user.name).catch(console.error);
   }
 
+  fireWorkflowTrigger({
+    triggerType: "ticket_created",
+    entityId: ticket.id,
+    entityTitle: ticket.title,
+    actorName: user.name,
+    status: ticket.status,
+    priority: ticket.priority,
+    clientName: ticket.clientName || undefined,
+  }).catch(console.error);
+
   revalidatePath("/tickets");
   return { success: true, data: { id: ticket.id } };
 }
@@ -102,6 +113,13 @@ export async function updateTicket(
       data.assigneeId as string,
       user.name
     ).catch(console.error);
+
+    fireWorkflowTrigger({
+      triggerType: "ticket_assigned",
+      entityId: id,
+      entityTitle: oldTicket?.title || "Untitled",
+      actorName: user.name,
+    }).catch(console.error);
   }
 
   revalidatePath(`/tickets/${id}`);
@@ -185,6 +203,14 @@ export async function updateTicketStatus(
     ).catch(console.error);
   }
 
+  fireWorkflowTrigger({
+    triggerType: "ticket_status_changed",
+    entityId: id,
+    entityTitle: ticket?.title || "Untitled",
+    actorName: user.name,
+    status,
+  }).catch(console.error);
+
   revalidatePath(`/tickets/${id}`);
   revalidatePath("/tickets");
   return { success: true };
@@ -246,6 +272,14 @@ export async function addTicketComment(
     }
 
     notifyTicketComment(ticketId, ticket.title, user.name, recipientIds, user.id).catch(console.error);
+
+    fireWorkflowTrigger({
+      triggerType: "ticket_comment",
+      entityId: ticketId,
+      entityTitle: ticket.title,
+      actorName: user.name,
+      comment: content.slice(0, 200),
+    }).catch(console.error);
   }
 
   revalidatePath(`/tickets/${ticketId}`);

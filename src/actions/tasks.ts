@@ -10,6 +10,7 @@ import {
   notifyTaskAssigned,
   notifyTaskComment,
 } from "@/actions/notifications";
+import { fireWorkflowTrigger } from "@/lib/workflow-engine";
 
 const taskSchema = z.object({
   projectId: z.string(),
@@ -66,6 +67,15 @@ export async function createTask(
     notifyTaskAssigned(task.id, task.title, task.projectId, parsed.data.assigneeId, user.name).catch(console.error);
   }
 
+  fireWorkflowTrigger({
+    triggerType: "task_created",
+    entityId: task.id,
+    entityTitle: task.title,
+    actorName: user.name,
+    status: task.status,
+    priority: task.priority,
+  }).catch(console.error);
+
   revalidatePath(`/projects/${parsed.data.projectId}`);
   return { success: true, data: { id: task.id } };
 }
@@ -104,6 +114,13 @@ export async function updateTask(
       input.assigneeId,
       user.name
     ).catch(console.error);
+
+    fireWorkflowTrigger({
+      triggerType: "task_assigned",
+      entityId: id,
+      entityTitle: oldTask?.title || "Untitled",
+      actorName: user.name,
+    }).catch(console.error);
   }
 
   const projectId = input.projectId || oldTask?.projectId;

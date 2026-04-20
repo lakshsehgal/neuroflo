@@ -175,6 +175,10 @@ model User {
   secondaryPerformanceClients Client[] @relation("ClientSecondaryPerformance")
   creativeStrategyClients     Client[] @relation("ClientCreativeStrategy")
 
+  // Workflows
+  createdWorkflows  Workflow[]     @relation("WorkflowCreator")
+  createdWebhooks   SlackWebhook[] @relation("WebhookCreator")
+
   // Google Calendar OAuth
   googleAccessToken  String?
   googleRefreshToken String?
@@ -841,6 +845,49 @@ model PushSubscription {
   createdAt  DateTime @default(now())
 
   @@index([userId])
+}
+
+// ─── Workflows / Automations ──────────────────────────
+
+model Workflow {
+  id            String   @id @default(cuid())
+  name          String
+  description   String?
+  enabled       Boolean  @default(true)
+  triggerType   String   // ticket_created, ticket_status_changed, ticket_assigned, ticket_comment, task_created, task_assigned, task_status_changed
+  triggerConfig Json     @default("{}")
+  actionType    String   // slack_message, in_app_notification
+  actionConfig  Json     @default("{}")
+  createdById   String
+  createdBy     User     @relation("WorkflowCreator", fields: [createdById], references: [id])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  logs WorkflowLog[]
+
+  @@index([triggerType, enabled])
+}
+
+model SlackWebhook {
+  id          String   @id @default(cuid())
+  name        String
+  webhookUrl  String
+  createdById String
+  createdBy   User     @relation("WebhookCreator", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model WorkflowLog {
+  id         String   @id @default(cuid())
+  workflowId String
+  workflow   Workflow  @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  status     String   // success, failed
+  message    String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([workflowId, createdAt])
 }
 
 // ─── Guest Access ─────────────────────────────────────
