@@ -108,7 +108,7 @@ const statusLabels: Record<string, string> = {
   SENT_TO_CLIENT: "Sent to Client",
   NEEDS_EDIT: "Needs Edit",
   APPROVED: "Approved",
-  AWAITING_EDITS: "Awaiting Edits",
+  AWAITING_EDITS: "Awaiting Assets",
   ON_HOLD: "On Hold",
 };
 
@@ -131,7 +131,7 @@ const kanbanColumns = [
   { key: "READY_FOR_APPROVAL", label: "Ready", color: "bg-amber-500" },
   { key: "SENT_TO_CLIENT", label: "Sent to Client", color: "bg-indigo-500" },
   { key: "NEEDS_EDIT", label: "Needs Edit", color: "bg-orange-500" },
-  { key: "AWAITING_EDITS", label: "Awaiting Edits", color: "bg-yellow-500" },
+  { key: "AWAITING_EDITS", label: "Awaiting Assets", color: "bg-yellow-500" },
   { key: "ON_HOLD", label: "On Hold", color: "bg-gray-400" },
   { key: "APPROVED", label: "Approved", color: "bg-emerald-500" },
 ];

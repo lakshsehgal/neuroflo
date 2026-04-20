@@ -64,7 +64,7 @@ const statusOptions = [
   { value: "SENT_TO_CLIENT", label: "Sent to Client", color: "bg-indigo-100 text-indigo-800" },
   { value: "NEEDS_EDIT", label: "Needs Edit", color: "bg-orange-100 text-orange-800" },
   { value: "APPROVED", label: "Approved", color: "bg-green-100 text-green-800" },
-  { value: "AWAITING_EDITS", label: "Awaiting Edits", color: "bg-amber-100 text-amber-800" },
+  { value: "AWAITING_EDITS", label: "Awaiting Assets", color: "bg-amber-100 text-amber-800" },
   { value: "ON_HOLD", label: "On Hold", color: "bg-slate-100 text-slate-800" },
 ];
 

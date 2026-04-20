@@ -90,7 +90,7 @@ const STATUS_LABELS: Record<string, string> = {
   SENT_TO_CLIENT: "Sent to Client",
   NEEDS_EDIT: "Needs Edit",
   APPROVED: "Approved",
-  AWAITING_EDITS: "Awaiting Edits",
+  AWAITING_EDITS: "Awaiting Assets",
   ON_HOLD: "On Hold",
 };
 
