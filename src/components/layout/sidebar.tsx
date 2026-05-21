@@ -5,19 +5,38 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { navConfig, type NavItem } from "@/config/nav";
 import { hasMinRole, type UserRole } from "@/lib/roles";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useEffect, useState } from "react";
 
 interface SidebarProps {
   userRole: UserRole;
 }
 
+const STORAGE_KEY = "neuroid:sidebar-collapsed";
+
 export function Sidebar({ userRole }: SidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved === "1") setCollapsed(true);
+    } catch {}
+    setMounted(true);
+  }, []);
+
+  function toggle() {
+    setCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(STORAGE_KEY, next ? "1" : "0");
+      } catch {}
+      return next;
+    });
+  }
 
   function filterItems(items: NavItem[]): NavItem[] {
     return items.filter((item) => {
@@ -27,67 +46,70 @@ export function Sidebar({ userRole }: SidebarProps) {
   }
 
   return (
-    <motion.aside
-      className="flex h-screen flex-col border-r bg-card"
-      animate={{ width: collapsed ? 64 : 256 }}
-      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+    <aside
+      data-collapsed={collapsed}
+      style={{ width: collapsed ? 72 : 248 }}
+      className={cn(
+        "group/sidebar relative flex h-screen shrink-0 flex-col border-r border-border/70 bg-surface",
+        "transition-[width] duration-300 ease-out will-change-[width]",
+        !mounted && "duration-0"
+      )}
     >
       {/* Logo */}
-      <div className="flex h-14 items-center justify-between border-b px-4">
-        <AnimatePresence>
-          {!collapsed && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
-            >
-              <Link
-                href="/dashboard"
-                className="text-xl font-bold tracking-tight"
-              >
-                Neuroid
-              </Link>
-            </motion.div>
+      <div className="flex h-14 items-center justify-between gap-2 border-b border-border/70 px-3.5">
+        <Link
+          href="/dashboard"
+          className={cn(
+            "flex items-center gap-2.5 overflow-hidden rounded-md px-1 py-1 text-foreground transition-opacity",
+            "hover:opacity-90"
           )}
-        </AnimatePresence>
+          aria-label="Neuroid"
+        >
+          <span className="relative grid h-7 w-7 shrink-0 place-items-center rounded-lg gradient-brand text-brand-foreground shadow-sm">
+            <Sparkles className="h-3.5 w-3.5" />
+          </span>
+          <span
+            className={cn(
+              "text-[15px] font-semibold tracking-tight whitespace-nowrap transition-[opacity,transform] duration-200",
+              collapsed && "pointer-events-none -translate-x-2 opacity-0"
+            )}
+          >
+            Neuroid
+          </span>
+        </Link>
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => setCollapsed(!collapsed)}
-          className="h-8 w-8 shrink-0"
+          onClick={toggle}
+          className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
-          <motion.div
-            animate={{ rotate: collapsed ? 180 : 0 }}
-            transition={{ type: "spring", stiffness: 300, damping: 25 }}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </motion.div>
+          <ChevronLeft
+            className={cn(
+              "h-4 w-4 transition-transform duration-300",
+              collapsed && "rotate-180"
+            )}
+          />
         </Button>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto p-3 space-y-4">
-        {navConfig.map((section) => {
+      <nav className="flex-1 overflow-y-auto overflow-x-hidden p-2.5">
+        {navConfig.map((section, sectionIdx) => {
           const filtered = filterItems(section.items);
           if (filtered.length === 0) return null;
 
           return (
-            <div key={section.label}>
-              <AnimatePresence>
-                {!collapsed && (
-                  <motion.p
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.15 }}
-                    className="mb-2 px-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground"
-                  >
-                    {section.label}
-                  </motion.p>
+            <div key={section.label} className={cn(sectionIdx > 0 && "mt-5")}>
+              <p
+                className={cn(
+                  "mb-1.5 px-2 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80 transition-opacity duration-200",
+                  collapsed && "opacity-0"
                 )}
-              </AnimatePresence>
-              <div className="space-y-1">
+              >
+                {collapsed ? "·" : section.label}
+              </p>
+              <div className="space-y-0.5">
                 {filtered.map((item) => {
                   const isActive =
                     pathname === item.href ||
@@ -97,7 +119,7 @@ export function Sidebar({ userRole }: SidebarProps) {
                   if (item.children) {
                     const filteredChildren = filterItems(item.children);
                     return (
-                      <div key={item.href} className="space-y-1">
+                      <div key={item.href} className="space-y-0.5">
                         {filteredChildren.map((child) => {
                           const childActive = pathname === child.href;
                           const ChildIcon = child.icon;
@@ -128,12 +150,24 @@ export function Sidebar({ userRole }: SidebarProps) {
                   );
                 })}
               </div>
-              <Separator className="mt-3" />
             </div>
           );
         })}
       </nav>
-    </motion.aside>
+
+      {/* Footer accent */}
+      <div className="border-t border-border/70 px-3 py-2.5">
+        <div
+          className={cn(
+            "flex items-center gap-2 text-[11px] text-muted-foreground transition-opacity duration-200",
+            collapsed && "opacity-0"
+          )}
+        >
+          <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_0_3px_color-mix(in_oklch,theme(colors.emerald.500)_18%,transparent)]" />
+          All systems operational
+        </div>
+      </div>
+    </aside>
   );
 }
 
@@ -153,38 +187,33 @@ function NavLink({
   return (
     <Link
       href={href}
+      title={collapsed ? label : undefined}
       className={cn(
-        "group relative flex items-center gap-3 rounded-md px-2 py-2 text-sm font-medium transition-all duration-150",
-        "hover:bg-accent hover:text-accent-foreground",
+        "group/link relative flex h-9 items-center gap-3 rounded-md px-2.5 text-sm font-medium",
+        "transition-colors duration-150",
         active
-          ? "bg-accent text-accent-foreground"
-          : "text-muted-foreground",
+          ? "bg-brand-muted text-brand"
+          : "text-muted-foreground hover:bg-accent hover:text-foreground",
         collapsed && "justify-center px-0"
       )}
-      title={collapsed ? label : undefined}
     >
-      {active && (
-        <motion.div
-          layoutId="sidebar-active"
-          className="absolute inset-0 rounded-md bg-accent"
-          transition={{ type: "spring", stiffness: 350, damping: 30 }}
-          style={{ zIndex: -1 }}
-        />
-      )}
-      <Icon className="h-4 w-4 shrink-0" />
-      <AnimatePresence>
-        {!collapsed && (
-          <motion.span
-            initial={{ opacity: 0, width: 0 }}
-            animate={{ opacity: 1, width: "auto" }}
-            exit={{ opacity: 0, width: 0 }}
-            transition={{ duration: 0.15 }}
-            className="overflow-hidden whitespace-nowrap"
-          >
-            {label}
-          </motion.span>
+      {/* Active indicator bar */}
+      <span
+        aria-hidden
+        className={cn(
+          "absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-brand transition-opacity duration-200",
+          active ? "opacity-100" : "opacity-0"
         )}
-      </AnimatePresence>
+      />
+      <Icon className={cn("h-[18px] w-[18px] shrink-0", active ? "text-brand" : "")} />
+      <span
+        className={cn(
+          "overflow-hidden whitespace-nowrap transition-[opacity,transform] duration-200",
+          collapsed && "pointer-events-none -translate-x-2 opacity-0 w-0"
+        )}
+      >
+        {label}
+      </span>
     </Link>
   );
 }
