@@ -13,6 +13,7 @@ enum Role {
   OPERATOR
   MEMBER
   VIEWER
+  CONTRACTOR
 }
 
 enum TaskStatus {
@@ -149,6 +150,10 @@ model User {
   chatMessages   Message[]
   notifications  Notification[]
   notificationPrefs NotificationPreference?
+
+  // Preserved for legacy data — feature removed from UI
+  createdWorkflows Workflow[]     @relation("WorkflowCreator")
+  createdWebhooks  SlackWebhook[] @relation("WebhookCreator")
 }
 
 model Department {
@@ -615,4 +620,50 @@ model Expense {
   isActive    Boolean          @default(true)
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
+}
+
+// ─── Legacy: Workflow automation ──────────────────────
+// Feature was removed from the UI but production data exists
+// (Workflow rows + WorkflowLog rows). Models are kept so
+// `prisma db push` does not drop the underlying tables.
+
+model Workflow {
+  id            String   @id @default(cuid())
+  name          String
+  description   String?
+  enabled       Boolean  @default(true)
+  triggerType   String
+  triggerConfig Json     @default("{}")
+  actionType    String
+  actionConfig  Json     @default("{}")
+  createdById   String
+  createdBy     User     @relation("WorkflowCreator", fields: [createdById], references: [id])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  logs WorkflowLog[]
+
+  @@index([triggerType, enabled])
+}
+
+model SlackWebhook {
+  id          String   @id @default(cuid())
+  name        String
+  webhookUrl  String
+  createdById String
+  createdBy   User     @relation("WebhookCreator", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model WorkflowLog {
+  id         String   @id @default(cuid())
+  workflowId String
+  workflow   Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  status     String
+  message    String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([workflowId, createdAt])
 }
