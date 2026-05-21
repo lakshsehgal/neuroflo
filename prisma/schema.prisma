@@ -293,9 +293,9 @@ model Revision {
   ticketId     String
   ticket       Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   version      Int
-  s3Key        String
-  s3Url        String
-  fileName     String
+  s3Key        String?
+  s3Url        String?
+  fileName     String?
   note         String?
   uploadedById String
   uploadedBy   User     @relation(fields: [uploadedById], references: [id])

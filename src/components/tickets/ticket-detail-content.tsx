@@ -417,7 +417,9 @@ export function TicketDetailContent({
                       </div>
                       <div className="flex-1 min-w-0 pt-0.5">
                         <div className="flex items-baseline gap-2">
-                          <span className="text-sm font-medium truncate">{rev.fileName}</span>
+                          <span className="text-sm font-medium truncate">
+                            {rev.fileName ?? `Revision v${rev.version}`}
+                          </span>
                           {idx === 0 && (
                             <Badge className="bg-primary/10 text-primary text-[10px] px-1.5 py-0">Latest</Badge>
                           )}
