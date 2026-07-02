@@ -10,6 +10,10 @@ const nextConfig: NextConfig = {
     ],
   },
   serverExternalPackages: ["bcryptjs"],
+  compiler: {
+    // Strip console.* (except error/warn) from the production bundle
+    removeConsole: { exclude: ["error", "warn"] },
+  },
   headers: async () => [
     {
       source: "/sw.js",
@@ -21,6 +25,13 @@ const nextConfig: NextConfig = {
   ],
   experimental: {
     viewTransition: true,
+    // Tree-shake barrel imports from heavy UI libs → smaller client JS,
+    // faster first load / hydration.
+    optimizePackageImports: [
+      "lucide-react",
+      "framer-motion",
+      "recharts",
+    ],
     serverActions: {
       bodySizeLimit: "10mb",
       allowedOrigins: [

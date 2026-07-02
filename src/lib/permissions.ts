@@ -1,10 +1,14 @@
+import { cache } from "react";
 import { getSession } from "@/lib/auth";
 import { hasMinRole, isContractor, type UserRole } from "@/lib/roles";
 
 // Re-export for convenience
 export { hasMinRole, isContractor, type UserRole } from "@/lib/roles";
 
-export async function getCurrentUser() {
+// Wrapped in React cache() so the layout + page (and any nested server
+// components) that all call getCurrentUser() in the same request share a
+// single cookie read + JWT verify instead of repeating it.
+export const getCurrentUser = cache(async () => {
   const session = await getSession();
   if (!session) return null;
   return {
@@ -14,7 +18,7 @@ export async function getCurrentUser() {
     role: session.role as UserRole,
     image: session.image,
   };
-}
+});
 
 export async function requireAuth() {
   const user = await getCurrentUser();
