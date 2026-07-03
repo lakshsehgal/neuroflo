@@ -15,6 +15,8 @@ import {
   TrendingUp,
   BarChart3,
   ArrowLeft,
+  Package,
+  CalendarDays,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import {
@@ -38,6 +40,7 @@ interface TicketAnalytics {
     totalTickets: number;
     openTickets: number;
     approvedTickets: number;
+    deliveredTickets: number;
     overdueTickets: number;
     urgentTickets: number;
     unassignedTickets: number;
@@ -57,7 +60,16 @@ interface TicketAnalytics {
     approved: number;
     overdue: number;
   }[];
+  deliveredByEditor: {
+    id: string;
+    name: string;
+    avatar: string | null;
+    delivered: number;
+    today: number;
+    week: number;
+  }[];
   weeklyData: { week: string; created: number; approved: number }[];
+  dailyData: { date: string; created: number; delivered: number }[];
   clientCounts: { client: string; count: number }[];
 }
 
@@ -127,7 +139,7 @@ export function TicketDashboardContent({ data }: { data: TicketAnalytics }) {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <SummaryCard
           title="Total Tickets"
           value={summary.totalTickets}
@@ -137,13 +149,22 @@ export function TicketDashboardContent({ data }: { data: TicketAnalytics }) {
           delay={0}
         />
         <SummaryCard
+          title="Delivered"
+          value={summary.deliveredTickets}
+          icon={Package}
+          color="text-purple-500"
+          bgColor="bg-purple-500/10"
+          subtitle="Reached ready for approval"
+          delay={0.05}
+        />
+        <SummaryCard
           title="Open / Active"
           value={summary.openTickets}
           icon={Clock}
           color="text-orange-500"
           bgColor="bg-orange-500/10"
           subtitle={`${summary.approvalRate}% approval rate`}
-          delay={0.05}
+          delay={0.1}
         />
         <SummaryCard
           title="Approved"
@@ -152,7 +173,7 @@ export function TicketDashboardContent({ data }: { data: TicketAnalytics }) {
           color="text-green-500"
           bgColor="bg-green-500/10"
           subtitle={`${summary.avgCompletionDays}d avg completion`}
-          delay={0.1}
+          delay={0.15}
         />
         <SummaryCard
           title="Overdue"
@@ -161,7 +182,7 @@ export function TicketDashboardContent({ data }: { data: TicketAnalytics }) {
           color="text-red-500"
           bgColor="bg-red-500/10"
           subtitle={`${summary.urgentTickets} urgent, ${summary.unassignedTickets} unassigned`}
-          delay={0.15}
+          delay={0.2}
         />
       </div>
 
@@ -279,6 +300,118 @@ export function TicketDashboardContent({ data }: { data: TicketAnalytics }) {
           </Card>
         </motion.div>
       </div>
+
+      {/* Creative Tickets by Date */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.28 }}
+      >
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm flex items-center gap-2">
+              <CalendarDays className="h-4 w-4 text-primary" />
+              Creative Tickets by Date (Last 30 Days)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={data.dailyData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.5} />
+                <XAxis dataKey="date" tick={{ fontSize: 10 }} interval={2} />
+                <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                <Tooltip
+                  contentStyle={{
+                    borderRadius: "8px",
+                    border: "1px solid #e5e7eb",
+                    fontSize: "12px",
+                  }}
+                />
+                <Legend iconType="circle" wrapperStyle={{ fontSize: "12px" }} />
+                <Bar dataKey="created" name="Created" fill="#6366f1" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="delivered" name="Delivered" fill="#a855f7" radius={[3, 3, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* Creatives Delivered by Editor */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.32 }}
+      >
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Package className="h-4 w-4 text-purple-500" />
+              Creatives Delivered by Editor
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Credited to the editor assigned when the creative reached ready for approval
+            </p>
+          </CardHeader>
+          <CardContent>
+            {data.deliveredByEditor.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">
+                No creatives delivered yet
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {data.deliveredByEditor.map((person) => {
+                  const initials = person.name
+                    .split(" ")
+                    .map((n) => n[0])
+                    .join("")
+                    .toUpperCase()
+                    .slice(0, 2);
+                  const maxDelivered = Math.max(
+                    ...data.deliveredByEditor.map((p) => p.delivered),
+                    1
+                  );
+                  const barWidth = (person.delivered / maxDelivered) * 100;
+
+                  return (
+                    <div key={person.id} className="flex items-center gap-3">
+                      <Avatar className="h-7 w-7 shrink-0">
+                        {person.avatar && <AvatarImage src={person.avatar} />}
+                        <AvatarFallback className="text-[10px]">
+                          {initials}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between mb-1 gap-2">
+                          <span className="text-sm font-medium truncate">
+                            {person.name}
+                          </span>
+                          <div className="flex items-center gap-2 text-xs shrink-0">
+                            <span className="text-muted-foreground">
+                              {person.today} today
+                            </span>
+                            <span className="text-muted-foreground">
+                              {person.week} this week
+                            </span>
+                            <span className="font-semibold text-purple-500">
+                              {person.delivered} total
+                            </span>
+                          </div>
+                        </div>
+                        <div className="h-2 rounded-full bg-muted overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-purple-500 transition-all"
+                            style={{ width: `${barWidth}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </motion.div>
 
       {/* Charts Row 2 */}
       <div className="grid gap-6 lg:grid-cols-2">

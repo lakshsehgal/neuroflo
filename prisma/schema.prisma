@@ -152,6 +152,7 @@ model User {
   createdTickets Ticket[]        @relation("TicketCreator")
   assignedTickets Ticket[]       @relation("TicketAssignee")
   assignedByTickets Ticket[]     @relation("TicketAssigner")
+  deliveredTickets Ticket[]      @relation("TicketDeliverer")
   approvals      Approval[]
   comments       Comment[]
   uploadedAssets Asset[]
@@ -424,6 +425,9 @@ model Ticket {
   assignedById    String?
   assignedBy      User?         @relation("TicketAssigner", fields: [assignedById], references: [id])
   dueDate         DateTime?
+  deliveredAt     DateTime?
+  deliveredById   String?
+  deliveredBy     User?         @relation("TicketDeliverer", fields: [deliveredById], references: [id])
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
@@ -436,6 +440,7 @@ model Ticket {
   @@index([creatorId])
   @@index([projectId])
   @@index([createdAt])
+  @@index([deliveredById])
 }
 
 model Revision {

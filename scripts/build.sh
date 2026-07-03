@@ -13,5 +13,8 @@ npx prisma db push
 echo "Running safe password rehash migration..."
 npx tsx scripts/rehash-passwords.ts || echo "Rehash migration skipped (non-fatal)"
 
+echo "Backfilling ticket delivery fields..."
+npx tsx scripts/backfill-delivered.ts || echo "Delivery backfill skipped (non-fatal)"
+
 echo "Running Next.js build..."
 npx next build

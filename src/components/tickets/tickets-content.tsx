@@ -187,11 +187,17 @@ const TICKET_COLUMNS = [
   { key: "status", label: "Status", required: false },
   { key: "priority", label: "Priority", required: false },
   { key: "assignee", label: "Assignee", required: false },
+  { key: "created", label: "Created", required: false },
   { key: "due", label: "Due", required: false },
+  { key: "delivery", label: "Delivery", required: false },
   { key: "info", label: "Info", required: false },
 ];
 
-const DEFAULT_TICKET_COLUMNS = ["title", "client", "status", "priority", "assignee", "due", "info"];
+const DEFAULT_TICKET_COLUMNS = ["title", "client", "status", "priority", "assignee", "created", "due", "delivery", "info"];
+
+// Bumped when the default column set changes so existing users pick up newly
+// added columns (e.g. Created / Delivery) instead of a stale saved preference.
+const TICKET_COLUMNS_STORAGE_KEY = "neuroflo-ticket-columns-v2";
 
 interface Props {
   tickets: TicketData[];
@@ -236,14 +242,14 @@ export function TicketsContent({ tickets: initialTickets, users, clients, assign
   // Column visibility
   const [visibleColumns, setVisibleColumns] = useState<string[]>(() => {
     if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("neuroflo-ticket-columns");
+      const saved = localStorage.getItem(TICKET_COLUMNS_STORAGE_KEY);
       if (saved) return JSON.parse(saved);
     }
     return DEFAULT_TICKET_COLUMNS;
   });
 
   useEffect(() => {
-    localStorage.setItem("neuroflo-ticket-columns", JSON.stringify(visibleColumns));
+    localStorage.setItem(TICKET_COLUMNS_STORAGE_KEY, JSON.stringify(visibleColumns));
   }, [visibleColumns]);
 
   const toggleColumn = (key: string) => {
@@ -804,7 +810,9 @@ function TableView({
             {isCol("status") && <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/80">Status</th>}
             {isCol("priority") && <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/80">Priority</th>}
             {isCol("assignee") && <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/80">Assignee</th>}
+            {isCol("created") && <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/80"><SortHeader field="createdAt" label="Created" /></th>}
             {isCol("due") && <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/80"><SortHeader field="dueDate" label="Due" /></th>}
+            {isCol("delivery") && <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/80">Delivery</th>}
             {isCol("info") && <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/80 w-20">Info</th>}
           </tr>
         </thead>
@@ -963,6 +971,13 @@ function TableView({
                     </Select>
                   </td>
                 )}
+                {isCol("created") && (
+                  <td className="px-3 py-3 whitespace-nowrap">
+                    <span className="text-xs text-muted-foreground" title={new Date(ticket.createdAt).toLocaleString()}>
+                      {formatDate(new Date(ticket.createdAt))}
+                    </span>
+                  </td>
+                )}
                 {isCol("due") && (
                   <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
                     <input
@@ -973,6 +988,24 @@ function TableView({
                         isTicketOverdue ? "font-bold text-red-600" : ticket.dueDate ? "text-foreground" : "text-muted-foreground"
                       }`}
                     />
+                  </td>
+                )}
+                {isCol("delivery") && (
+                  <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
+                    {ticket.deliveryLink ? (
+                      <a
+                        href={ticket.deliveryLink.startsWith("http") ? ticket.deliveryLink : `https://${ticket.deliveryLink}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80"
+                        title="View delivery"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                        View
+                      </a>
+                    ) : (
+                      <span className="text-xs text-muted-foreground/50">&mdash;</span>
+                    )}
                   </td>
                 )}
                 {isCol("info") && (

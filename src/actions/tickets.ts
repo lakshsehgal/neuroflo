@@ -23,6 +23,18 @@ async function requireTicketAccess() {
   return user;
 }
 
+// A creative is considered "delivered" once its status reaches Ready for
+// Approval (or any later stage in the workflow). deliveredAt/deliveredById are
+// stamped the first time a ticket enters one of these statuses, and the
+// delivering editor is frozen so accountability survives later reassignment.
+const DELIVERED_STATUSES: TicketStatus[] = [
+  "READY_FOR_APPROVAL",
+  "SENT_TO_CLIENT",
+  "NEEDS_EDIT",
+  "APPROVED",
+  "AWAITING_EDITS",
+];
+
 const ticketSchema = z.object({
   title: z.string().min(1),
   description: z.string().optional(),
@@ -175,10 +187,22 @@ export async function updateTicketStatus(
 
   const ticket = await db.ticket.findUnique({
     where: { id },
-    select: { title: true, creatorId: true, assigneeId: true },
+    select: { title: true, creatorId: true, assigneeId: true, deliveredAt: true },
   });
 
-  await db.ticket.update({ where: { id }, data: { status } });
+  // Stamp the delivery time + delivering editor the first time the creative
+  // reaches a delivered status (Ready for Approval or later). Never overwrite.
+  const markDelivered = DELIVERED_STATUSES.includes(status) && !ticket?.deliveredAt;
+
+  await db.ticket.update({
+    where: { id },
+    data: {
+      status,
+      ...(markDelivered
+        ? { deliveredAt: new Date(), deliveredById: ticket?.assigneeId ?? null }
+        : {}),
+    },
+  });
 
   await db.activityLog.create({
     data: {
@@ -331,7 +355,7 @@ export async function approveTicket(
 
   const ticket = await db.ticket.findUnique({
     where: { id: ticketId },
-    select: { title: true, creatorId: true, assigneeId: true },
+    select: { title: true, creatorId: true, assigneeId: true, deliveredAt: true },
   });
   if (!ticket) return { success: false, error: "Ticket not found" };
 
@@ -344,9 +368,18 @@ export async function approveTicket(
     },
   });
 
-  // If approved, update ticket status
+  // If approved, update ticket status (and stamp delivery if not already set,
+  // crediting the current assignee as the delivering editor).
   if (status === "APPROVED") {
-    await db.ticket.update({ where: { id: ticketId }, data: { status: "APPROVED" } });
+    await db.ticket.update({
+      where: { id: ticketId },
+      data: {
+        status: "APPROVED",
+        ...(ticket.deliveredAt
+          ? {}
+          : { deliveredAt: new Date(), deliveredById: ticket.assigneeId ?? null }),
+      },
+    });
   }
 
   await db.activityLog.create({
